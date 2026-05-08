@@ -1,0 +1,13 @@
+### 1. LOGIN
+POST http://localhost:5188/api/pbl3/auth/customer_login
+Content-Type: application/json
+
+{
+  "userName": "i88",
+  "hashPassword": "19082173"
+}
+
+### 2. CHAT MESSAGE 
+POST http://localhost:5188/api/pbl3/auth/logout
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwOGRlYWJlMi03MDllLTQ1MDktODQxNy01Nzc0MDYzN2Y5N2QiLCJqdGkiOiJlNGVmOTRmNy1lYjczLTRkNWEtOGNhMi0yMDUwYzgzNzZiMzMiLCJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3JvbGUiOiJDdXN0b21lciIsImV4cCI6MTc3ODIzOTQxNiwiaXNzIjoiUEJMM0FQSSIsImF1ZCI6IlBCTDNDbGllbnQifQ.cE524VHBMidx7rCWBMuZMw7FO9AT4vOkZ47eUtsGyZQ

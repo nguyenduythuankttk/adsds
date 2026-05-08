@@ -1,0 +1,22 @@
+# Environment variables — KHÔNG commit file này
+.env
+**/.env
+.env.*
+**/.env.*
+!**/.env.example
+
+# .NET build output
+BackEnd/bin/
+BackEnd/obj/
+
+# User secrets
+BackEnd/*.user
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.suo
+*.user
+
+# macOS
+.DS_Store
