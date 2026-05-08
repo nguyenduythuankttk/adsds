@@ -1,0 +1,7 @@
+{
+  // Live Server: serve từ thư mục FrontEnd thay vì root workspace
+  // Kết quả: 127.0.0.1:5500/ → /PBL3/FrontEnd/
+  "liveServer.settings.root": "/FrontEnd",
+  "liveServer.settings.port": 5500,
+  "liveServer.settings.donotShowInfoMsg": true
+}

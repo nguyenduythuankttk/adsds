@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jolibi — Đăng nhập</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #fef2f2 0%, #fff5f5 50%, #fef9f0 100%);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #111827;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 8px 48px rgba(0,0,0,.12);
+      width: 420px;
+      max-width: calc(100vw - 32px);
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    .card-header {
+      background: linear-gradient(135deg, #c0392b, #e74c3c);
+      padding: 32px 32px 24px;
+      text-align: center;
+      color: #fff;
+    }
+    .logo { font-size: 2.6rem; margin-bottom: 6px; }
+    .card-header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: .3px; }
+    .card-header p  { font-size: .88rem; opacity: .85; margin-top: 4px; }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .tab {
+      flex: 1;
+      padding: 14px 10px;
+      text-align: center;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: #6b7280;
+      border-bottom: 3px solid transparent;
+      transition: color .2s, border-color .2s, background .2s;
+      user-select: none;
+    }
+    .tab:hover  { color: #c0392b; background: #fff5f5; }
+    .tab.active { color: #c0392b; border-bottom-color: #c0392b; background: #fff; }
+
+    /* ── Form body ── */
+    .card-body { padding: 28px 32px 32px; }
+
+    .form-panel { display: none; }
+    .form-panel.active { display: block; }
+
+    /* ── Alert ── */
+    .alert {
+      display: none;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 11px 14px;
+      border-radius: 9px;
+      font-size: .875rem;
+      line-height: 1.45;
+      margin-bottom: 18px;
+    }
+    .alert.show    { display: flex; }
+    .alert.error   { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .alert.success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+    .alert-icon    { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Inputs ── */
+    .field { margin-bottom: 18px; }
+    .field label {
+      display: block;
+      font-size: .78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: #6b7280;
+      margin-bottom: 6px;
+    }
+    .input-wrap { position: relative; }
+    .input-wrap input {
+      width: 100%;
+      padding: 11px 40px 11px 14px;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 9px;
+      font-size: .95rem;
+      background: #f9fafb;
+      transition: border-color .18s, background .18s, box-shadow .18s;
+      outline: none;
+    }
+    .input-wrap input:focus {
+      border-color: #c0392b;
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(192,57,43,.12);
+    }
+    .input-wrap input.invalid { border-color: #ef4444; }
+    .toggle-pw {
+      position: absolute; right: 11px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer;
+      font-size: 1rem; color: #9ca3af; padding: 2px; line-height: 1;
+    }
+    .toggle-pw:hover { color: #6b7280; }
+
+    /* ── Button ── */
+    .btn-primary {
+      width: 100%;
+      padding: 13px;
+      background: linear-gradient(135deg, #c0392b, #e74c3c);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: .3px;
+      transition: opacity .2s, transform .1s;
+      margin-top: 6px;
+    }
+    .btn-primary:hover:not(:disabled) { opacity: .88; }
+    .btn-primary:active:not(:disabled) { transform: scale(.98); }
+    .btn-primary:disabled { opacity: .55; cursor: not-allowed; }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2.5px solid rgba(255,255,255,.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      vertical-align: middle;
+      margin-right: 7px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Footer ── */
+    .card-footer {
+      padding: 14px 32px 22px;
+      text-align: center;
+      font-size: .82rem;
+      color: #9ca3af;
+      border-top: 1px solid #f3f4f6;
+    }
+    .card-footer a { color: #c0392b; text-decoration: none; font-weight: 600; }
+    .card-footer a:hover { text-decoration: underline; }
+
+    /* ── Session info badge (localStorage debug) ── */
+    #session-debug {
+      display: none;
+      position: fixed; bottom: 16px; left: 16px;
+      background: #1f2937; color: #d1fae5;
+      font-size: .75rem; font-family: monospace;
+      padding: 10px 14px; border-radius: 8px;
+      max-width: 320px; line-height: 1.6;
+      box-shadow: 0 4px 16px rgba(0,0,0,.3);
+      z-index: 9999;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <!-- Header -->
+  <div class="card-header">
+    <div class="logo">☕</div>
+    <h1>Jolibi</h1>
+    <p>Vui lòng đăng nhập để tiếp tục</p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" id="tab-customer" onclick="switchTab('customer')">
+      👤 Khách hàng
+    </div>
+    <div class="tab" id="tab-employee" onclick="switchTab('employee')">
+      🏢 Nhân viên
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="card-body">
+
+    <!-- ── CUSTOMER LOGIN ── -->
+    <div class="form-panel active" id="panel-customer">
+      <div class="alert" id="alert-customer">
+        <span class="alert-icon">⚠️</span>
+        <span id="alert-customer-msg"></span>
+      </div>
+
+      <div class="field">
+        <label>Tên đăng nhập</label>
+        <div class="input-wrap">
+          <input type="text" id="c-username" placeholder="Nhập tên đăng nhập"
+            autocomplete="username" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Mật khẩu</label>
+        <div class="input-wrap">
+          <input type="password" id="c-password" placeholder="Nhập mật khẩu"
+            autocomplete="current-password"
+            onkeydown="if(event.key==='Enter') submitLogin('customer')" />
+          <button type="button" class="toggle-pw"
+            onclick="togglePw('c-password', this)" tabindex="-1">👁</button>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="btn-customer"
+        onclick="submitLogin('customer')">
+        Đăng nhập
+      </button>
+    </div>
+
+    <!-- ── EMPLOYEE LOGIN ── -->
+    <div class="form-panel" id="panel-employee">
+      <div class="alert" id="alert-employee">
+        <span class="alert-icon">⚠️</span>
+        <span id="alert-employee-msg"></span>
+      </div>
+
+      <div class="field">
+        <label>Tên đăng nhập</label>
+        <div class="input-wrap">
+          <input type="text" id="e-username" placeholder="Nhập tên đăng nhập"
+            autocomplete="username" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Mật khẩu</label>
+        <div class="input-wrap">
+          <input type="password" id="e-password" placeholder="Nhập mật khẩu"
+            autocomplete="current-password"
+            onkeydown="if(event.key==='Enter') submitLogin('employee')" />
+          <button type="button" class="toggle-pw"
+            onclick="togglePw('e-password', this)" tabindex="-1">👁</button>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="btn-employee"
+        onclick="submitLogin('employee')">
+        Đăng nhập
+      </button>
+    </div>
+
+  </div><!-- /card-body -->
+
+  <div class="card-footer">
+    Quên mật khẩu? <a href="#">Khôi phục tại đây</a>
+  </div>
+</div>
+
+<!-- Debug badge (hiện khi login thành công) -->
+<div id="session-debug"></div>
+
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  /* Nếu đã đăng nhập → redirect thẳng */
+  if (authModule.isLoggedIn() && !authModule.isTokenExpired()) {
+    authModule.redirectAfterLogin(localStorage.getItem('role'));
+  }
+
+  /* ── Tab switching ── */
+  function switchTab(type) {
+    ['customer', 'employee'].forEach(t => {
+      document.getElementById(`tab-${t}`).classList.toggle('active', t === type);
+      document.getElementById(`panel-${t}`).classList.toggle('active', t === type);
+    });
+    hideAlert(type === 'customer' ? 'customer' : 'employee');
+  }
+
+  /* ── Show / hide alert ── */
+  function showAlert(panel, msg, type = 'error') {
+    const el  = document.getElementById(`alert-${panel}`);
+    const msg_el = document.getElementById(`alert-${panel}-msg`);
+    const icon   = el.querySelector('.alert-icon');
+    el.className = `alert show ${type}`;
+    icon.textContent = type === 'success' ? '✅' : '⚠️';
+    msg_el.textContent = msg;
+  }
+  function hideAlert(panel) {
+    document.getElementById(`alert-${panel}`).className = 'alert';
+  }
+
+  /* ── Toggle password visibility ── */
+  function togglePw(fieldId, btn) {
+    const input = document.getElementById(fieldId);
+    input.type  = input.type === 'password' ? 'text' : 'password';
+    btn.textContent = input.type === 'text' ? '🙈' : '👁';
+  }
+
+  /* ── Main login handler ── */
+  async function submitLogin(type) {
+    const isCustomer = type === 'customer';
+    const username = document.getElementById(isCustomer ? 'c-username' : 'e-username').value.trim();
+    const password = document.getElementById(isCustomer ? 'c-password' : 'e-password').value;
+    const btn      = document.getElementById(`btn-${type}`);
+
+    hideAlert(type);
+
+    /* Validate client-side */
+    if (!username) { showAlert(type, 'Vui lòng nhập tên đăng nhập.'); return; }
+    if (!password) { showAlert(type, 'Vui lòng nhập mật khẩu.'); return; }
+
+    /* Loading state */
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Đang xử lý…';
+
+    try {
+      const endpoint = isCustomer ? 'auth/customer_login' : 'auth/employee_login';
+      const res      = await api.post(endpoint, {
+        userName:     username,
+        hashPassword: password,
+      });
+
+      const data = res?.data;
+      if (!data?.acessToken) throw new Error('Phản hồi từ server không hợp lệ.');
+
+      /* ── Lưu session vào localStorage ── */
+      const role    = isCustomer ? 'Customer' : (data.role ?? 'Employee');
+      const userId  = isCustomer ? data.userID  : data.employeeID;
+      const storeId = data.storeID ?? null;
+
+      authModule.login(data.acessToken, role, userId, storeId, data);
+
+      /* Debug badge */
+      _showDebugBadge(data.acessToken, role, userId);
+
+      showAlert(type, `Đăng nhập thành công! Đang chuyển hướng…`, 'success');
+
+      setTimeout(() => authModule.redirectAfterLogin(role), 800);
+
+    } catch (err) {
+      showAlert(type, err.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
+      btn.disabled = false;
+      btn.innerHTML = 'Đăng nhập';
+    }
+  }
+
+  /* ── Debug: hiển thị thông tin session đã lưu ── */
+  function _showDebugBadge(token, role, userId) {
+    const box = document.getElementById('session-debug');
+    const preview = token.substring(0, 32) + '…';
+    box.style.display = 'block';
+    box.innerHTML = `
+      <strong style="color:#fbbf24">📦 localStorage session</strong><br>
+      token: <span style="color:#6ee7b7">${preview}</span><br>
+      role:  <span style="color:#93c5fd">${role}</span><br>
+      userId: ${userId?.substring(0, 8)}…<br>
+      <span style="color:#9ca3af;font-size:.7rem">Sẽ tự đóng khi redirect</span>
+    `;
+  }
+</script>
+</body>
+</html>
