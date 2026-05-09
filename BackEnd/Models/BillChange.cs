@@ -14,10 +14,10 @@ namespace Backend.Models{
         public Guid BillChangeID { get; set;}
         public Guid BillID{ get; set;}
         [ForeignKey("BillID")]
-        public Guid EmployeeID {get; set;}
-        [ForeignKey("EmployeeID")]
-        public virtual Employee Employee {get; set;} = null!;
         public virtual Bill Bill {get; set;} = null!;
+        public Guid? EmployeeID {get; set;}
+        [ForeignKey("EmployeeID")]
+        public virtual Employee? Employee {get; set;} = null!;
         [Required]
         public DateTime ChangeAt {get; set;}
         [Required]

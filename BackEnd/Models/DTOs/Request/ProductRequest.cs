@@ -2,7 +2,6 @@ using Backend.Models;
 using System.ComponentModel.DataAnnotations.Schema;
 namespace Backend.Models.DTOs.Request{
     public class ProductCreateRequest {
-        public int CategoryID { get; set; }
         public string ProductName { get; set; } = null!;
         public ProductType ProductType { get; set; }
         public string? Image { get; set; }

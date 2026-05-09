@@ -33,7 +33,7 @@ namespace Backend.Models{
         [JsonIgnore]
         public int? SupplierID{get; set; }
         [ForeignKey("SupplierID")]
-        
+        [JsonIgnore]
         public virtual Supplier? Supplier { get; set; }
 
         [JsonIgnore]

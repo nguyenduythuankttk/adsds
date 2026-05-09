@@ -12,18 +12,15 @@ namespace Backend.Controller
         private readonly IAuthService _AuthService;
         private readonly IUserService _UserService;
         private readonly IEmployeeService _EmployeeSevice;
-        private readonly ILogger<authController> _logger;
 
         public authController (
             IAuthService authService,
             IUserService userService,
-            IEmployeeService employeeService,
-            ILogger<authController> logger
+            IEmployeeService employeeService
         ){
             _AuthService = authService;
             _EmployeeSevice = employeeService;
             _UserService = userService;
-            _logger = logger;
         }
 
         [HttpPost("customer_login")]
@@ -69,21 +66,11 @@ namespace Backend.Controller
         [HttpGet("me")]
         public async Task<IActionResult> GetCurrentUser(){
             try{
-                var authHeader = Request.Headers["Authorization"].ToString();
-                _logger.LogInformation("[auth/me] Authorization header: '{Header}'",
-                    string.IsNullOrEmpty(authHeader) ? "(missing)" : authHeader[..Math.Min(authHeader.Length, 40)] + "...");
-                _logger.LogInformation("[auth/me] IsAuthenticated={IsAuth} Claims={Claims}",
-                    User.Identity?.IsAuthenticated,
-                    string.Join(", ", User.Claims.Select(c => $"{c.Type}={c.Value}")));
-
                 var userID = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                _logger.LogInformation("[auth/me] NameIdentifier claim = '{UserID}'", userID);
-
                 if (string.IsNullOrWhiteSpace(userID)) return Unauthorized(new {Message = "Invalid token claims"});
                 var user = await _UserService.GetUserByID(Guid.Parse(userID));
                 return Ok(user);
-            }catch(Exception e){
-                _logger.LogError(e, "[auth/me] Exception");
+            }catch(Exception){
                 return StatusCode(500, "Error in authController.getcurrentuser");
             }
         }

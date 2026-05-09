@@ -4,6 +4,7 @@ using Backend.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BackEnd.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260509164235_RemoveCategory")]
+    partial class RemoveCategory
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -904,18 +907,10 @@ namespace BackEnd.Migrations
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<DateTime?>("UsedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("UsedBy")
-                        .HasColumnType("char(36)");
-
                     b.Property<Guid?>("UserID")
                         .HasColumnType("char(36)");
 
                     b.HasKey("TicketID");
-
-                    b.HasIndex("UsedBy");
 
                     b.HasIndex("UserID");
 
@@ -1470,15 +1465,9 @@ namespace BackEnd.Migrations
 
             modelBuilder.Entity("Backend.Models.Ticket", b =>
                 {
-                    b.HasOne("Backend.Models.User", "UsedByUser")
-                        .WithMany()
-                        .HasForeignKey("UsedBy");
-
                     b.HasOne("Backend.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserID");
-
-                    b.Navigation("UsedByUser");
 
                     b.Navigation("User");
                 });

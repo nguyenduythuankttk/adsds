@@ -7,8 +7,17 @@ using Microsoft.EntityFrameworkCore;
 namespace Backend.Services.Implementations{
     public class BillService : IBillService{
         private readonly AppDbContext _dbcontext;
-        public BillService (AppDbContext dbcontext){
+        private readonly IAddressService _addressService;
+        private readonly IUserService _userService;
+        private readonly IProductService _productService;
+        public BillService (AppDbContext dbcontext,
+                            IAddressService addressService,
+                            IUserService userService,
+                            IProductService productService){
             _dbcontext = dbcontext;
+            _addressService = addressService;
+            _userService = userService;
+            _productService = productService;
         }
 
         public async Task<List<Bill>?> GetAllBillIn(DateOnly start, DateOnly end){
@@ -16,12 +25,14 @@ namespace Backend.Services.Implementations{
                 return await _dbcontext.Bill
                     .AsNoTracking()
                     .Include(b => b.BillChange
+                        .Where(bc => bc.Status == BillStatus.Create)
                         .OrderBy(bc => bc.ChangeAt)
                         .Take(1))
                         .ThenInclude(bc => bc.Employee)
-                    .Where(b => b.BillChange.Any() &&
-                            b.BillChange.Max(b => b.ChangeAt) >= start.ToDateTime(TimeOnly.MinValue) &&
-                            b.BillChange.Max(b => b.ChangeAt) <= end.ToDateTime(TimeOnly.MaxValue))
+                    .Where(b => b.BillChange.Any(bc =>
+                            bc.Status == BillStatus.Create &&
+                            bc.ChangeAt >= start.ToDateTime(TimeOnly.MinValue) &&
+                            bc.ChangeAt <= end.ToDateTime(TimeOnly.MaxValue)))
                     .Include(b => b.BillDetail)
                         .ThenInclude(bd => bd.ProductVarient)
                             .ThenInclude(pr => pr.Product)
@@ -64,31 +75,56 @@ namespace Backend.Services.Implementations{
                 throw new Exception("Lỗi khi lấy hóa đơn: " + e.Message);
             }
         }
-
-        public async Task AddBill(BillCreateRequest request){
-            try {
-                var newBill = new Bill{
-                    UserID = request.UserID,
-                    StoreID = request.StoreID,
-                    VAT = request.VAT,
-                    PaymentMethods = request.PaymentMethods,
-                    Total = request.Total,
-                    Paid = request.Paid,
-                    Note = request.Note,
-                    MoneyGiveBack = request.MoneyGiveBack,
-                    MoneyReceived = request.MoneyReceived
-                };
-                var newChange = new BillChange{
-                    BillID = newBill.BillID,
+        public async Task CreateDineInBill(DineInBillCreateRequest request){
+            try{
+                Guid userID;
+                if ( string.IsNullOrEmpty(request.contact))
+                    userID = new Guid();
+                else{ 
+                    var user = await _userService.GetUserByContact(request.contact ?? "default");
+                    if (user == null) throw new Exception("user not found");
+                    else userID = user.UserID;
+                }
+                var bill = new Bill{
+                        BillID = new Guid(),
+                        UserID = userID,
+                        StoreID = request.StoreID,
+                        TableID = request.TableID,
+                        PaymentMethods = request.PaymentMethods,
+                        Note = request.Note,
+                        MoneyReceived = request.MoneyReceived,
+                        };
+                decimal total = 0.0m;
+                foreach (var i in request.products)
+                {
+                    var price =await _productService.GetPriceByID(i.ProductVarientID);
+                    bill.BillDetail.Add(new BillDetail
+                    {
+                        BillID = bill.BillID,
+                        ProductVarientID = i.ProductVarientID,
+                        Quantity = i.qty,
+                        Price = price,
+                        InlineTotal = price * i.qty
+                    });
+                    total+= price * i.qty; 
+                }
+                bill.Total = total;
+                bill.MoneyGiveBack = bill.MoneyReceived - bill.Total;
+                var billChange = new BillChange
+                {
+                    BillID = bill.BillID,
+                    Status = BillStatus.Create,
                     EmployeeID = request.EmployeID,
-                    ChangeAt = DateTime.UtcNow,
-                    Status = BillStatus.Create
+                    ChangeAt = DateTime.UtcNow
                 };
-                _dbcontext.Bill.Add(newBill);
-                _dbcontext.BillChange.Add(newChange);
+                bill.BillChange.Add(billChange);
+                _dbcontext.BillChange.Add(billChange);
+                _dbcontext.Bill.Add(bill);
                 await _dbcontext.SaveChangesAsync();
-            } catch (Exception e) {
-                throw new Exception("Lỗi khi tạo hóa đơn: " + e.Message);
+            } catch (Exception e)
+            {
+                Console.WriteLine("Error in BillService.CreateDineinBill" + e.Message);
+                throw new Exception("Error in BillService.CreateDineinBill");
             }
         }
 

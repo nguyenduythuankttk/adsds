@@ -12,5 +12,6 @@ namespace Backend.Services.Interface{
         Task HardDeleteProduct (int ProductID);
         Task SoftDeleteProduct(int productID);
         Task HardDeleteProductVarient (int productID, ProductSize size);
+        Task <decimal> GetPriceByID (int productVarientID);
     }
 }

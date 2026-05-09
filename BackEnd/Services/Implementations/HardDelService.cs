@@ -24,8 +24,11 @@ public class HardDeleteService : BackgroundService {
                     // Tính cutoff trước — EF Core/Pomelo không thể translate TimeSpan arithmetic sang SQL
                     var cutoff = DateTime.UtcNow.AddDays(-30);
                     var del = 0;
-                    del += await db.Ticket.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
-                    del += await db.Booking.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
+                    del += await db.Ticket.Where(x =>
+                        (x.DeletedAt != null && x.DeletedAt < cutoff) ||
+                        (x.EndDate < cutoff) ||
+                        (x.UsedAt != null && x.UsedAt < cutoff)
+                    ).ExecuteDeleteAsync(token);
                     del += await db.Bill.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
                     del += await db.ProductVarient.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
                     del += await db.Receipt.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
@@ -40,7 +43,6 @@ public class HardDeleteService : BackgroundService {
                     del += await db.User.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
                     del += await db.Store.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
                     del += await db.Supplier.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
-                    del += await db.Category.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
                     _Logger.LogInformation("HardDeleteService: xoá {Count} bản ghi", del);
                 } catch (Exception e){
                     _Logger.LogError(e, "Error in HardDeleteService");

@@ -67,6 +67,8 @@ namespace Backend.Services.Implementations
                 Console.WriteLine(e.Message);
             }
         }
+        public async Task<User?> GetUserByContact (string contact) =>
+            await _dbContext.User.FirstOrDefaultAsync(u => u.Phone == contact || u.Email == contact);
 
         public async Task UpdateUser(Guid userID, UserUpdateRequest request)
         {

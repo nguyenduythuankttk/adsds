@@ -19,6 +19,7 @@ namespace Backend.Models{
         [Required]
         public decimal Total {get; set;}
         public DateTime? DeletedAt { get; set; }
+        [JsonIgnore]
         public virtual Receipt? Receipt{get; set;}
         [JsonIgnore]
         public virtual ICollection<PODetail> PODetail { get; set; } = new List<PODetail>();

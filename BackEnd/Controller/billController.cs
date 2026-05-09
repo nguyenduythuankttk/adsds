@@ -50,9 +50,9 @@ namespace Backend.Controller {
         }
 
         [HttpPost("create")]
-        public async Task<IActionResult> AddBill([FromBody] BillCreateRequest request) {
+        public async Task<IActionResult> AddBill([FromBody] DineInBillCreateRequest request) {
             try {
-                await _billService.AddBill(request);
+                await _billService.CreateDineInBill(request);
                 return Ok("Tạo hóa đơn thành công");
             } catch (Exception e) {
                 return StatusCode(500, $"Error in billController.AddBill: {e.Message}");

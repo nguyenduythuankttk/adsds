@@ -7,16 +7,14 @@ namespace Backend.Models{
     {
         Food,
         Drink,
-        Addon
+        Addon,
+        Combo
     }
 
     public class Product
     {
         [Key]
         public int ProductID { get; set; }
-        public int CategoryID { get; set; }
-        [ForeignKey("CategoryID")]
-        public virtual Category Category { get; set; } = null!;
         [Required]
         public string ProductName { get; set; } = null!;
         [Required]
