@@ -13,7 +13,6 @@ namespace Backend.Data {
         public DbSet<UserAddress> UserAddress { get; set; }
         public DbSet<Store> Store { get; set; }
         public DbSet<Shift> Shift { get; set; }
-        public DbSet<Category> Category { get; set; }
         public DbSet<Product> Product { get; set; }
         public DbSet<ProductVarient> ProductVarient { get; set; }
         public DbSet<Combo> Combo { get; set; }
@@ -24,8 +23,6 @@ namespace Backend.Data {
         public DbSet<BillChange> BillChange { get; set; }
         public DbSet<Ticket> Ticket { get; set; }
         public DbSet<DiningTable> DiningTable { get; set; }
-        public DbSet<Booking> Booking { get; set; }
-        public DbSet<BookingChange> BookingChange {get; set; }
         public DbSet<DeliveryInfo> DeliveryInfo { get; set; }
         public DbSet<DeliveryLog> DeliveryLog { get; set; }
         public DbSet<Supplier> Supplier { get; set; }
@@ -161,12 +158,6 @@ namespace Backend.Data {
                 .HasForeignKey(p => p.EmployeeID)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            modelBuilder.Entity<Category>()
-                .HasMany(c => c.Product)
-                .WithOne(p => p.Category)
-                .HasForeignKey(p => p.CategoryID)
-                .OnDelete(DeleteBehavior.Cascade);
-
             modelBuilder.Entity<Product>()
                 .HasMany(p => p.ProductVarient)
                 .WithOne(pv => pv.Product)
@@ -275,10 +266,6 @@ namespace Backend.Data {
                 .Property(x => x.PaymentMethods)
                 .HasConversion<string>().HasMaxLength(20).IsRequired();
             
-            modelBuilder.Entity<BookingChange>()
-                .Property(x => x.BookingStatus)
-                .HasConversion<string>().HasMaxLength(20).IsRequired();
-
             modelBuilder.Entity<Product>()
                 .Property(x => x.ProductType)
                 .HasConversion<string>().HasMaxLength(20).IsRequired();
@@ -322,6 +309,12 @@ namespace Backend.Data {
             modelBuilder.Entity<DeliveryLog>()
                 .Property(x => x.Status)
                 .HasConversion<string>().HasMaxLength(20).IsRequired();
+
+            modelBuilder.Entity<Bill>()
+                .HasOne(b => b.Table)
+                .WithOne(t => t.Bill)
+                .HasForeignKey<Bill>(b => b.TableID)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

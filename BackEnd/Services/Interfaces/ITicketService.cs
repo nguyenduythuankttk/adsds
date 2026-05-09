@@ -9,5 +9,6 @@ namespace Backend.Services.Interface{
         Task AddTicket(TicketCreateRequest createRequest);
         Task UpdateTicket(Guid ticketID, TicketUpdateRequest request);
         Task SoftDeleteTicket(Guid ticketID);
+        Task SetUsedAt(Guid ticketID, Guid userID);
     }
 }

@@ -82,6 +82,30 @@ namespace Backend.Services.Implementations
             }
         }
 
+        public async Task SetUsedAt(Guid ticketID, Guid userID)
+        {
+            var ticket = await _dbcontext.Ticket
+                .FirstOrDefaultAsync(t => t.TicketID == ticketID && t.DeletedAt == null);
+
+            if (ticket == null)
+                throw new Exception("Ticket not found");
+            if (ticket.UsedAt != null)
+                throw new Exception("Ticket đã được sử dụng");
+            if (ticket.EndDate < DateTime.UtcNow)
+                throw new Exception("Ticket đã hết hạn");
+
+            try
+            {
+                ticket.UsedAt = DateTime.UtcNow;
+                ticket.UsedBy = userID;
+                await _dbcontext.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Lỗi khi đánh dấu ticket đã dùng: {ex.Message}");
+            }
+        }
+
         public async Task SoftDeleteTicket(Guid ticketID)
         {
             var ticket = await _dbcontext.Ticket

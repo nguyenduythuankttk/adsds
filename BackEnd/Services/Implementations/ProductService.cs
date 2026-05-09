@@ -24,7 +24,6 @@ namespace Backend.Services.Implementations{
                     ProductName = request.ProductName,
                     ProductType = request.ProductType,
                     Image = request.Image,
-                    CategoryID = request.CategoryID,
                 };
                 _dbContext.Product.Add(newProduct);
                 await _dbContext.SaveChangesAsync();
@@ -113,6 +112,12 @@ namespace Backend.Services.Implementations{
                 Console.WriteLine($"Soft delete product error {ex.Message}");
                 throw new Exception($"An error occurred while soft deleting product: {ex.Message}");
             }
+        }
+        public async Task<decimal> GetPriceByID (int productVarientID)
+        {
+            var productVarient = await _dbContext.ProductVarient.FirstOrDefaultAsync(p => p.ProductVarientID == productVarientID);
+            if (productVarient == null) throw new Exception("Not Found Product Varient");
+            return productVarient.Price;
         }
     } 
 }

@@ -6,7 +6,6 @@ namespace Backend.Services.Interface{
         Task <List<DiningTable>?> GetAllTablesInStore(int storeID);
         Task <DiningTable?> GetTableByID (int ID);
         Task UpdateTable(int tableID, TableUpdateRequest request);
-        Task SetISBooking(int tableID, bool status);
         Task AddTable (TableCreateRequest newTable);
         Task SoftDeleteTable(int tableID);
     }

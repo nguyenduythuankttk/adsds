@@ -29,6 +29,7 @@ namespace Backend.Models{
         public virtual Supplier Supplier { get; set; } = null!;
         public Guid? POID { get; set; }
         [ForeignKey("POID")]
+        [JsonIgnore]
         public virtual PurchaseOrder? PurchaseOrder { get; set; }
 
         [JsonIgnore]

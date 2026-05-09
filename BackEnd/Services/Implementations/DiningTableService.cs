@@ -23,22 +23,6 @@ namespace Backend.Services.Implementations{
                             .FirstOrDefaultAsync(t => t.TableID ==tableID);
                 if (table != null){
                     table.Capacity = request.Capacity;
-                    table.IsBooking = request.IsBooking;
-                    await _dbContext.SaveChangesAsync();
-                }
-                else{
-                    throw new Exception("Not Found Table");
-                }
-            } catch (Exception e){
-                Console.WriteLine(e.Message);
-            }
-        }
-        public async Task SetISBooking(int tableID, bool status){
-            try{
-                var table =await _dbContext.DiningTable
-                            .FirstOrDefaultAsync(t => t.TableID ==tableID);
-                if (table != null){
-                    table.IsBooking = status;
                     await _dbContext.SaveChangesAsync();
                 }
                 else{
@@ -55,7 +39,6 @@ namespace Backend.Services.Implementations{
                     var table = new DiningTable{
                         StoreID = newTable.StoreID,
                         Capacity = newTable.Capacity,
-                        IsBooking = newTable.IsBooking,
                         TableNumber = newTable.TableNumber
                     };
                     _dbContext.DiningTable.Add(table);
