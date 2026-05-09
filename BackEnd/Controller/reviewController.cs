@@ -62,11 +62,11 @@ namespace Backend.Controller
             try
             {
                 await _reviewService.UpdateReview(reviewId, GetUserId(), updateRequest);
-                return Ok(new { message = "Cập nhật thành công" });
+                return Ok(new { message = "Update review sucessfully!" });
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                return BadRequest(new { message = e.Message });
+                return StatusCode(500, $"An error ocurred in reviewController.Softdeletereview {ex.Message}");
             }
         }
 
