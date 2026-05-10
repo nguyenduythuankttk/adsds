@@ -12,8 +12,8 @@ namespace BackEnd.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropForeignKey(
-                name: "FK_DeliveryLog_User_EmployeeID",
-                table: "DeliveryLog");
+                name: "FK_DeliveryInfo_Bill_BillID",
+                table: "DeliveryInfo");
 
             migrationBuilder.DropIndex(
                 name: "IX_DeliveryInfo_BillID",
@@ -62,6 +62,14 @@ namespace BackEnd.Migrations
                 principalColumn: "AddressID");
 
             migrationBuilder.AddForeignKey(
+                name: "FK_DeliveryInfo_Bill_BillID",
+                table: "DeliveryInfo",
+                column: "BillID",
+                principalTable: "Bill",
+                principalColumn: "BillID",
+                onDelete: ReferentialAction.Cascade);
+
+            migrationBuilder.AddForeignKey(
                 name: "FK_DeliveryLog_User_EmployeeID",
                 table: "DeliveryLog",
                 column: "EmployeeID",
@@ -75,6 +83,10 @@ namespace BackEnd.Migrations
             migrationBuilder.DropForeignKey(
                 name: "FK_Bill_Address_AddressID",
                 table: "Bill");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_DeliveryInfo_Bill_BillID",
+                table: "DeliveryInfo");
 
             migrationBuilder.DropForeignKey(
                 name: "FK_DeliveryLog_User_EmployeeID",
@@ -112,6 +124,14 @@ namespace BackEnd.Migrations
                 name: "IX_DeliveryInfo_BillID",
                 table: "DeliveryInfo",
                 column: "BillID");
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_DeliveryInfo_Bill_BillID",
+                table: "DeliveryInfo",
+                column: "BillID",
+                principalTable: "Bill",
+                principalColumn: "BillID",
+                onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_DeliveryLog_User_EmployeeID",

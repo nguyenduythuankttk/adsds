@@ -55,7 +55,8 @@ namespace Backend.Models{
 
         [JsonIgnore]
         public virtual ICollection<BillChange> BillChange { get; set; } = new List<BillChange>();
-
+        public Guid? DeliveryInfoID {get; set;}
+        [ForeignKey("DeliveryInfoID")]
         [JsonIgnore]
         public virtual DeliveryInfo? DeliveryInfo { get; set; }
     }
