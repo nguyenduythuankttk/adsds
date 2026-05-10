@@ -19,7 +19,8 @@ namespace Backend.Controller {
         [HttpGet("my-addresses")]
         public async Task<IActionResult> GetMyAddresses() {
             try {
-                var userID = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                var userID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("user_id")?.Value)!);
                 var addresses = await _addressService.GetUserAddress(new Backend.Models.User { UserID = userID });
                 return Ok(addresses);
             } catch (Exception e) {
@@ -33,8 +34,9 @@ namespace Backend.Controller {
                 var address = await _addressService.GetAddressByID(addressID);
                 if (address == null) return NotFound("Không tìm thấy địa chỉ");
 
-                var callerID = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-                var role = User.FindFirstValue(ClaimTypes.Role);
+                var callerID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("user_id")?.Value)!);
+                var role = User.FindFirst(ClaimTypes.Role)?.Value;
                 bool isEmployee = role != "Customer";
 
                 if (!isEmployee && address.UserID != callerID)
@@ -49,7 +51,8 @@ namespace Backend.Controller {
         [HttpPost("add")]
         public async Task<IActionResult> AddAddress([FromBody] AddressCreateRequest request) {
             try {
-                var userID = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                var userID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("user_id")?.Value)!);
                 var address = new Address {
                     HouseNumber = request.HouseNumber,
                     Street = request.Street,
@@ -67,7 +70,8 @@ namespace Backend.Controller {
         [HttpPut("set-default/{addressID}")]
         public async Task<IActionResult> SetDefault(Guid addressID) {
             try {
-                var userID = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                var userID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("user_id")?.Value)!);
                 var address = await _addressService.GetAddressByID(addressID);
                 if (address == null) return NotFound("Không tìm thấy địa chỉ");
                 if (address.UserID != userID) return Forbid();
@@ -81,7 +85,8 @@ namespace Backend.Controller {
         [HttpDelete("delete/{addressID}")]
         public async Task<IActionResult> DeleteAddress(Guid addressID) {
             try {
-                var userID = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                var userID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("user_id")?.Value)!);
                 var address = await _addressService.GetAddressByID(addressID);
                 if (address == null) return NotFound("Không tìm thấy địa chỉ");
                 if (address.UserID != userID) return Forbid();

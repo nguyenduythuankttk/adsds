@@ -31,7 +31,8 @@ namespace Backend.Controller {
         [HttpGet("my-deliveries")]
         public async Task<IActionResult> GetMyDeliveries() {
             try {
-                var callerID = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                var callerID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("user_id")?.Value)!);
                 var deliveries = await _deliveryService.GetAllDeliveryByUser(callerID);
                 if (deliveries == null || deliveries.Count == 0) return NotFound("Không có đơn giao hàng nào");
                 return Ok(deliveries);

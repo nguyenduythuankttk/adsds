@@ -66,7 +66,8 @@ namespace Backend.Controller
         [HttpGet("me")]
         public async Task<IActionResult> GetCurrentUser(){
             try{
-                var userID = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var userID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("user_id")?.Value;
                 if (string.IsNullOrWhiteSpace(userID)) return Unauthorized(new {Message = "Invalid token claims"});
                 var user = await _UserService.GetUserByID(Guid.Parse(userID));
                 return Ok(user);
@@ -79,7 +80,8 @@ namespace Backend.Controller
         [HttpGet("me/employee")]
         public async Task<IActionResult> GetCurrentEmployee(){
             try{
-                var empID = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var empID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("user_id")?.Value;
                 if (string.IsNullOrWhiteSpace(empID)) return Unauthorized();
                 var emp = await _EmployeeSevice.GetEmployeeByID(Guid.Parse(empID));
                 return Ok(emp);
@@ -165,7 +167,8 @@ namespace Backend.Controller
         [HttpPut("change-password")]
         public async Task<IActionResult> ChangePassword([FromBody] PasswordRequest request){
             try{
-                var userID = User.FindFirstValue("sub");
+                var userID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("user_id")?.Value;
                 if (string.IsNullOrWhiteSpace(userID)) return Unauthorized();
                 await _AuthService.ChangePassword(request, Guid.Parse(userID));
                 return Ok(new { message = "Đổi mật khẩu thành công." });

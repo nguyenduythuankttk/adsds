@@ -30,7 +30,8 @@ namespace Backend.Controller {
         [HttpGet("my-bills")]
         public async Task<IActionResult> GetMyBills() {
             try {
-                var userID = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var userID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("user_id")?.Value;
                 if (string.IsNullOrWhiteSpace(userID)) return Unauthorized();
                 var bills = await _billService.GetUserBill(Guid.Parse(userID));
                 if (bills == null || bills.Count == 0) return NotFound("Không có hóa đơn nào");
@@ -48,8 +49,9 @@ namespace Backend.Controller {
                 var bill = await _billService.GetBillByID(billID);
                 if (bill == null) return NotFound("Không tìm thấy hóa đơn");
 
-                var callerID = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-                var role = User.FindFirstValue(ClaimTypes.Role);
+                var callerID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("user_id")?.Value)!);
+                var role = User.FindFirst(ClaimTypes.Role)?.Value;
                 bool isEmployee = role != "Customer";
 
                 if (!isEmployee && bill.UserID != callerID)
@@ -78,8 +80,9 @@ namespace Backend.Controller {
         [HttpPost("create-delivery")]
         public async Task<IActionResult> CreateDeliveryBill([FromBody] DeliveryBillCreateRequest request) {
             try {
-                var callerID = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-                var role = User.FindFirstValue(ClaimTypes.Role);
+                var callerID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("user_id")?.Value)!);
+                var role = User.FindFirst(ClaimTypes.Role)?.Value;
                 bool isEmployee = role != "Customer";
 
                 if (!isEmployee)

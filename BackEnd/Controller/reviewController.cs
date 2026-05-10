@@ -20,7 +20,8 @@ namespace Backend.Controller
         }
 
         private Guid GetUserId() =>
-            Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value)!);
 
         [HttpGet("{reviewId}")]
         public async Task<IActionResult> GetReviewByID(Guid reviewId)
