@@ -5,8 +5,8 @@ using System.Text.Json.Serialization;
 namespace Backend.Models{
     public enum BillStatus{
         Create,
-        Paid,
         UnPaid,
+        Paid,
         Delete
     }
     public class BillChange{

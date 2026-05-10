@@ -119,5 +119,20 @@ namespace Backend.Services.Implementations{
             if (productVarient == null) throw new Exception("Not Found Product Varient");
             return productVarient.Price;
         }
-    } 
+        public async Task<List<Product>?> GetProductByType(ProductType type) =>
+            await _dbContext.Product
+                    .AsNoTracking()
+                    .Where(p => p.ProductType == type)
+                    .Include(p => p.ProductVarient)
+                    .Include(p => p.ComboDetail)
+                    .ToListAsync();
+
+        public async Task SetIsActive(int productVarientID, bool isActive){
+            var pv = await _dbContext.ProductVarient
+                .FirstOrDefaultAsync(p => p.ProductVarientID == productVarientID);
+            if (pv == null) throw new Exception("ProductVarient not found");
+            pv.IsActive = isActive;
+            await _dbContext.SaveChangesAsync();
+        }
+    }
 }

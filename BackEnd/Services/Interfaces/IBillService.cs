@@ -7,6 +7,7 @@ namespace Backend.Services.Interface{
         Task <List<Bill>?> GetUserBill(Guid userID);
         Task <Bill?> GetBillByID(Guid billID);
         Task CreateDineInBill(DineInBillCreateRequest request);
+        Task CreateDeliveryBill(DeliveryBillCreateRequest request);
         Task ChangeBill(BillChangeRequest changeRequest);
         Task SoftDeleteBill(Guid billID);
     }

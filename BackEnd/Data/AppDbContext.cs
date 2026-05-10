@@ -10,13 +10,10 @@ namespace Backend.Data {
         public DbSet<User> User { get; set; }
         public DbSet<Employee> Employee { get; set; }
         public DbSet<Address> Address { get; set; }
-        public DbSet<UserAddress> UserAddress { get; set; }
         public DbSet<Store> Store { get; set; }
         public DbSet<Shift> Shift { get; set; }
         public DbSet<Product> Product { get; set; }
         public DbSet<ProductVarient> ProductVarient { get; set; }
-        public DbSet<Combo> Combo { get; set; }
-        public DbSet<ComboProduct> ComboProduct { get; set; }
         public DbSet<Receipe> Receipe { get; set; }
         public DbSet<Bill> Bill { get; set; }
         public DbSet<BillDetail> BillDetail { get; set; }
@@ -39,17 +36,39 @@ namespace Backend.Data {
         public DbSet<TicketUser> TicketUser {get; set;}
         public DbSet<BlacklistedToken> BlackListedToken {get; set;}
         public DbSet<EmailVerificationToken> EmailVerificationToken {get; set;}
+        public DbSet<ComboDetail> ComboDetail {get; set;}
 
         protected override void OnModelCreating(ModelBuilder modelBuilder) {
             base.OnModelCreating(modelBuilder);
 
             // many to many
-            modelBuilder.Entity<UserAddress>()
-                .HasKey(x => new { x.UserID, x.AddressID });
-            modelBuilder.Entity<UserAddress>()
-                .HasOne(x => x.User).WithMany(u => u.UserAddress).HasForeignKey(x => x.UserID).OnDelete(DeleteBehavior.Cascade);
-            modelBuilder.Entity<UserAddress>()
-                .HasOne(x => x.Address).WithMany(a => a.UserAddresses).HasForeignKey(x => x.AddressID).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<ComboDetail>()
+                .HasKey(x => new {x.ComboID, x.ProductID});
+            modelBuilder.Entity<ComboDetail>()
+                .HasOne(x => x.Combo).WithMany(p => p.ComboDetail).HasForeignKey(x => x.ComboID).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<ComboDetail>()
+                .HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductID).OnDelete(DeleteBehavior.Restrict);
+
+            // one to many: User -> Address
+            modelBuilder.Entity<User>()
+                .HasMany(u => u.Addresses)
+                .WithOne(a => a.User)
+                .HasForeignKey(a => a.UserID)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // zero or one: Bill -> DeliveryInfo (0..1)
+            modelBuilder.Entity<Bill>()
+                .HasOne(b => b.DeliveryInfo)
+                .WithOne(di => di.Bill)
+                .HasForeignKey<DeliveryInfo>(di => di.BillID)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // one to many: DeliveryInfo -> DeliveryLog (1-N)
+            modelBuilder.Entity<DeliveryInfo>()
+                .HasMany(di => di.DeliveryLog)
+                .WithOne(dl => dl.DeliveryInfo)
+                .HasForeignKey(dl => dl.DeliveryID)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<BillDetail>()
                 .HasKey(x => new { x.BillID, x.ProductVarientID });
@@ -57,13 +76,6 @@ namespace Backend.Data {
                 .HasOne(x => x.Bill).WithMany(b => b.BillDetail).HasForeignKey(x => x.BillID).OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<BillDetail>()
                 .HasOne(x => x.ProductVarient).WithMany(p => p.BillDetail).HasForeignKey(x => x.ProductVarientID).OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<ComboProduct>()
-                .HasKey(x => new { x.ComboID, x.ProductVarientID });
-            modelBuilder.Entity<ComboProduct>()
-                .HasOne(x => x.Combo).WithMany(c => c.ComboProduct).HasForeignKey(x => x.ComboID).OnDelete(DeleteBehavior.Cascade);
-            modelBuilder.Entity<ComboProduct>()
-                .HasOne(x => x.ProductVarient).WithMany(p => p.ComboProduct).HasForeignKey(x => x.ProductVarientID).OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Receipe>()
                 .HasKey(x => new { x.IngredientID, x.ProductVarientID });

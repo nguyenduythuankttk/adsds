@@ -17,9 +17,8 @@ namespace Backend.Models{
         [Required]
         public decimal Price {get; set;}
         public DateTime? DeletedAt { get; set; }
-        
-        [JsonIgnore]
-        public virtual ICollection<ComboProduct> ComboProduct {get; set;} = new List<ComboProduct>();
+        public bool IsActive { get; set; } = true;
+
         [JsonIgnore]
         public virtual ICollection<BillDetail> BillDetail { get; set; } = new List<BillDetail>();
         [JsonIgnore]

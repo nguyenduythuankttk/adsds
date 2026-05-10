@@ -11,5 +11,6 @@ namespace Backend.Services.Interface{
         Task AddUserAddress(Address address, Guid userID);
         Task DeleteUserAddress(Guid address,Guid user);
         Task SetDefault(Guid address, Guid user);
+        Task<Address?> GetDefaultAddress (Guid user);
     }
 }

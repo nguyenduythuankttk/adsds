@@ -109,7 +109,6 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IStoreService, StoreService>();
 builder.Services.AddScoped<IProductService, ProductService>();
-builder.Services.AddScoped<IComboService, ComboService>();
 builder.Services.AddScoped<IIngredientService, IngredientService>();
 builder.Services.AddScoped<IWareHouseService, WarehouseService>();
 builder.Services.AddScoped<IBillService, BillService>();
@@ -124,6 +123,7 @@ builder.Services.AddScoped<IRecipeService, RecipeService>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IComboService, ComboService>();
 builder.Services.AddHostedService<HardDeleteService>();
 
 builder.Services.AddOptions();
