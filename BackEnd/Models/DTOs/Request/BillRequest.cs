@@ -12,6 +12,7 @@ namespace Backend.Models.DTOs.Request{
         public decimal MoneyGiveBack {get; set; }
         public Guid? EmployeID {get; set;}
         public List <Booking_product> products {get; set;} = new();
+        public Guid TicketID {get; set;}
     }
     public class DeliveryBillCreateRequest
     {
@@ -25,6 +26,7 @@ namespace Backend.Models.DTOs.Request{
         public decimal MoneyGiveBack {get; set; }
         public Guid? EmployeID {get; set;}
         public List <Booking_product> products {get; set;} = new();
+        public Guid TicketID {get; set;}
     }
     public class Booking_product
     {

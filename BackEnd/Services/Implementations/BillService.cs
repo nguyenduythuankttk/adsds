@@ -77,6 +77,7 @@ namespace Backend.Services.Implementations{
             }
         }
         public async Task CreateDineInBill(DineInBillCreateRequest request){
+            using var tx = await _dbcontext.Database.BeginTransactionAsync();
             try{
                 Guid userID;
                 if (string.IsNullOrEmpty(request.contact))
