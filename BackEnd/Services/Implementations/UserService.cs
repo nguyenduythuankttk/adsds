@@ -25,7 +25,7 @@ namespace Backend.Services.Implementations
             await _dbContext.User
                 .Where(u => u.DeletedAt == null)
                 .AsNoTracking()
-                .Include(u => u.UserAddress)
+                .Include(u => u.Addresses)
                 .Select(u => new UserResponse
                 {
                     UserID = u.UserID,
@@ -41,7 +41,7 @@ namespace Backend.Services.Implementations
         public async Task<UserResponse?> GetUserByID(Guid userID) =>
             await _dbContext.User
                 .AsNoTracking()
-                .Include(u => u.UserAddress)
+                .Include(u => u.Addresses)
                 .Where(u => u.UserID == userID && u.DeletedAt == null)
                 .Select(u => new UserResponse
                 {

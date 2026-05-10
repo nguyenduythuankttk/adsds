@@ -1,3 +1,4 @@
+using System.Security.Cryptography.X509Certificates;
 using Backend.Data;
 using Backend.Models;
 using Backend.Models.DTOs.Reponse;
@@ -78,15 +79,15 @@ namespace Backend.Services.Implementations{
         public async Task CreateDineInBill(DineInBillCreateRequest request){
             try{
                 Guid userID;
-                if ( string.IsNullOrEmpty(request.contact))
-                    userID = new Guid();
-                else{ 
+                if (string.IsNullOrEmpty(request.contact))
+                    userID = Guid.Empty;
+                else{
                     var user = await _userService.GetUserByContact(request.contact ?? "default");
                     if (user == null) throw new Exception("user not found");
                     else userID = user.UserID;
                 }
                 var bill = new Bill{
-                        BillID = new Guid(),
+                        BillID = Guid.NewGuid(),
                         UserID = userID,
                         StoreID = request.StoreID,
                         TableID = request.TableID,
@@ -97,7 +98,7 @@ namespace Backend.Services.Implementations{
                 decimal total = 0.0m;
                 foreach (var i in request.products)
                 {
-                    var price =await _productService.GetPriceByID(i.ProductVarientID);
+                    var price = await _productService.GetPriceByID(i.ProductVarientID);
                     bill.BillDetail.Add(new BillDetail
                     {
                         BillID = bill.BillID,
@@ -106,9 +107,9 @@ namespace Backend.Services.Implementations{
                         Price = price,
                         InlineTotal = price * i.qty
                     });
-                    total+= price * i.qty; 
+                    total += price * i.qty;
                 }
-                bill.Total = total;
+                bill.Total = total * (1 + bill.VAT);
                 bill.MoneyGiveBack = bill.MoneyReceived - bill.Total;
                 var billChange = new BillChange
                 {
@@ -118,7 +119,6 @@ namespace Backend.Services.Implementations{
                     ChangeAt = DateTime.UtcNow
                 };
                 bill.BillChange.Add(billChange);
-                _dbcontext.BillChange.Add(billChange);
                 _dbcontext.Bill.Add(bill);
                 await _dbcontext.SaveChangesAsync();
             } catch (Exception e)
@@ -127,9 +127,92 @@ namespace Backend.Services.Implementations{
                 throw new Exception("Error in BillService.CreateDineinBill");
             }
         }
+        public async Task CreateDeliveryBill(DeliveryBillCreateRequest request)
+        {
+            using var tx = await _dbcontext.Database.BeginTransactionAsync();
+            try {
+                Guid addressID;
+                if (request.AddressID != Guid.Empty) {
+                    addressID = request.AddressID;
+                } else {
+                    var defaultAddress = await _addressService.GetDefaultAddress(request.UserID);
+                    if (defaultAddress == null)
+                        throw new Exception("Không tìm thấy địa chỉ giao hàng");
+                    addressID = defaultAddress.AddressID;
+                }
+
+                var bill = new Bill{
+                    BillID = Guid.NewGuid(),
+                    UserID = request.UserID,
+                    StoreID = request.StoreID,
+                    PaymentMethods = request.PaymentMethods,
+                    AddressID = addressID,
+                    Note = request.Note,
+                    MoneyReceived = request.MoneyReceived,
+                };
+                decimal total = 0.0m;
+                foreach (var i in request.products)
+                {
+                    var price = await _productService.GetPriceByID(i.ProductVarientID);
+                    bill.BillDetail.Add(new BillDetail
+                    {
+                        BillID = bill.BillID,
+                        ProductVarientID = i.ProductVarientID,
+                        Quantity = i.qty,
+                        Price = price,
+                        InlineTotal = price * i.qty
+                    });
+                    total += price * i.qty;
+                }
+                decimal shippingFee = 0.0m;
+                bill.Total = total * (1 + bill.VAT);
+                bill.MoneyGiveBack = bill.MoneyReceived - (bill.Total + shippingFee);
+
+                var billChange = new BillChange
+                {
+                    BillID = bill.BillID,
+                    Status = BillStatus.Create,
+                    EmployeeID = request.EmployeID,
+                    ChangeAt = DateTime.UtcNow
+                };
+                bill.BillChange.Add(billChange);
+                _dbcontext.Bill.Add(bill);
+
+                var delivery = new DeliveryInfo{
+                    DeliveryID = Guid.NewGuid(),
+                    BillID = bill.BillID,
+                    UserID = bill.UserID,
+                    AddressID = addressID,
+                    Note = request.NoteForDelivery,
+                    ShippingFee = shippingFee
+                };
+                var deliveryLog = new DeliveryLog{
+                    DeliveryID = delivery.DeliveryID,
+                    Status = DeliveryStatus.Pending,
+                    ChangeAt = DateTime.UtcNow,
+                    Note = request.NoteForDelivery
+                };
+                delivery.DeliveryLog.Add(deliveryLog);
+                _dbcontext.DeliveryInfo.Add(delivery);
+
+                await _dbcontext.SaveChangesAsync();
+                await tx.CommitAsync();
+            } catch (Exception e) {
+                await tx.RollbackAsync();
+                throw new Exception("Error in BillService.CreateDeliveryBill: " + e.Message);
+            }
+        }
 
         public async Task ChangeBill(BillChangeRequest changeRequest){
             try {
+                var latestChange = await _dbcontext.BillChange
+                    .Where(bc => bc.BillID == changeRequest.BillID)
+                    .OrderByDescending(bc => bc.ChangeAt)
+                    .FirstOrDefaultAsync();
+
+                if (latestChange != null && (int)changeRequest.Status <= (int)latestChange.Status)
+                    throw new Exception($"Không thể chuyển trạng thái từ {latestChange.Status} sang {changeRequest.Status}");
+
                 var newChange = new BillChange {
                     BillID = changeRequest.BillID,
                     Status = changeRequest.Status,

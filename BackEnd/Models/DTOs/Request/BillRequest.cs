@@ -13,6 +13,19 @@ namespace Backend.Models.DTOs.Request{
         public Guid? EmployeID {get; set;}
         public List <Booking_product> products {get; set;} = new();
     }
+    public class DeliveryBillCreateRequest
+    {
+        public Guid UserID {get; set;}
+        public int StoreID {get; set;}
+        public Guid AddressID {get; set;}
+        public PaymentMethods PaymentMethods { get; set; }
+        public string? Note { get; set; }
+        public string? NoteForDelivery {get; set;}
+        public decimal MoneyReceived {get; set; }
+        public decimal MoneyGiveBack {get; set; }
+        public Guid? EmployeID {get; set;}
+        public List <Booking_product> products {get; set;} = new();
+    }
     public class Booking_product
     {
         [Required]

@@ -10,7 +10,7 @@ namespace Backend.Models.DTOs.Request{
         public string? Note { get; set; }
     }
     public class DeliveryUpdateRequest{
-        public Guid EmployeeID { get; set; }
+        public Guid? EmployeeID { get; set; }
         public DeliveryStatus Status { get; set; } 
         public DateTime ChangeAt { get; set; } =DateTime.UtcNow;
         public string? Note { get; set; }

@@ -40,7 +40,7 @@ namespace Backend.Services.Implementations{
                     new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                     new Claim(ClaimTypes.Role, user is Employee emp ? emp.Role.ToString() : "Customer")
                 };
-                var expiryMinutes = int.Parse(_configuration["Jwt:ExpiryMinutes"] ?? "480");
+                var expiryMinutes = int.Parse(_configuration["Jwt:ExpiryMinutes"] ?? "45");
                 var token = new JwtSecurityToken(
                     issuer: issuer,
                     audience: audience,

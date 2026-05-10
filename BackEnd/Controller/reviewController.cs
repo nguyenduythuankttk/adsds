@@ -57,7 +57,7 @@ namespace Backend.Controller
 
         [Authorize]
         [HttpPut("{reviewId}")]
-        public async Task<IActionResult> UpdateReview( [FromBody] Guid reviewId, Guid userID, ReviewUpdateRequest updateRequest)
+        public async Task<IActionResult> UpdateReview([FromRoute] Guid reviewId, [FromBody] ReviewUpdateRequest updateRequest)
         {
             try
             {

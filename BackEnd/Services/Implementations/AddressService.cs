@@ -29,30 +29,25 @@ namespace Backend.Services.Implementations{
             .Where (a => a.Supplier != null)
             .Include(a => a.Supplier)
             .ToListAsync();
-        public async Task<List<Address>> GetUserAddress(User user)=>
-            await _dbContext.UserAddress
+        public async Task<List<Address>> GetUserAddress(User user) =>
+            await _dbContext.Address
             .AsNoTracking()
-            .Where (ua => ua.UserID == user.UserID)
-            .Select (ua => ua.Address)
+            .Where(a => a.UserID == user.UserID)
             .ToListAsync();
+
         public async Task AddUserAddress(Address address, Guid userID){
             try{
-                _dbContext.Address.Add(address); 
-                await _dbContext.SaveChangesAsync();
-                bool hadAddress = await _dbContext.UserAddress
-                                    .AnyAsync(ua => ua.UserID == userID);
-                var newUA = new UserAddress{
-                    UserID = userID,
-                    AddressID = address.AddressID,
-                    IsDefault = !hadAddress
-                };
-                _dbContext.UserAddress.Add(newUA);
+                bool hadAddress = await _dbContext.Address.AnyAsync(a => a.UserID == userID);
+                address.UserID = userID;
+                address.IsDefault = !hadAddress;
+                _dbContext.Address.Add(address);
                 await _dbContext.SaveChangesAsync();
             } catch (Exception ex){
                 Console.WriteLine(ex.Message);
-            }    
+            }
         }
-            public async Task AddAddress(AddressCreateRequest request){
+
+        public async Task AddAddress(AddressCreateRequest request){
             try{
                 var address = new Address{
                     HouseNumber = request.HouseNumber,
@@ -68,38 +63,41 @@ namespace Backend.Services.Implementations{
                 Console.WriteLine(e.Message);
             }
         }
-        public async Task DeleteUserAddress(Guid address,Guid user){
+
+        public async Task DeleteUserAddress(Guid addressID, Guid userID){
             try{
-                var userAddress = await _dbContext.UserAddress
-                        .FirstOrDefaultAsync(ua => ua.UserID ==user &&  ua.AddressID == address);
-                if (userAddress != null){
-                    _dbContext.UserAddress.Remove(userAddress);
+                var address = await _dbContext.Address
+                    .FirstOrDefaultAsync(a => a.AddressID == addressID && a.UserID == userID);
+                if (address != null){
+                    _dbContext.Address.Remove(address);
                     await _dbContext.SaveChangesAsync();
                 }
-            }catch (Exception ex)
-            {
+            }catch (Exception ex){
                 Console.WriteLine(ex.Message);
             }
         }
-        public async Task SetDefault(Guid address, Guid user){
+
+        public async Task SetDefault(Guid addressID, Guid userID){
             try{
-                var newDefault = await _dbContext.UserAddress
-                                    .FirstOrDefaultAsync(ua => ua.UserID == user && ua.AddressID == address);
-                var oldDefault = await _dbContext.UserAddress
-                                    .FirstOrDefaultAsync(ua => ua.UserID == user && ua.IsDefault == true);
+                var oldDefault = await _dbContext.Address
+                    .FirstOrDefaultAsync(a => a.UserID == userID && a.IsDefault);
                 if (oldDefault != null){
                     oldDefault.IsDefault = false;
-                    _dbContext.UserAddress.Update(oldDefault);
+                    _dbContext.Address.Update(oldDefault);
                 }
+                var newDefault = await _dbContext.Address
+                    .FirstOrDefaultAsync(a => a.UserID == userID && a.AddressID == addressID);
                 if (newDefault != null){
                     newDefault.IsDefault = true;
-                    _dbContext.UserAddress.Update(newDefault);
+                    _dbContext.Address.Update(newDefault);
                 }
                 await _dbContext.SaveChangesAsync();
             }catch(Exception ex){
                 Console.WriteLine(ex.Message);
             }
         }
+        public async Task<Address?> GetDefaultAddress (Guid user) =>
+            await _dbContext.Address.FirstOrDefaultAsync(a => a.UserID == user && a.IsDefault == true);
         
     }
 } 

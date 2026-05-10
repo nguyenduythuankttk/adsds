@@ -43,6 +43,10 @@ namespace Backend.Models{
         [ForeignKey("TableID")]
         [JsonIgnore]
         public virtual DiningTable? Table { get; set; }
+        public Guid? AddressID {get; set;}
+        [ForeignKey("AddressID")]
+        [JsonIgnore]
+        public virtual Address? Address {get; set;}
 
         public DateTime? DeletedAt { get; set; }
 
@@ -52,5 +56,7 @@ namespace Backend.Models{
         [JsonIgnore]
         public virtual ICollection<BillChange> BillChange { get; set; } = new List<BillChange>();
 
+        [JsonIgnore]
+        public virtual DeliveryInfo? DeliveryInfo { get; set; }
     }
 }

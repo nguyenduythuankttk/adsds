@@ -36,8 +36,12 @@ namespace Backend.Models{
         [JsonIgnore]
         public virtual Supplier? Supplier { get; set; }
 
+        public Guid? UserID { get; set; }
+        [ForeignKey("UserID")]
         [JsonIgnore]
-        public virtual ICollection<UserAddress> UserAddresses { get; set; } = new List<UserAddress>();
+        public virtual User? User { get; set; }
+
+        public bool IsDefault { get; set; } = false;
 
         [JsonIgnore]
         public virtual ICollection<DeliveryInfo> DeliveryInfos { get; set; } = new List<DeliveryInfo>();
