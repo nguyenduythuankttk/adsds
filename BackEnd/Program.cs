@@ -17,7 +17,7 @@ using Backend.Services.Interfaces;
 
 Microsoft.IdentityModel.Logging.IdentityModelEventSource.ShowPII = true;
 
-DotNetEnv.Env.Load();
+DotNetEnv.Env.TraversePath().Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -95,11 +95,9 @@ if (!string.IsNullOrWhiteSpace(connectionString))
 {
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
-    
-    builder.Services.AddSingleton<MongoDbContext>();
-
-
 }
+
+builder.Services.AddSingleton<MongoDbContext>();
 
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 

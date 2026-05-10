@@ -22,19 +22,25 @@ namespace Backend.Services.Implementations
             _mongoDbContext = mongoDbContext;
         }
 
-        public async Task<List<ReviewResponse>> GetAllReview() =>
-            await _mongoDbContext.Reviews
-            .Find(r => r.DeletedAt == null)
-            .SortByDescending(r => r.CreatedAt)
-            .Project(r => new ReviewResponse
+        public async Task<List<ReviewResponse>> GetAllReview(){
+            try{
+                return await _mongoDbContext.Reviews
+                .Find(r => r.DeletedAt == null)
+                .SortByDescending(r => r.CreatedAt)
+                .Project(r => new ReviewResponse
+                {
+                    ReviewID = r.ReviewID,
+                    Username = r.Username,
+                    Comment = r.Comment,
+                    Rating = r.Rating,
+                    CreatedAt = r.CreatedAt
+                })
+                .ToListAsync();
+            }catch(Exception ex)
             {
-                ReviewID = r.ReviewID!,
-                Username = r.Username,
-                Comment = r.Comment,
-                Rating = r.Rating,
-                CreatedAt = r.CreatedAt
-            })
-            .ToListAsync();
+                throw new Exception($"An error occurred while getting all reviews {ex.Message}");
+            }
+        }
 
         public async Task<ReviewResponse> GetReviewByID(Guid reviewID) =>
             await _mongoDbContext.Reviews
@@ -64,7 +70,7 @@ namespace Backend.Services.Implementations
                     StoreID = createRequest.StoreID,
                     Rating = createRequest.Rating,
                     Comment = createRequest.Comment,
-                    CreatedAt = DateTime.Now,
+                    CreatedAt = DateTime.UtcNow,
                     DeletedAt = null
                 });
                 

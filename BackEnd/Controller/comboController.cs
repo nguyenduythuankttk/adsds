@@ -59,5 +59,14 @@ namespace Backend.Controller{
                 return StatusCode(500, "Error in combocontroller.Add" + e.Message);
             }
         }
+        [HttpDelete("soft-delete/{comboID}")]
+        public async Task<IActionResult> SoftDeleteCombo(int comboID){
+            try{
+                await _comboService.SoftDeleteCombo(comboID);
+                return Ok("Soft delete combo successfully!");
+            } catch (Exception e){
+                return StatusCode(500, "Error in comboController.SoftDeleteCombo: " + e.Message);
+            }
+        }
     }
 }

@@ -32,7 +32,14 @@ namespace Backend.Controller{
                 return StatusCode(500, "Error in IngController.GetByID" + e.Message);
             }
         }
-
-
+        [HttpDelete("soft-delete/{id}")]
+        public async Task<IActionResult> SoftDeleteIngredient(int id){
+            try{
+                await _ingredientSerive.SoftDeleteIngredient(id);
+                return Ok("Soft delete ingredient successfully!");
+            } catch(Exception e){
+                return StatusCode(500, "Error in ingredientController.SoftDeleteIngredient: " + e.Message);
+            }
+        }
     }
 }

@@ -72,30 +72,6 @@ namespace Backend.Services.Implementations{
                 Console.WriteLine(e.Message);
             }
         }
-        public async Task HardDeleteProduct (int productID){
-            try {
-                var del = await _dbContext.Product
-                                .FirstOrDefaultAsync(p => p.ProductID == productID);
-                if (del != null){
-                    _dbContext.Product.Remove(del);
-                    await _dbContext.SaveChangesAsync();
-                }
-            } catch (Exception e){
-                Console.WriteLine(e.Message);
-            }
-        }
-        public async Task HardDeleteProductVarient (int productID, ProductSize size){
-            try {
-                var del = await _dbContext.ProductVarient
-                                    .FirstOrDefaultAsync (p => p.ProductID == productID && p.Size == size);
-                if (del != null){
-                    _dbContext.ProductVarient.Remove(del);
-                    await _dbContext.SaveChangesAsync();
-                }
-            } catch (Exception e){
-                Console.WriteLine (e.Message);
-            }
-        }
         public async Task SoftDeleteProduct(int productID){
             var product = await _dbContext.Product
                 .FirstOrDefaultAsync(p => p.ProductID == productID &&

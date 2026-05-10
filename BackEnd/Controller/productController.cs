@@ -99,29 +99,16 @@ namespace Backend.Controller
             }
         }
 
-        [HttpDelete("hard-delete-product/{productID}")]
-        public async Task<IActionResult> HardDeleteProduct(int productID)
+        [HttpDelete("soft-delete/{productID}")]
+        public async Task<IActionResult> SoftDeleteProduct(int productID)
         {
             try
             {
-                await _productService.HardDeleteProduct(productID);
-                return Ok("Hard delete product successfully!");
+                await _productService.SoftDeleteProduct(productID);
+                return Ok("Soft delete product successfully!");
             }catch(Exception ex)
             {
-                return StatusCode(500, $"An error occurred in productController.DeleteProduct {ex.Message}");
-            }
-        }
-
-        [HttpDelete("hard-delete-varient/{productID}/{productSize}")]
-        public async Task<IActionResult> HardDeleteProductVarient(int productID, ProductSize productSize)
-        {
-            try
-            {
-                await _productService.HardDeleteProductVarient(productID, productSize);
-                return Ok("Hard delete product varient successfully!");
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in productController.HardDeleteProduct {ex.Message}");
+                return StatusCode(500, $"An error occurred in productController.SoftDeleteProduct {ex.Message}");
             }
         }
     }
