@@ -1,90 +1,58 @@
+using Backend.Models;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
-
-namespace Backend.Controller {
+namespace Backend.Controller{
     [ApiController]
     [Route("api/pbl3/[controller]")]
-    public class DeliveryController : ControllerBase {
+    public class DeliveryController : ControllerBase{
         private readonly IDeliveryInfoService _deliveryService;
-
-        public DeliveryController(IDeliveryInfoService deliveryService) {
+        public DeliveryController(IDeliveryInfoService deliveryService){
             _deliveryService = deliveryService;
         }
-
-        [Authorize(Roles = "Manager,Counter")]
         [HttpGet("get-all/{start}/{end}")]
-        public async Task<IActionResult> GetAllDeliveryIn(DateTime start, DateTime end) {
-            try {
+        public async Task<IActionResult> GetAllDeliveryIn(DateTime start, DateTime end){
+            try{
                 var deliveries = await _deliveryService.GetAllDeliveryIn(start, end);
-                if (deliveries == null || deliveries.Count == 0) return NotFound("Không có đơn giao hàng nào");
                 return Ok(deliveries);
-            } catch (Exception e) {
-                return StatusCode(500, $"Error in DeliveryController.GetAllDeliveryIn: {e.Message}");
+            } catch(Exception ex){
+                return StatusCode(500, $"An error occurred in DeliveryController.GetAllDeliveryIn {ex.Message}");
             }
         }
-
-        
-        [Authorize]
-        [HttpGet("my-deliveries")]
-        public async Task<IActionResult> GetMyDeliveries() {
-            try {
-                var callerID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                    ?? User.FindFirst("user_id")?.Value)!);
-                var deliveries = await _deliveryService.GetAllDeliveryByUser(callerID);
-                if (deliveries == null || deliveries.Count == 0) return NotFound("Không có đơn giao hàng nào");
-                return Ok(deliveries);
-            } catch (Exception e) {
-                return StatusCode(500, $"Error in DeliveryController.GetMyDeliveries: {e.Message}");
-            }
-        }
-
-
-        [Authorize(Roles = "Manager,Counter")]
         [HttpGet("get-by-user/{userID}")]
-        public async Task<IActionResult> GetDeliveryByUser(Guid userID) {
-            try {
+        public async Task<IActionResult> GetAllDeliveryByUser(Guid userID){
+            try{
                 var deliveries = await _deliveryService.GetAllDeliveryByUser(userID);
-                if (deliveries == null || deliveries.Count == 0) return NotFound("Không có đơn giao hàng nào");
                 return Ok(deliveries);
-            } catch (Exception e) {
-                return StatusCode(500, $"Error in DeliveryController.GetDeliveryByUser: {e.Message}");
+            } catch(Exception ex){
+                return StatusCode(500, $"An error occurred in DeliveryController.GetAllDeliveryByUser {ex.Message}");
             }
         }
-
-
-        [Authorize(Roles = "Manager,Counter")]
-        [HttpPost("add")]
-        public async Task<IActionResult> AddDeliveryInfo([FromBody] DeliveryInfoCreateRequest request) {
-            try {
+        [HttpPost("create")]
+        public async Task<IActionResult> AddDeliveryInfo(DeliveryInfoCreateRequest request){
+            try{
                 await _deliveryService.AddDeliveryInfo(request);
-                return Ok("Thêm thông tin giao hàng thành công");
-            } catch (Exception e) {
-                return StatusCode(500, $"Error in DeliveryController.AddDeliveryInfo: {e.Message}");
+                return Ok("Add delivery info successfully!");
+            } catch(Exception ex){
+                return StatusCode(500, $"An error occurred in DeliveryController.AddDeliveryInfo {ex.Message}");
             }
         }
-
-        [Authorize(Roles = "Manager,Counter")]
         [HttpPut("update/{deliveryID}")]
-        public async Task<IActionResult> UpdateDelivery(Guid deliveryID, [FromBody] DeliveryUpdateRequest request) {
-            try {
+        public async Task<IActionResult> UpdateDelivery(Guid deliveryID, DeliveryUpdateRequest request){
+            try{
                 await _deliveryService.UpdateDelivery(deliveryID, request);
-                return Ok("Cập nhật trạng thái giao hàng thành công");
-            } catch (Exception e) {
-                return StatusCode(500, $"Error in DeliveryController.UpdateDelivery: {e.Message}");
+                return Ok("Update delivery successfully!");
+            } catch(Exception ex){
+                return StatusCode(500, $"An error occurred in DeliveryController.UpdateDelivery {ex.Message}");
             }
         }
-
-        [Authorize(Roles = "Manager")]
-        [HttpDelete("delete/{deliveryID}")]
-        public async Task<IActionResult> SoftDelete(Guid deliveryID) {
-            try {
+        [HttpDelete("soft-delete/{deliveryID}")]
+        public async Task<IActionResult> SoftDeleteDeliveryInfo(Guid deliveryID){
+            try{
                 await _deliveryService.SoftDeleteDeliveryInfo(deliveryID);
-                return Ok("Xóa thông tin giao hàng thành công");
-            } catch (Exception e) {
-                return StatusCode(500, $"Error in DeliveryController.SoftDelete: {e.Message}");
+                return Ok("Soft delete delivery successfully!");
+            } catch(Exception ex){
+                return StatusCode(500, $"An error occurred in DeliveryController.SoftDeleteDeliveryInfo {ex.Message}");
             }
         }
     }

@@ -110,6 +110,17 @@ namespace Backend.Controller
             }
         }
 
-        
+        [HttpDelete("soft-delete/{id}")]
+        public async Task<IActionResult> SoftDeletePO(Guid id)
+        {
+            try
+            {
+                await _purchaseOrderService.SoftDeletePO(id);
+                return Ok("Soft delete purchase order successfully!");
+            }catch(Exception ex)
+            {
+                return StatusCode(500, $"An error occurred in purchaseOrderController.SoftDeletePO {ex.Message}");
+            }
+        }
     }
 }
