@@ -166,13 +166,108 @@ StockMovement #2 — cộng batch Processed
 
 Nhân viên tạo Bill → hệ thống tự trừ kho batch Processed theo FIFO trong cùng transaction.
 
+Có 2 loại bill: **DineIn** (tại bàn) và **Delivery** (giao hàng). Cả hai đều gọi `ConsumeIngredients()` bên trong transaction.
+
+#### Validation trước khi tạo bill
+
+| Rule | DineIn | Delivery |
+|---|---|---|
+| `products` không rỗng | ✅ | ✅ |
+| `EmployeeID` không null | ✅ | ✅ |
+| `StoreID` tồn tại và chưa xóa | ✅ | ✅ |
+| `TableID` tồn tại và không Occupied | ✅ (nếu có) | — |
+| `UserID` tồn tại | — | ✅ |
+| `MoneyReceived >= Total` | ✅ (sau tính total) | ✅ (sau tính total) |
+
+#### Field mapping — Bill
+
 ```
-BillDetail.ProductVarientID
-  → Receipe.QtyAfterProcess   (số miếng cần cho 1 sản phẩm)
-  → totalToConsume = QtyAfterProcess × BillDetail.Quantity
-  → FIFO: InventoryBatch WHERE BatchType=Processed AND IngredientID=X ORDER BY ImportDate ASC
-  → QuantityOnHand -= deduct
-  → StockMovement (Consumption, ReferenceType=Bill, QtyChange=-deduct)
+Bill
+  BillID           ← Guid.NewGuid()
+  UserID           ← từ contact (DineIn) hoặc request.UserID (Delivery); Guid.Empty nếu khách vãng lai
+  StoreID          ← request.StoreID
+  TableID          ← request.TableID (DineIn, nullable)
+  AddressID        ← request.AddressID hoặc địa chỉ mặc định của user (Delivery)
+  PaymentMethods   ← request.PaymentMethods
+  Note             ← request.Note
+  MoneyReceived    ← request.MoneyReceived
+  VAT              = 0.1 (10%, mặc định)
+  Total            ← Σ(Price × qty) × (1 + VAT)   [tính server-side]
+  MoneyGiveBack    ← MoneyReceived - Total
+
+BillDetail (mỗi sản phẩm trong bill)
+  BillID           ← Bill.BillID
+  ProductVarientID ← request.products[i].ProductVarientID
+  Quantity         ← request.products[i].qty
+  Price            ← GetPriceByID(ProductVarientID)   [lấy từ DB]
+  InlineTotal      ← Price × Quantity
+
+BillChange (trạng thái đầu tiên)
+  BillID           ← Bill.BillID
+  Status           = Create
+  EmployeeID       ← request.EmployeeID
+  ChangeAt         ← DateTime.UtcNow
+```
+
+#### Field mapping — DeliveryInfo (chỉ Delivery)
+
+```
+DeliveryInfo
+  DeliveryID   ← Guid.NewGuid()
+  BillID       ← Bill.BillID
+  UserID       ← Bill.UserID
+  AddressID    ← addressID đã resolve
+  Note         ← request.NoteForDelivery
+  ShippingFee  = 0 (chưa có logic tính phí ship)
+
+DeliveryLog (trạng thái đầu tiên)
+  DeliveryID   ← DeliveryInfo.DeliveryID
+  Status       = Pending
+  ChangeAt     ← DateTime.UtcNow
+  Note         ← request.NoteForDelivery
+```
+
+#### ConsumeIngredients — FIFO trừ kho
+
+Gọi sau khi `SaveChangesAsync()` nhưng vẫn trong cùng transaction — nếu hết hàng thì rollback cả bill.
+
+```
+Với mỗi BillDetail (ProductVarientID, Quantity):
+  → Lấy Recipe: WHERE ProductVarientID = X AND DeletedAt IS NULL
+  → Với mỗi Recipe item (IngredientID, QtyAfterProcess):
+       totalToConsume = QtyAfterProcess × BillDetail.Quantity
+
+       FIFO query:
+         InventoryBatch WHERE
+           IngredientID = recipe.IngredientID
+           AND BatchType = Processed
+           AND Status = Available
+           AND QuantityOnHand > 0
+           AND Exp >= today                ← loại batch hết hạn
+           AND Warehouse.StoreID = storeID ← chỉ lấy kho của store đang bán
+         ORDER BY ImportDate ASC           ← cũ nhất trước
+
+       Trừ dần qua nhiều batch:
+         deduct = Min(remaining, batch.QuantityOnHand)
+         batch.QuantityOnHand -= deduct
+         nếu QuantityOnHand == 0 → Status = Depleted
+         tạo StockMovement(Consumption, Bill, QtyChange = -deduct)
+         remaining -= deduct
+
+       Nếu remaining > 0 sau khi hết batch → throw (hết hàng → rollback cả bill)
+```
+
+#### StockMovement tạo ra khi bán
+
+```
+StockMovement (mỗi batch bị trừ)
+  BatchID       ← batch.BatchID (Processed)
+  EmployeeID    ← employeeID
+  QtyChange     ← -deduct  (âm)
+  MovementType  = Consumption
+  ReferenceType = Bill
+  ReferenceID   ← Bill.BillID
+  TimeStamp     ← DateTime.UtcNow
 ```
 
 ---

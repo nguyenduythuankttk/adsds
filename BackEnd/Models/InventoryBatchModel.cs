@@ -10,7 +10,8 @@ namespace Backend.Models{
         Depleted,
         Expired,
         Damaged,
-        Locked
+        Locked,
+        Cancelled
     }
 
     public enum BatchType

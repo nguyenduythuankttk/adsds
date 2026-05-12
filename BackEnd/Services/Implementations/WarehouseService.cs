@@ -33,40 +33,33 @@ namespace Backend.Services.Implementations
                 .Where(w => w.StoreID == storeID)
                 .Include(w => w.Store)
                 .ToListAsync();
-        public async Task AddWarehouse(WarehouseCreateRequest createRequest){
-            Warehouse w = new Warehouse {
-                StoreID = createRequest.StoreID,
+        public async Task AddWarehouse(WarehouseCreateRequest createRequest)
+        {
+            var w = new Warehouse
+            {
+                StoreID  = createRequest.StoreID,
                 Capacity = createRequest.Capacity
             };
-            try{
-                _dbcontext.Warehouse.Add(w);
-                await _dbcontext.SaveChangesAsync();
-            } catch (Exception e){
-                Console.WriteLine(e.Message);
-            }
+            _dbcontext.Warehouse.Add(w);
+            await _dbcontext.SaveChangesAsync();
         }
-        public async Task UpdateWarehouse(int warehouseID, WarehouseUpdateRequest updateRequest){
-            try {
-                var w = await _dbcontext.Warehouse.FirstOrDefaultAsync(wh => wh.WarehouseID == warehouseID);
-                if (w != null){
-                    w.Capacity = updateRequest.Capacity;
-                    _dbcontext.Warehouse.Update(w);
-                    await _dbcontext.SaveChangesAsync();
-                }
-            } catch (Exception e){
-                Console.WriteLine(e.Message);
-            }
+
+        public async Task UpdateWarehouse(int warehouseID, WarehouseUpdateRequest updateRequest)
+        {
+            var w = await _dbcontext.Warehouse.FirstOrDefaultAsync(wh => wh.WarehouseID == warehouseID)
+                ?? throw new Exception($"Warehouse {warehouseID} not found.");
+            w.Capacity = updateRequest.Capacity;
+            await _dbcontext.SaveChangesAsync();
         }
-        public async Task SoftDeleteWarehouse(int warehouseID){
-            try{
-                var wh = await _dbcontext.Warehouse.FirstOrDefaultAsync(w => w.WarehouseID == warehouseID);
-                if (wh == null) throw new Exception("Không tìm thấy kho");
-                wh.DeletedAt = DateTime.UtcNow;
-                _dbcontext.Warehouse.Update(wh);
-                await _dbcontext.SaveChangesAsync();
-            } catch (Exception e){
-                Console.WriteLine(e.Message);
-            }
+
+        public async Task SoftDeleteWarehouse(int warehouseID)
+        {
+            var wh = await _dbcontext.Warehouse.FirstOrDefaultAsync(w => w.WarehouseID == warehouseID)
+                ?? throw new Exception($"Warehouse {warehouseID} not found.");
+            if (wh.DeletedAt != null)
+                throw new Exception($"Warehouse {warehouseID} is already deleted.");
+            wh.DeletedAt = DateTime.UtcNow;
+            await _dbcontext.SaveChangesAsync();
         }
     }
 }

@@ -307,6 +307,10 @@ namespace Backend.Data {
                 .Property(x => x.Status)
                 .HasConversion<string>().HasMaxLength(20).IsRequired();
 
+            modelBuilder.Entity<InventoryBatch>()
+                .Property(x => x.BatchType)
+                .HasConversion<string>().HasMaxLength(20).IsRequired();
+
             modelBuilder.Entity<StockMovement>()
                 .Property(x => x.MovementType)
                 .HasConversion<string>().HasMaxLength(30).IsRequired();
