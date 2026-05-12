@@ -4,7 +4,6 @@ using Backend.Models.DTOs.Request;
 using Backend.Data;
 using Backend.Services.Interface;
 using Microsoft.EntityFrameworkCore;
-using System.Net.Http.Headers;
 
 namespace Backend.Services.Implementations
  {
@@ -17,11 +16,135 @@ namespace Backend.Services.Implementations
              _dbContext = dbContext;
         }
 
+        public async Task<ReceiptPrefillResponse> GetPrefilledFromPO(Guid poId)
+        {
+            var po = await _dbContext.PurchaseOrder
+                .AsNoTracking()
+                .Include(p => p.Supplier)
+                .Include(p => p.POApproval.OrderByDescending(a => a.LastUpdated).Take(1))
+                .Include(p => p.PODetail)
+                    .ThenInclude(d => d.Ingredient)
+                .FirstOrDefaultAsync(p => p.POID == poId && p.DeletedAt == null)
+                ?? throw new Exception("Purchase Order not found.");
+
+            var latestStatus = po.POApproval
+                .OrderByDescending(a => a.LastUpdated)
+                .Select(a => a.POStatus)
+                .FirstOrDefault();
+
+            if (latestStatus != PO_Status.Ordered)
+                throw new Exception($"PO must be in Ordered status to create receipt. Current status: {latestStatus}.");
+
+            return new ReceiptPrefillResponse
+            {
+                POID         = po.POID,
+                SupplierID   = po.SupplierID,
+                SupplierName = po.Supplier.SupplierName,
+                StoreID      = po.StoreID,
+                PODetailLines =  po.PODetail.Select(d => new ReceiptDetailPrefill
+                {
+                    IngredientID      = d.IngredientID,
+                    IngredientName    = d.Ingredient.IngredientName,
+                    QuantityExpected  = d.Quantity,
+                    UnitPriceExpected = d.UnitPriceExpected
+                }).ToList()
+            };
+        }
+
+        public async Task<ReceiptCreateResponse> CreateReceipt(ReceiptCreateRequest request)
+        {
+            if (request.ReceiptLines == null || request.ReceiptLines.Count == 0)
+                throw new Exception("Receipt must have at least one item.");
+
+            var po = await _dbContext.PurchaseOrder
+                .Include(p => p.POApproval.OrderByDescending(a => a.LastUpdated).Take(1))
+                .Include(p => p.PODetail)
+                .FirstOrDefaultAsync(p => p.POID == request.POID && p.DeletedAt == null)
+                ?? throw new Exception("Purchase Order not found.");
+
+            var latestStatus = po.POApproval
+                .OrderByDescending(a => a.LastUpdated)
+                .Select(a => a.POStatus)
+                .FirstOrDefault();
+
+            if (latestStatus != PO_Status.Ordered)
+                throw new Exception($"PO must be in Ordered status. Current status: {latestStatus}.");
+
+            var validIngredientIDs = po.PODetail.Select(d => d.IngredientID).ToHashSet();
+            var invalidLines = request.ReceiptLines
+                .Where(i => !validIngredientIDs.Contains(i.IngredientID))
+                .Select(i => i.IngredientID)
+                .ToList();
+            if (invalidLines.Count > 0)
+                throw new Exception($"IngredientID(s) not in PO: {string.Join(", ", invalidLines)}");
+
+            foreach (var line in request.ReceiptLines)
+            {
+                if (line.Quantity <= 0)
+                    throw new Exception($"IngredientID {line.IngredientID}: Quantity must be > 0.");
+                if (line.GoodQuantity < 0 || line.GoodQuantity > line.Quantity)
+                    throw new Exception($"IngredientID {line.IngredientID}: GoodQuantity must be between 0 and Quantity.");
+                if (line.UnitPrice <= 0)
+                    throw new Exception($"IngredientID {line.IngredientID}: UnitPrice must be > 0.");
+            }
+
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            try
+            {
+                var receipt = new Receipt
+                {
+                    ReceiptID   = Guid.NewGuid(),
+                    POID        = po.POID,
+                    SupplierID  = po.SupplierID,
+                    StoreID     = po.StoreID,
+                    EmployeeID  = request.EmployeeID,
+                    DateReceive = DateTime.UtcNow,
+                };
+
+                var details = request.ReceiptLines.Select(i => new ReceiptDetail
+                {
+                    GoodsReceiptID = receipt.ReceiptID,
+                    IngredientID   = i.IngredientID,
+                    Quantity       = i.Quantity,
+                    GoodQuantity   = i.GoodQuantity,
+                    UnitPrice      = i.UnitPrice
+                }).ToList();
+
+                _dbContext.Receipt.Add(receipt);
+                _dbContext.ReceiptDetail.AddRange(details);
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return new ReceiptCreateResponse
+                {
+                    ReceiptID   = receipt.ReceiptID,
+                    POID        = receipt.POID!.Value,
+                    SupplierID  = receipt.SupplierID,
+                    StoreID     = receipt.StoreID,
+                    EmployeeID  = receipt.EmployeeID,
+                    DateReceive = receipt.DateReceive,
+                    ReceiptDetailLines =  details.Select(d => new ReceiptDetailSaved
+                    {
+                        IngredientID = d.IngredientID,
+                        Quantity     = d.Quantity,
+                        GoodQuantity = d.GoodQuantity,
+                        UnitPrice    = d.UnitPrice
+                    }).ToList()
+                };
+            }
+            catch (Exception e)
+            {
+                await transaction.RollbackAsync();
+                throw new Exception($"CreateReceipt failed: {e.Message}");
+            }
+        }
+
         //GET ALL
         public async Task<List<Receipt>?> GetAllReceiptIn(DateOnly start, DateOnly end) =>
             await _dbContext.Receipt
                 .AsNoTracking()
-                .Where(b => b.DateReceive >= start.ToDateTime(TimeOnly.MinValue) &&
+                .Where(b => b.DeletedAt == null &&
+                            b.DateReceive >= start.ToDateTime(TimeOnly.MinValue) &&
                             b.DateReceive <= end.ToDateTime(TimeOnly.MaxValue))
                 .Include(r => r.Employee)
                 .Include(r => r.Store)
@@ -37,24 +160,28 @@ namespace Backend.Services.Implementations
                 .Include(r => r.PurchaseOrder)
                 .Include(r => r.Supplier)
                     .ThenInclude(c => c.Address)
-                .FirstOrDefaultAsync(r => r.ReceiptID == receiptID);
+                .Include(r => r.ReceiptDetail)
+                    .ThenInclude(d => d.Ingredient)
+                .FirstOrDefaultAsync(r => r.ReceiptID == receiptID && r.DeletedAt == null);
         
         public async Task<List<Receipt>?> GetReceiptByPO(Guid pOID) =>
             await _dbContext.Receipt
                 .AsNoTracking()
-                .Where(r => r.POID == pOID)
+                .Where(r => r.POID == pOID && r.DeletedAt == null)
                 .Include(r => r.Employee)
                 .Include(r => r.Store)
                     .ThenInclude(c => c.Address)
                 .Include(r => r.PurchaseOrder)
                 .Include(r => r.Supplier)
                     .ThenInclude(c => c.Address)
+                .Include(r => r.ReceiptDetail)
+                    .ThenInclude(d => d.Ingredient)
                 .ToListAsync();
 
         public async Task<List<Receipt>?> GetReceiptByStore(int storeID) =>
             await _dbContext.Receipt
                 .AsNoTracking()
-                .Where(r => r.StoreID == storeID)
+                .Where(r => r.StoreID == storeID && r.DeletedAt == null)
                 .Include(r => r.Employee)
                 .Include(r => r.Store)
                     .ThenInclude(c => c.Address)
@@ -72,7 +199,7 @@ namespace Backend.Services.Implementations
                 .Include(r => r.PurchaseOrder)
                 .Include(r => r.Supplier)
                     .ThenInclude(c => c.Address)
-                .Where(r => r.EmployeeID == employeeID)
+                .Where(r => r.EmployeeID == employeeID && r.DeletedAt == null)
                 .ToListAsync();
 
         public async Task<List<Receipt>?> GetReceiptBySupplier(int supplierID) =>
@@ -84,37 +211,127 @@ namespace Backend.Services.Implementations
                 .Include(r => r.PurchaseOrder)
                 .Include(r => r.Supplier)
                     .ThenInclude(c => c.Address)
-                .Where(r => r.SupplierID == supplierID)
+                .Where(r => r.SupplierID == supplierID && r.DeletedAt == null)
                 .ToListAsync();
         
-        // public async Task AddReceipt(Receipt receipt){
-        //     try {
-        //         _dbContext.Receipt.Add(receipt); // thêm Bill vào bảng Bill trong db
-        //         await _dbContext.SaveChangesAsync(); //chờ lưu tất cả thay đổi vào db
-        //     }catch (Exception e){
-        //         Console.WriteLine(e.Message);
-        //     }
 
-        // tam thoi Q chua lam set trong receipt nha
+        public async Task<ConfirmReceiptResponse> ConfirmReceipt(ConfirmReceiptRequest request)
+        {
+            var receipt = await _dbContext.Receipt
+                .Include(r => r.ReceiptDetail)
+                    .ThenInclude(d => d.Ingredient)
+                .FirstOrDefaultAsync(r => r.ReceiptID == request.ReceiptID && r.DeletedAt == null)
+                ?? throw new Exception("Receipt not found.");
+
+            if (receipt.ConfirmedAt != null)
+                throw new Exception("Receipt already confirmed.");
+
+            if (receipt.POID == null)
+                throw new Exception("Receipt has no linked PO.");
+
+            var missingLines = receipt.ReceiptDetail
+                .Where(d => !request.Lines.Any(l => l.IngredientID == d.IngredientID))
+                .Select(d => d.IngredientID)
+                .ToList();
+            if (missingLines.Count > 0)
+                throw new Exception($"Missing confirm lines for IngredientID(s): {string.Join(", ", missingLines)}");
+
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            try
+            {
+                var confirmedAt = DateTime.UtcNow;
+                var batchesCreated = new List<BatchCreatedLine>();
+
+                foreach (var detail in receipt.ReceiptDetail)
+                {
+                    var line = request.Lines.First(l => l.IngredientID == detail.IngredientID);
+
+                    var batchCode = string.IsNullOrWhiteSpace(line.BatchCode)
+                        ? $"BT-{detail.IngredientID}-{confirmedAt:yyyyMMdd}"
+                        : line.BatchCode;
+
+                    var batch = new InventoryBatch
+                    {
+                        BatchID          = Guid.NewGuid(),
+                        IngredientID     = detail.IngredientID,
+                        GoodsReceiptID   = receipt.ReceiptID,
+                        WarehouseID      = line.WarehouseID,
+                        BatchType        = BatchType.Raw,
+                        Status           = BatchStatus.Available,
+                        QuantityOriginal = detail.GoodQuantity,
+                        QuantityOnHand   = detail.GoodQuantity,
+                        UnitCost         = detail.UnitPrice,
+                        ImportDate       = confirmedAt,
+                        Mfd              = line.Mfd,
+                        Exp              = line.Exp,
+                        BatchCode        = batchCode,
+                    };
+
+                    var movement = new StockMovement
+                    {
+                        StockMovementID = Guid.NewGuid(),
+                        BatchID         = batch.BatchID,
+                        EmployeeID      = request.EmployeeID,
+                        QtyChange       = detail.GoodQuantity,
+                        MovementType    = StockMovementType.PurchaseReceipt,
+                        ReferenceType   = StockReferenceType.GoodsReceipt,
+                        ReferenceID     = receipt.ReceiptID,
+                        TimeStamp       = confirmedAt,
+                    };
+
+                    _dbContext.InventoryBatch.Add(batch);
+                    _dbContext.StockMovement.Add(movement);
+
+                    batchesCreated.Add(new BatchCreatedLine
+                    {
+                        BatchID       = batch.BatchID,
+                        IngredientID  = detail.IngredientID,
+                        IngredientName = detail.Ingredient.IngredientName,
+                        QuantityOnHand = batch.QuantityOnHand,
+                        BatchCode     = batchCode,
+                    });
+                }
+
+                receipt.ConfirmedAt = confirmedAt;
+
+                _dbContext.POApproval.Add(new POApproval
+                {
+                    POApprovalID = Guid.NewGuid(),
+                    POID         = receipt.POID.Value,
+                    EmployeeID   = request.EmployeeID,
+                    POStatus     = PO_Status.Received,
+                    LastUpdated  = confirmedAt,
+                });
+
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return new ConfirmReceiptResponse
+                {
+                    ReceiptID     = receipt.ReceiptID,
+                    ConfirmedAt   = confirmedAt,
+                    BatchesCreated = batchesCreated,
+                };
+            }
+            catch (Exception e)
+            {
+                await transaction.RollbackAsync();
+                throw new Exception($"ConfirmReceipt failed: {e.Message}");
+            }
+        }
 
         public async Task SoftDeleteReceipt(Guid receiptID)
-            {
-                var receipt = await _dbContext.Receipt
-                    .FirstOrDefaultAsync(r => r.ReceiptID == receiptID &&
-                                        r.DeletedAt == null);
-                if(receipt == null)
-                    throw new Exception("Receipt not found!");
-            
-                try
-                {
-                    receipt.DeletedAt = DateTime.Now;
-                    await _dbContext.SaveChangesAsync();
-                }catch(Exception ex)
-                {
-                    Console.WriteLine($"Soft delete user error {ex.Message}");
-                    throw new Exception($"An error occurred while soft deleting receipt: {ex.Message}");
-                }
-            }
+        {
+            // TODO: kiểm tra InventoryBatch trước khi xoá — xem ghi chú trong IReceiptService.
+            throw new NotImplementedException("SoftDeleteReceipt chưa hoàn thiện.");
+
+            // var receipt = await _dbContext.Receipt
+            //     .FirstOrDefaultAsync(r => r.ReceiptID == receiptID && r.DeletedAt == null);
+            // if (receipt == null)
+            //     throw new Exception("Receipt not found!");
+            // receipt.DeletedAt = DateTime.UtcNow;
+            // await _dbContext.SaveChangesAsync();
+        }
         
 
         }

@@ -98,6 +98,48 @@ namespace Backend.Controller
             }
         }
 
+        [HttpGet("prefill-from-po/{poId}")]
+        public async Task<IActionResult> GetPrefilledFromPO(Guid poId)
+        {
+            try
+            {
+                var prefill = await _receiptService.GetPrefilledFromPO(poId);
+                return Ok(prefill);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred in receiptController.GetPrefilledFromPO {ex.Message}");
+            }
+        }
+
+        [HttpPost("create")]
+        public async Task<IActionResult> CreateReceipt(ReceiptCreateRequest request)
+        {
+            try
+            {
+                var result = await _receiptService.CreateReceipt(request);
+                return CreatedAtAction(nameof(GetReceiptByID), new { receiptID = result.ReceiptID }, result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred in receiptController.CreateReceipt {ex.Message}");
+            }
+        }
+
+        [HttpPost("confirm")]
+        public async Task<IActionResult> ConfirmReceipt(ConfirmReceiptRequest request)
+        {
+            try
+            {
+                var result = await _receiptService.ConfirmReceipt(request);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred in receiptController.ConfirmReceipt {ex.Message}");
+            }
+        }
+
         [HttpDelete("softdelete/{receiptID}")]
         public async Task<IActionResult> SoftDeleteReceipt(Guid receiptID)
         {
@@ -109,6 +151,6 @@ namespace Backend.Controller
             {
                 return StatusCode(500, $"An error occurred in receiptController.SoftDeleteReceipt {ex.Message}");
             }
-        } 
+        }
     }
 }

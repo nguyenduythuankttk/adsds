@@ -10,7 +10,7 @@
 -- Mật khẩu đăng nhập cho mọi tài khoản: password
 -- (BCrypt hash cost=12 cho chuỗi "password")
 -- ================================================================
-
+USE DBjolibi;
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
@@ -39,11 +39,10 @@ TRUNCATE TABLE ProductVarient;
 TRUNCATE TABLE Product;
 TRUNCATE TABLE DiningTable;
 TRUNCATE TABLE Warehouse;
-TRUNCATE TABLE UserAddress;
 TRUNCATE TABLE EmailVerificationToken;
 TRUNCATE TABLE BlackListedToken;
-TRUNCATE TABLE `User`;
 TRUNCATE TABLE Address;
+TRUNCATE TABLE `User`;
 TRUNCATE TABLE Store;
 TRUNCATE TABLE Supplier;
 TRUNCATE TABLE Ingredient;
@@ -59,32 +58,16 @@ VALUES (1, 'Jolibee - Chi nhánh Quận 5', '0909123456', 'q5@jolibee.vn', 5, 23
 
 
 -- ================================================================
--- 2. SUPPLIER (Nhà cung cấp)
+-- 2. SUPPLIER
 -- ================================================================
 INSERT INTO Supplier (SupplierID, SupplierName, Phone, Email, TaxCode, DeletedAt)
-VALUES (1, 'Cty TNHH Nguyên Liệu Việt', '02812345678', 'ncc@nguyen-lieu.vn', '0301234567', NULL);
+VALUES (1, 'Cty TNHH Nguyên Liệu Việt', '0281234567', 'ncc@nguyen-lieu.vn', '0301234567', NULL);
 
 
 -- ================================================================
--- 3. ADDRESS
---   - add...-001 : địa chỉ cửa hàng (StoreID=1)
---   - add...-002 : địa chỉ nhà cung cấp (SupplierID=1)
---   - add...-003 : địa chỉ khách hàng (dùng trong UserAddress & DeliveryInfo)
--- ================================================================
-INSERT INTO Address (AddressID, HouseNumber, Street, Ward, District, Province, Country, StoreID, SupplierID)
-VALUES
-  ('add00001-0000-0000-0000-000000000001', 123, 'Nguyễn Trãi',   'Phường 2',  'Quận 5',    'TP. Hồ Chí Minh', 'Viet Nam', 1,    NULL),
-  ('add00001-0000-0000-0000-000000000002',  45, 'Điện Biên Phủ', 'Phường 15', 'Bình Thạnh','TP. Hồ Chí Minh', 'Viet Nam', NULL, 1),
-  ('add00001-0000-0000-0000-000000000003',  88, 'Lê Văn Sỹ',     'Phường 13', 'Quận 3',    'TP. Hồ Chí Minh', 'Viet Nam', NULL, NULL);
-
-
--- ================================================================
--- 4. USER (Bảng dùng chung TPH cho cả User thường lẫn Employee)
---
+-- 3. USER
 -- Discriminator = 'User'     → khách hàng thường
 -- Discriminator = 'Employee' → nhân viên (có thêm Role, BasicSalary, StoreID)
---
--- Mật khẩu mọi tài khoản: password
 -- ================================================================
 INSERT INTO `User` (
   UserID, Discriminator,
@@ -94,7 +77,7 @@ INSERT INTO `User` (
   Role, BasicSalary, StoreID, DeleteAt
 ) VALUES
 
--- ---- Khách hàng thường ----
+-- Khách hàng
 ('usr00001-0000-0000-0000-000000000001', 'User',
  'nguyen_van_a',
  '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/lewKyBArcFMuf5Ede',
@@ -111,7 +94,7 @@ INSERT INTO `User` (
  NULL, NULL, NULL, NULL, NULL,
  NULL, NULL, NULL, NULL),
 
--- ---- Nhân viên: Quản lý ----
+-- Nhân viên: Quản lý
 ('emp00001-0000-0000-0000-000000000001', 'Employee',
  'manager_q5',
  '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/lewKyBArcFMuf5Ede',
@@ -120,7 +103,7 @@ INSERT INTO `User` (
  NULL, NULL, NULL, NULL, NULL,
  'Manager', 15000000.00, 1, NULL),
 
--- ---- Nhân viên: Phục vụ ----
+-- Nhân viên: Phục vụ
 ('emp00001-0000-0000-0000-000000000002', 'Employee',
  'dining_nga',
  '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/lewKyBArcFMuf5Ede',
@@ -129,7 +112,7 @@ INSERT INTO `User` (
  NULL, NULL, NULL, NULL, NULL,
  'Dining', 8000000.00, 1, NULL),
 
--- ---- Nhân viên: Bếp ----
+-- Nhân viên: Bếp
 ('emp00001-0000-0000-0000-000000000003', 'Employee',
  'kitchen_khai',
  '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/lewKyBArcFMuf5Ede',
@@ -140,19 +123,25 @@ INSERT INTO `User` (
 
 
 -- ================================================================
--- 5. USER ADDRESS (Địa chỉ giao hàng của khách)
+-- 4. ADDRESS
+--   add...-001 : địa chỉ cửa hàng  (StoreID=1)
+--   add...-002 : địa chỉ nhà cung cấp (SupplierID=1)
+--   add...-003 : địa chỉ của nguyen_van_a
+--   add...-004 : địa chỉ của tran_thi_b
+--
+-- Lưu ý: UserAddress table đã bị xóa (migration UserAddressOneToMany).
+-- Địa chỉ khách hàng bây giờ dùng cột UserID trực tiếp trên bảng Address.
 -- ================================================================
-INSERT INTO UserAddress (UserID, AddressID, IsDefault)
+INSERT INTO Address (AddressID, HouseNumber, Street, Ward, District, Province, Country, StoreID, SupplierID, UserID, IsDefault)
 VALUES
-  ('usr00001-0000-0000-0000-000000000001', 'add00001-0000-0000-0000-000000000003', 1),
-  ('usr00001-0000-0000-0000-000000000002', 'add00001-0000-0000-0000-000000000003', 1);
+  ('add00001-0000-0000-0000-000000000001', 123, 'Nguyễn Trãi',   'Phường 2',  'Quận 5',    'TP. Hồ Chí Minh', 'Viet Nam', 1,    NULL, NULL, 0),
+  ('add00001-0000-0000-0000-000000000002',  45, 'Điện Biên Phủ', 'Phường 15', 'Bình Thạnh','TP. Hồ Chí Minh', 'Viet Nam', NULL, 1,    NULL, 0),
+  ('add00001-0000-0000-0000-000000000003',  88, 'Lê Văn Sỹ',     'Phường 13', 'Quận 3',    'TP. Hồ Chí Minh', 'Viet Nam', NULL, NULL, 'usr00001-0000-0000-0000-000000000001', 1),
+  ('add00001-0000-0000-0000-000000000004',  88, 'Lê Văn Sỹ',     'Phường 13', 'Quận 3',    'TP. Hồ Chí Minh', 'Viet Nam', NULL, NULL, 'usr00001-0000-0000-0000-000000000002', 1);
 
 
 -- ================================================================
--- 6. INGREDIENT (Nguyên liệu)
--- CostPerUnit: đơn vị theo IngredientUnit
---   Gram  → đ/gram   (ví dụ: bánh phở 50đ/g)
---   Liter → đ/liter  (ví dụ: sữa 30,000đ/L)
+-- 5. INGREDIENT
 -- ================================================================
 INSERT INTO Ingredient (IngredientID, IngredientName, IngredientUnit, CostPerUnit, DeletedAt)
 VALUES
@@ -164,7 +153,8 @@ VALUES
 
 
 -- ================================================================
--- 7. PRODUCT (Sản phẩm)
+-- 6. PRODUCT
+-- ProductID 6 là sản phẩm Combo (type='Combo'), dùng cho ComboDetail
 -- ================================================================
 INSERT INTO Product (ProductID, ProductName, ProductType, Image, DeletedAt)
 VALUES
@@ -177,49 +167,46 @@ VALUES
 
 
 -- ================================================================
--- 8. PRODUCT VARIANT (Phân loại / size)
+-- 7. PRODUCT VARIANT
 -- ================================================================
-INSERT INTO ProductVarient (ProductVarientID, ProductID, Size, Price, DeletedAt)
+INSERT INTO ProductVarient (ProductVarientID, ProductID, Size, Price, IsActive, DeletedAt)
 VALUES
-  (1, 1, 'Default', 65000, NULL),   -- Phở Bò
-  (2, 2, 'Default', 30000, NULL),   -- Bánh Mì Thịt
-  (3, 3, 'S',       25000, NULL),   -- Cà Phê Đen S
-  (4, 3, 'M',       30000, NULL),   -- Cà Phê Đen M
-  (5, 4, 'M',       45000, NULL),   -- Trà Sữa M
-  (6, 4, 'L',       55000, NULL),   -- Trà Sữa L
-  (7, 5, 'Default',  5000, NULL),   -- Đường Thêm
-  (8, 6, 'Default', 80000, NULL);   -- Combo Phở + Cà Phê
+  (1, 1, 'Default', 65000, 1, NULL),   -- Phở Bò
+  (2, 2, 'Default', 30000, 1, NULL),   -- Bánh Mì Thịt
+  (3, 3, 'S',       25000, 1, NULL),   -- Cà Phê Đen S
+  (4, 3, 'M',       30000, 1, NULL),   -- Cà Phê Đen M
+  (5, 4, 'M',       45000, 1, NULL),   -- Trà Sữa M
+  (6, 4, 'L',       55000, 1, NULL),   -- Trà Sữa L
+  (7, 5, 'Default',  5000, 1, NULL);   -- Đường Thêm
 
 
 -- ================================================================
--- 9. RECIPE / RECEIPE (Công thức nguyên liệu cho từng variant)
--- QtyBeforeProcess: lượng nguyên liệu thô cần dùng (gram/liter)
--- QtyAfterProcess : lượng thực tế sau chế biến
--- ================================================================
-INSERT INTO Receipe (IngredientID, ProductVarientID, QtyBeforeProcess, QtyAfterProcess, DeletedAt)
-VALUES
-  (1, 1, 200,  180,  NULL),   -- Bánh phở   → Phở Bò Default
-  (2, 1, 150,  120,  NULL),   -- Thịt bò    → Phở Bò Default
-  (3, 3,  20,   18,  NULL),   -- Cà phê rang → Cà Phê Đen S
-  (3, 4,  25,   22,  NULL),   -- Cà phê rang → Cà Phê Đen M
-  (4, 5,  15,   12,  NULL),   -- Trà xanh   → Trà Sữa M
-  (5, 5,   0.15, 0.15, NULL); -- Sữa tươi   → Trà Sữa M (150ml)
-
-
--- ================================================================
--- 10. COMBO DETAIL
--- Combo giờ là một Product (type='Combo', ProductID=6)
--- ComboDetail liên kết combo product với các thành phần (đều FK tới Product)
--- Giá lẻ: 65,000 + 25,000 = 90,000 → combo tiết kiệm 10,000đ
+-- 8. COMBO DETAIL
+-- Lưu ý: Combo table và ComboProduct table đã bị xóa (migration RemoveCombo).
+-- Hiện tại dùng ComboDetail: ComboID → Product(Combo), ProductID → Product(thành phần)
+-- Combo Phở + Cà Phê (ProductID=6) gồm: Phở Bò (1) + Cà Phê Đen (3)
 -- ================================================================
 INSERT INTO ComboDetail (ComboID, ProductID, qty)
 VALUES
-  (6, 1, 1),   -- Combo Phở+Cà Phê gồm: 1x Phở Bò
-  (6, 3, 1);   -- Combo Phở+Cà Phê gồm: 1x Cà Phê Đen
+  (6, 1, 1),   -- Combo chứa 1x Phở Bò
+  (6, 3, 1);   -- Combo chứa 1x Cà Phê Đen
 
 
 -- ================================================================
--- 11. DINING TABLE (Bàn ăn)
+-- 9. RECIPE
+-- ================================================================
+INSERT INTO Receipe (IngredientID, ProductVarientID, QtyBeforeProcess, QtyAfterProcess, DeletedAt)
+VALUES
+  (1, 1, 200,    180,   NULL),   -- Bánh phở    → Phở Bò Default
+  (2, 1, 150,    120,   NULL),   -- Thịt bò     → Phở Bò Default
+  (3, 3,  20,     18,   NULL),   -- Cà phê rang → Cà Phê Đen S
+  (3, 4,  25,     22,   NULL),   -- Cà phê rang → Cà Phê Đen M
+  (4, 5,  15,     12,   NULL),   -- Trà xanh    → Trà Sữa M
+  (5, 5,   0.15,   0.15, NULL);  -- Sữa tươi    → Trà Sữa M (150ml)
+
+
+-- ================================================================
+-- 10. DINING TABLE
 -- ================================================================
 INSERT INTO DiningTable (TableID, StoreID, TableNumber, Capacity, Status, DeletedAt)
 VALUES
@@ -229,14 +216,14 @@ VALUES
 
 
 -- ================================================================
--- 12. WAREHOUSE (Kho)
+-- 11. WAREHOUSE
 -- ================================================================
 INSERT INTO Warehouse (WarehouseID, StoreID, Capacity, DeletedAt)
 VALUES (1, 1, 1000, NULL);
 
 
 -- ================================================================
--- 13. TICKET (Mã giảm giá - 20% cho tran_thi_b)
+-- 12. TICKET (Mã giảm giá 20% cho tran_thi_b)
 -- ================================================================
 INSERT INTO Ticket (TicketID, StartDate, EndDate, Discount, DeletedAt, UsedAt, UsedBy, UserID)
 VALUES (
@@ -251,7 +238,7 @@ VALUES ('tic00001-0000-0000-0000-000000000001', 'usr00001-0000-0000-0000-0000000
 
 
 -- ================================================================
--- 14. SHIFT (Ca làm việc ngày 2026-05-10)
+-- 13. SHIFT
 -- ================================================================
 INSERT INTO Shift (ShiftID, EmployeeID, TimeIn, TimeOut, CheckIn, CheckOut, DeletedAt)
 VALUES
@@ -272,10 +259,9 @@ VALUES
 
 
 -- ================================================================
--- 15. PURCHASE ORDER & DETAILS & APPROVAL (Đặt hàng nhập)
---
--- PO tổng: 5000g bánh phở × 50đ/g = 250,000đ
---        + 3000g thịt bò  × 200đ/g = 600,000đ
+-- 14. PURCHASE ORDER
+-- PO tổng: 5000g bánh phở × 50đ = 250,000đ
+--        + 3000g thịt bò  × 200đ = 600,000đ
 --        = 850,000đ + thuế 10% = 935,000đ
 -- ================================================================
 INSERT INTO PurchaseOrder (POID, StoreID, SupplierID, TaxRate, Total, DeletedAt)
@@ -286,7 +272,6 @@ VALUES
   ('po000001-0000-0000-0000-000000000001', 1, 5000, 50),
   ('po000001-0000-0000-0000-000000000001', 2, 3000, 200);
 
--- Manager duyệt đơn
 INSERT INTO POApproval (POApprovalID, POID, EmployeeID, LastUpdated, Comment, Status)
 VALUES (
   'poa00001-0000-0000-0000-000000000001',
@@ -297,11 +282,9 @@ VALUES (
 
 
 -- ================================================================
--- 16. RECEIPT (Phiếu nhập hàng)
---
--- Bếp nhận hàng thực tế từ NCC theo PO trên
--- Bánh phở: đặt 5000g, nhận đạt chất lượng 4950g (hao hụt 50g)
--- Thịt bò : đặt 3000g, nhận đủ  3000g
+-- 15. RECEIPT
+-- Bánh phở: đặt 5000g, nhận đạt 4950g (hao hụt 50g)
+-- Thịt bò : đặt 3000g, nhận đủ 3000g
 -- ================================================================
 INSERT INTO Receipt (ReceiptID, DateReceive, DeletedAt, EmployeeID, StoreID, SupplierID, POID)
 VALUES (
@@ -328,11 +311,7 @@ VALUES (
 
 
 -- ================================================================
--- 17. INVENTORY BATCH (Lô hàng trong kho)
---
--- Mỗi ReceiptDetail tạo ra 1 InventoryBatch tương ứng
--- bat...-001 : lô bánh phở  (4950g nhập, còn 4700g sau khi đã dùng)
--- bat...-002 : lô thịt bò   (3000g nhập, còn 2850g sau khi đã dùng)
+-- 16. INVENTORY BATCH
 -- ================================================================
 INSERT INTO InventoryBatch (
   BatchID, WarehouseID,
@@ -358,14 +337,13 @@ INSERT INTO InventoryBatch (
 
 
 -- ================================================================
--- 18. STOCK MOVEMENT (Lịch sử xuất nhập kho)
+-- 17. STOCK MOVEMENT
 -- ================================================================
 INSERT INTO StockMovement (
   StockMovementID, BatchID, EmployeeID,
   QtyChange, MovementType, ReferenceType,
   TimeStamp, Reason, Note, DeleteAt
 ) VALUES
-  -- Nhập kho khi nhận hàng
   ('stm00001-0000-0000-0000-000000000001',
    'bat00001-0000-0000-0000-000000000001',
    'emp00001-0000-0000-0000-000000000003',
@@ -378,7 +356,6 @@ INSERT INTO StockMovement (
    3000, 'PurchaseReceipt', 'GoodsReceipt',
    '2026-05-09 10:30:00', 'Nhập kho từ phiếu nhập REC-001', NULL, NULL),
 
-  -- Xuất kho khi làm món (cho hoá đơn bên dưới)
   ('stm00001-0000-0000-0000-000000000003',
    'bat00001-0000-0000-0000-000000000001',
    'emp00001-0000-0000-0000-000000000003',
@@ -393,16 +370,13 @@ INSERT INTO StockMovement (
 
 
 -- ================================================================
--- 19. BILL (Hoá đơn)
---
+-- 18. BILL
 -- Bill 1: Ăn tại bàn (Table 1) - nguyen_van_a
 --   1x Phở Bò Default (65,000đ) + 1x Cà Phê Đen M (30,000đ)
 --   Tổng trước thuế: 95,000đ | VAT 10% | Tổng: 104,500đ
---   Trả tiền mặt: 110,000đ → thối: 5,500đ
 --
--- Bill 2: Giao hàng (TableID=NULL) - tran_thi_b
+-- Bill 2: Giao hàng - tran_thi_b
 --   1x Trà Sữa M (45,000đ) | VAT 10% | Tổng: 49,500đ
---   Trả bằng thẻ: đúng số tiền
 -- ================================================================
 INSERT INTO Bill (
   BillID, UserID, StoreID, VAT, PaymentMethods, Note,
@@ -420,15 +394,12 @@ INSERT INTO Bill (
 
 INSERT INTO BillDetail (BillID, ProductVarientID, Quantity, Price, InlineTotal)
 VALUES
-  -- Bill 1
   ('bil00001-0000-0000-0000-000000000001', 1, 1, 65000, 65000),
   ('bil00001-0000-0000-0000-000000000001', 4, 1, 30000, 30000),
-  -- Bill 2
   ('bil00001-0000-0000-0000-000000000002', 5, 1, 45000, 45000);
 
 INSERT INTO BillChange (BillChangeID, BillID, EmployeeID, ChangeAt, Status)
 VALUES
-  -- Bill 1: tạo → thanh toán
   ('bch00001-0000-0000-0000-000000000001',
    'bil00001-0000-0000-0000-000000000001',
    'emp00001-0000-0000-0000-000000000002',
@@ -437,8 +408,6 @@ VALUES
    'bil00001-0000-0000-0000-000000000001',
    'emp00001-0000-0000-0000-000000000002',
    '2026-05-10 12:30:00', 'Paid'),
-
-  -- Bill 2: tạo → thanh toán
   ('bch00001-0000-0000-0000-000000000003',
    'bil00001-0000-0000-0000-000000000002',
    'emp00001-0000-0000-0000-000000000002',
@@ -450,14 +419,15 @@ VALUES
 
 
 -- ================================================================
--- 20. DELIVERY INFO & LOG (Thông tin giao hàng cho Bill 2)
+-- 19. DELIVERY INFO & LOG (cho Bill 2)
+-- Dùng add...-004 vì đó là địa chỉ của tran_thi_b
 -- ================================================================
 INSERT INTO DeliveryInfo (DeliveryID, BillID, UserID, AddressID, ShippingFee, Note, DeletedAt)
 VALUES (
   'del00001-0000-0000-0000-000000000001',
   'bil00001-0000-0000-0000-000000000002',
   'usr00001-0000-0000-0000-000000000002',
-  'add00001-0000-0000-0000-000000000003',
+  'add00001-0000-0000-0000-000000000004',
   15000, NULL, NULL
 );
 
@@ -480,9 +450,7 @@ VALUES
 
 
 -- ================================================================
--- DONE ✓
--- Dữ liệu đã được tạo thành công.
---
+-- DONE
 -- TÀI KHOẢN TEST:
 -- ┌─────────────────┬────────────────────────┬──────────┬──────────┐
 -- │ UserName        │ Email                  │ Password │ Role     │
@@ -493,8 +461,4 @@ VALUES
 -- │ nguyen_van_a    │ van.a@gmail.com        │ password │ User     │
 -- │ tran_thi_b      │ thi.b@gmail.com        │ password │ User     │
 -- └─────────────────┴────────────────────────┴──────────┴──────────┘
---
--- LƯU Ý: Nếu đăng nhập báo sai mật khẩu, hash trong DB chưa đúng.
--- Cách fix: Chạy code C# sau để lấy hash mới, rồi UPDATE bảng User:
---   string hash = BCrypt.Net.BCrypt.HashPassword("password", workFactor: 12);
 -- ================================================================

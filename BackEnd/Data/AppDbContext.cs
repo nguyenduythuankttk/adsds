@@ -26,6 +26,8 @@ namespace Backend.Data {
         public DbSet<PurchaseOrder> PurchaseOrder { get; set; }
         public DbSet<PODetail> PODetail { get; set; }
         public DbSet<POApproval> POApproval { get; set; }
+        public DbSet<ProcessingLog> ProcessingLog {get; set; }
+        public DbSet<ProcessingDetail> ProcessingDetail {get; set; }
         public DbSet<Receipt> Receipt { get; set; }
         public DbSet<ReceiptDetail> ReceiptDetail { get; set; }
         public DbSet<Warehouse> Warehouse { get; set; }
@@ -97,6 +99,17 @@ namespace Backend.Data {
                 .HasOne(x => x.Receipt).WithMany(r => r.ReceiptDetail).HasForeignKey(x => x.GoodsReceiptID).OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<ReceiptDetail>()
                 .HasOne(x => x.Ingredient).WithMany(i => i.ReceiptDetail).HasForeignKey(x => x.IngredientID).OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ProcessingDetail>()
+                .HasKey(x => new { x.ProcessingID, x.SourceBatchID });
+            modelBuilder.Entity<ProcessingDetail>()
+                .HasOne(x => x.ProcessingLog).WithMany(p => p.Details).HasForeignKey(x => x.ProcessingID).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<ProcessingDetail>()
+                .HasOne(x => x.SourceBatch).WithMany().HasForeignKey(x => x.SourceBatchID).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<ProcessingDetail>()
+                .HasOne(x => x.OutputBatch).WithMany().HasForeignKey(x => x.OutputBatchID).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<ProcessingDetail>()
+                .HasOne(x => x.OutputIngredient).WithMany().HasForeignKey(x => x.OutputIngredientID).OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<TicketUser>()
                 .HasKey(x => new { x.TicketID, x.UserID });
@@ -303,7 +316,7 @@ namespace Backend.Data {
                 .HasConversion<string>().HasMaxLength(20).IsRequired();
 
             modelBuilder.Entity<POApproval>()
-                .Property(x => x.Status)
+                .Property(x => x.POStatus)
                 .HasConversion<string>().HasMaxLength(20).IsRequired();
 
             modelBuilder.Entity<Ingredient>()
