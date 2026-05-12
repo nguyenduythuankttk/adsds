@@ -330,16 +330,16 @@ namespace Backend.Services.Implementations{
             }
         }
 
-        public async Task SoftDeleteBill(Guid billID){
-            try {
-                var bill = await _dbcontext.Bill.FirstOrDefaultAsync(b => b.BillID == billID);
-                if (bill == null) throw new Exception("Không tìm thấy hóa đơn");
-                bill.DeletedAt = DateTime.UtcNow;
-                _dbcontext.Bill.Update(bill);
-                await _dbcontext.SaveChangesAsync();
-            } catch (Exception e) {
-                throw new Exception("Lỗi khi xóa hóa đơn: " + e.Message);
-            }
-        }
+        // public async Task SoftDeleteBill(Guid billID){
+        //     try {
+        //         var bill = await _dbcontext.Bill.FirstOrDefaultAsync(b => b.BillID == billID);
+        //         if (bill == null) throw new Exception("Không tìm thấy hóa đơn");
+        //         bill.DeletedAt = DateTime.UtcNow;
+        //         _dbcontext.Bill.Update(bill);
+        //         await _dbcontext.SaveChangesAsync();
+        //     } catch (Exception e) {
+        //         throw new Exception("Lỗi khi xóa hóa đơn: " + e.Message);
+        //     }
+        // }
     }
 }
