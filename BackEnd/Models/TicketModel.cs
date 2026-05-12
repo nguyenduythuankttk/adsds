@@ -5,8 +5,8 @@ namespace Backend.Models {
     public class Ticket{
         [Key]
         public Guid TicketID {get; set;} 
-        public DateTime StartDate {get; set;}
-        public DateTime EndDate {get; set;}
+        public DateOnly StartDate {get; set;}
+        public DateOnly EndDate {get; set;}
         public decimal Discount {get; set;}
         public DateTime? DeletedAt {get; set;}
         public DateTime? UsedAt {get; set;}

@@ -22,10 +22,11 @@ public class HardDeleteService : BackgroundService {
 
                 try {
                     var cutoff = DateTime.UtcNow.AddDays(-30);
+                    var cutoffDateOnly = DateOnly.FromDateTime(cutoff);
                     var del = 0;
                     del += await db.Ticket.Where(x =>
                             (x.DeletedAt != null && x.DeletedAt < cutoff) ||
-                            (x.EndDate < cutoff) ||
+                            (x.EndDate < cutoffDateOnly) ||
                             (x.UsedAt != null && x.UsedAt < cutoff)
                             ).ExecuteDeleteAsync(token);
                     del += await db.Bill.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);

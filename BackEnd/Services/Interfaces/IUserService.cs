@@ -12,5 +12,6 @@ namespace Backend.Services.Interface
         Task <User?> GetUserByContact (string contact);
         Task UpdateUser(Guid userID, UserUpdateRequest request);
         Task SoftDeleteUser(Guid userID);
+        Task <int> GetQtyUser();
     }
 }

@@ -33,7 +33,7 @@ namespace Backend.Models.DTOs.Request{
         [Required]
         public int ProductVarientID{get; set;}
         [Range(1,int.MaxValue)]
-        public int qty{get; set;}
+        public decimal qty{get; set;}
     }
     public class BillChangeRequest{
         public Guid BillID{get; set;}

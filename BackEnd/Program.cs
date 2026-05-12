@@ -83,7 +83,7 @@ builder.Services.AddCors(options =>
             {
                 if (string.IsNullOrEmpty(origin)) return false;
                 var uri = new Uri(origin);
-                return uri.Host == "localhost" || uri.Host == "127.0.0.1";
+                return uri.Host == "localhost" || uri.Host == "127.0.0.1" || uri.Host == "dhstore.it.com";
             })
             .AllowAnyMethod()
             .AllowAnyHeader()
