@@ -122,10 +122,12 @@ namespace Backend.Services.Implementations{
                 bill.BillChange.Add(billChange);
                 _dbcontext.Bill.Add(bill);
                 await _dbcontext.SaveChangesAsync();
+                await ConsumeIngredients(bill.BillID, bill.BillDetail.ToList(), request.EmployeID ?? Guid.Empty);
+                await tx.CommitAsync();
             } catch (Exception e)
             {
-                Console.WriteLine("Error in BillService.CreateDineinBill" + e.Message);
-                throw new Exception("Error in BillService.CreateDineinBill");
+                await tx.RollbackAsync();
+                throw new Exception("Error in BillService.CreateDineinBill: " + e.Message);
             }
         }
         public async Task CreateDeliveryBill(DeliveryBillCreateRequest request)
@@ -197,11 +199,72 @@ namespace Backend.Services.Implementations{
                 _dbcontext.DeliveryInfo.Add(delivery);
 
                 await _dbcontext.SaveChangesAsync();
+                await ConsumeIngredients(bill.BillID, bill.BillDetail.ToList(), request.EmployeID ?? Guid.Empty);
                 await tx.CommitAsync();
             } catch (Exception e) {
                 await tx.RollbackAsync();
                 throw new Exception("Error in BillService.CreateDeliveryBill: " + e.Message);
             }
+        }
+
+        private async Task ConsumeIngredients(Guid billID, List<BillDetail> billDetails, Guid employeeID)
+        {
+            var productVarientIDs = billDetails.Select(d => d.ProductVarientID).ToList();
+            var recipes = await _dbcontext.Receipe
+                .Where(r => productVarientIDs.Contains(r.ProductVarientID) && r.DeletedAt == null)
+                .ToListAsync();
+
+            var now = DateTime.UtcNow;
+
+            foreach (var detail in billDetails)
+            {
+                var recipeItems = recipes.Where(r => r.ProductVarientID == detail.ProductVarientID).ToList();
+                foreach (var recipe in recipeItems)
+                {
+                    decimal totalToConsume = recipe.QtyAfterProcess * detail.Quantity;
+                    if (totalToConsume <= 0) continue;
+
+                    var batches = await _dbcontext.InventoryBatch
+                        .Where(b => b.IngredientID == recipe.IngredientID
+                                 && b.BatchType == BatchType.Processed
+                                 && b.Status == BatchStatus.Available
+                                 && b.QuantityOnHand > 0)
+                        .OrderBy(b => b.ImportDate)
+                        .ToListAsync();
+
+                    decimal remaining = totalToConsume;
+                    foreach (var batch in batches)
+                    {
+                        if (remaining <= 0) break;
+                        var deduct = Math.Min(remaining, batch.QuantityOnHand);
+                        batch.QuantityOnHand -= deduct;
+                        if (batch.QuantityOnHand <= 0)
+                        {
+                            batch.QuantityOnHand = 0;
+                            batch.Status = BatchStatus.Depleted;
+                        }
+                        batch.UpdatedAt = now;
+
+                        _dbcontext.StockMovement.Add(new StockMovement
+                        {
+                            StockMovementID = Guid.NewGuid(),
+                            BatchID         = batch.BatchID,
+                            EmployeeID      = employeeID,
+                            QtyChange       = -deduct,
+                            MovementType    = StockMovementType.Consumption,
+                            ReferenceType   = StockReferenceType.Bill,
+                            ReferenceID     = billID,
+                            TimeStamp       = now,
+                        });
+                        remaining -= deduct;
+                    }
+
+                    if (remaining > 0)
+                        throw new Exception($"Insufficient stock for IngredientID {recipe.IngredientID}: short by {remaining}.");
+                }
+            }
+
+            await _dbcontext.SaveChangesAsync();
         }
 
         public async Task ChangeBill(BillChangeRequest changeRequest){

@@ -27,12 +27,12 @@ namespace Backend.Models{
         public int SupplierID { get; set; }
         [ForeignKey("SupplierID")]
         public virtual Supplier Supplier { get; set; } = null!;
+        public DateTime? ConfirmedAt { get; set; }
         public Guid? POID { get; set; }
         [ForeignKey("POID")]
         [JsonIgnore]
         public virtual PurchaseOrder? PurchaseOrder { get; set; }
 
-        [JsonIgnore]
         public virtual ICollection<ReceiptDetail> ReceiptDetail { get; set; } = new List<ReceiptDetail>();
     }
 

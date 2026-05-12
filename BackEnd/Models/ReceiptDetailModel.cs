@@ -6,6 +6,7 @@ namespace Backend.Models {
     public class ReceiptDetail{
         public Guid GoodsReceiptID {get; set;}
         [ForeignKey("GoodsReceiptID")]
+        [JsonIgnore]
         public virtual Receipt Receipt {get; set;} = null!;
         public int IngredientID {get; set;}
         [ForeignKey("IngredientID")]
