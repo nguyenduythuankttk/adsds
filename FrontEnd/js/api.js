@@ -1,4 +1,4 @@
-const BASE_URL = 'https://dhstore.it.com/api/pbl3';
+const BASE_URL = 'https://api.dhstore.it.com/api/pbl3';
 
 /**
  * Wrapper fetch tự động gắn Authorization header.
