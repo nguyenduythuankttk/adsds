@@ -15,6 +15,12 @@ services:
       timeout: 5s
       retries: 5
 
+  mongo:
+    image: mongo:7
+    restart: always
+    volumes:
+      - mongo_data:/data/db
+
   backend:
     build:
       context: ./BackEnd
@@ -24,7 +30,7 @@ services:
       - "127.0.0.1:3000:8080"
     environment:
       ConnectionStrings__JolibiDatabase: "server=db;port=3306;database=jolibi;user=${MYSQL_USER};password=${MYSQL_PASSWORD};"
-      ConnectionStrings__JolibiMongoDB: ${MONGO_URI}
+      ConnectionStrings__JolibiMongoDB: "mongodb://mongo:27017"
       Jwt__Key: ${JWT_KEY}
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
@@ -33,6 +39,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      mongo:
+        condition: service_started
 
   frontend:
     image: nginx:alpine
@@ -44,3 +52,4 @@ services:
 
 volumes:
   mysql_data:
+  mongo_data:
