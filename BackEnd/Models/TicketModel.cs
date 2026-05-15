@@ -13,10 +13,6 @@ namespace Backend.Models {
         public Guid? UsedBy {get; set;}
         [ForeignKey("UsedBy")]
         [JsonIgnore]
-        public virtual User? UsedByUser {get; set;}
-        public Guid? UserID{get; set;}
-        [ForeignKey("UserID")]
-        [JsonIgnore]
         public virtual User? User {get; set;}
         [JsonIgnore]
         public virtual ICollection<TicketUser> TicketUser {get;set;} = new List<TicketUser>();
