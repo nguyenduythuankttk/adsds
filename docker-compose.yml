@@ -1,20 +1,4 @@
 services:
-  db:
-    image: mysql:8.0
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: jolibi
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    volumes:
-      - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   mongo:
     image: mongo:7
     restart: always
@@ -29,19 +13,19 @@ services:
     ports:
       - "127.0.0.1:3000:8080"
     environment:
-      ConnectionStrings__JolibiDatabase: "server=db;port=3306;database=jolibi;user=${MYSQL_USER};password=${MYSQL_PASSWORD};"
+      ConnectionStrings__JolibiDatabase: "server=host.docker.internal;port=3306;database=DBjolibi;user=root;password=${MYSQL_ROOT_PASSWORD};"
       ConnectionStrings__JolibiMongoDB: "mongodb://mongo:27017"
       Jwt__Key: ${JWT_KEY}
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__ExpiryMinutes: ${JWT_EXPIRY_MINUTES}
       Resend__ApiKey: ${RESEND_API_KEY}
+      ASPNETCORE_ENVIRONMENT: Development
     depends_on:
-      db:
-        condition: service_healthy
       mongo:
         condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
-  mysql_data:
   mongo_data:

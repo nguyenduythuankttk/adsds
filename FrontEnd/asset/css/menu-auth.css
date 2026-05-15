@@ -1,0 +1,82 @@
+
+#menu-login-modal.modal-overlay {
+    z-index: 2000;
+    animation: authBackdropIn 0.25s ease both;
+}
+
+@keyframes authBackdropIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+#menu-login-modal .modal-box {
+    animation: authBoxIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes authBoxIn {
+    from { opacity: 0; transform: scale(0.88) translateY(20px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Pending-item highlight strip shown at top of modal */
+.menu-auth-pending-hint {
+    background: linear-gradient(135deg, #fff5eb, #fff0e0);
+    border: 1px solid #ffd4a0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: #7a3800;
+    font-weight: 600;
+}
+
+.menu-auth-pending-hint .pending-icon {
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.menu-auth-pending-item-name {
+    font-weight: 800;
+    color: rgb(220, 77, 11);
+}
+
+/* User avatar badge in header after login */
+.menu-user-avatar-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.2);
+    border: 1.5px solid rgba(255,255,255,0.5);
+    border-radius: 20px;
+    padding: 0 12px;
+    height: 28px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 9px;
+    margin-right: 10px;
+    float: right;
+    transition: background 0.2s;
+}
+
+.menu-user-avatar-badge:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+.menu-user-initial {
+    width: 20px;
+    height: 20px;
+    background: #FFB800;
+    color: #4a2c0a;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 900;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Nunito', sans-serif;
+}
