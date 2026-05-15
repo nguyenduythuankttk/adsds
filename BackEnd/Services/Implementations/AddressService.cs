@@ -64,33 +64,42 @@ namespace Backend.Services.Implementations{
             }
         }
 
-        public async Task DeleteUserAddress(Guid addressID, Guid userID){
+        public async Task<bool> DeleteUserAddress(Guid addressID, Guid userID){
             try{
-                var address = await _dbContext.Address
-                    .FirstOrDefaultAsync(a => a.AddressID == addressID && a.UserID == userID);
-                if (address != null){
-                    _dbContext.Address.Remove(address);
-                    await _dbContext.SaveChangesAsync();
+                var addresses = await _dbContext.Address
+                    .Where(a => a.UserID == userID)
+                    .ToListAsync();
+                if (addresses.Count <= 1) return false;
+                var address = addresses.FirstOrDefault(a => a.AddressID == addressID);
+                if (address == null) return false;
+                bool wasDefault = address.IsDefault;
+                _dbContext.Address.Remove(address);
+                if (wasDefault){
+                    var next = addresses.FirstOrDefault(a => a.AddressID != addressID);
+                    if (next != null){
+                        next.IsDefault = true;
+                        _dbContext.Address.Update(next);
+                    }
                 }
+                await _dbContext.SaveChangesAsync();
+                return true;
             }catch (Exception ex){
                 Console.WriteLine(ex.Message);
+                return false;
             }
         }
 
         public async Task SetDefault(Guid addressID, Guid userID){
             try{
-                var oldDefault = await _dbContext.Address
-                    .FirstOrDefaultAsync(a => a.UserID == userID && a.IsDefault);
-                if (oldDefault != null){
-                    oldDefault.IsDefault = false;
-                    _dbContext.Address.Update(oldDefault);
-                }
+                var oldDefaults = await _dbContext.Address
+                    .Where(a => a.UserID == userID && a.IsDefault)
+                    .ToListAsync();
+                foreach (var old in oldDefaults)
+                    old.IsDefault = false;
                 var newDefault = await _dbContext.Address
                     .FirstOrDefaultAsync(a => a.UserID == userID && a.AddressID == addressID);
-                if (newDefault != null){
+                if (newDefault != null)
                     newDefault.IsDefault = true;
-                    _dbContext.Address.Update(newDefault);
-                }
                 await _dbContext.SaveChangesAsync();
             }catch(Exception ex){
                 Console.WriteLine(ex.Message);

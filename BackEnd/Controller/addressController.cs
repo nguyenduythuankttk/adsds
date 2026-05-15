@@ -91,7 +91,8 @@ namespace Backend.Controller {
                 if (address == null) return NotFound("Không tìm thấy địa chỉ");
                 if (address.UserID != userID) return Forbid();
 
-                await _addressService.DeleteUserAddress(addressID, userID);
+                var deleted = await _addressService.DeleteUserAddress(addressID, userID);
+                if (!deleted) return BadRequest("Không thể xóa địa chỉ duy nhất.");
                 return Ok("Xóa địa chỉ thành công");
             } catch (Exception e) {
                 return StatusCode(500, $"Error in addressController.DeleteAddress: {e.Message}");
