@@ -3,7 +3,14 @@
     "allow": [
       "Bash(dotnet build *)",
       "Bash(xargs cat *)",
-      "Bash(dotnet ef *)"
+      "Bash(dotnet ef *)",
+      "Bash(curl -v http://127.0.0.1:3000/)",
+      "Bash(docker exec *)",
+      "Bash(curl -sk https://127.0.0.1:3000/api/pbl3/auth/customer_login -X POST -H \"Content-Type: application/json\" -d '{\"UserName\":\"test\",\"HashPassword\":\"test\"}')",
+      "Bash(curl -v https://127.0.0.1:3000/)",
+      "Bash(docker network *)",
+      "Bash(curl -s -w \"\\\\nHTTP %{http_code}\" http://127.0.0.1:3000/api/pbl3/auth/customer_login -X POST -H \"Content-Type: application/json\" -d '{\"UserName\":\"test\",\"HashPassword\":\"test\"}')",
+      "Bash(curl -s http://127.0.0.1:3000/api/pbl3/auth/customer_login -X POST -H 'Content-Type: application/json' -d '{\"UserName\":\"testuser1\",\"HashPassword\":\"password123\"}')"
     ]
   }
 }

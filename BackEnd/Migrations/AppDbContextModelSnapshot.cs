@@ -702,13 +702,13 @@ namespace BackEnd.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<DateTime>("DateReceive")
                         .HasColumnType("datetime(6)");
 
                     b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime?>("ConfirmedAt")
                         .HasColumnType("datetime(6)");
 
                     b.Property<Guid>("EmployeeID")
@@ -963,11 +963,11 @@ namespace BackEnd.Migrations
                     b.Property<decimal>("Discount")
                         .HasColumnType("decimal(65,30)");
 
-                    b.Property<DateTime>("EndDate")
-                        .HasColumnType("datetime(6)");
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
 
-                    b.Property<DateTime>("StartDate")
-                        .HasColumnType("datetime(6)");
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
 
                     b.Property<DateTime?>("UsedAt")
                         .HasColumnType("datetime(6)");
@@ -975,14 +975,9 @@ namespace BackEnd.Migrations
                     b.Property<Guid?>("UsedBy")
                         .HasColumnType("char(36)");
 
-                    b.Property<Guid?>("UserID")
-                        .HasColumnType("char(36)");
-
                     b.HasKey("TicketID");
 
                     b.HasIndex("UsedBy");
-
-                    b.HasIndex("UserID");
 
                     b.ToTable("Ticket");
                 });
@@ -1574,15 +1569,9 @@ namespace BackEnd.Migrations
 
             modelBuilder.Entity("Backend.Models.Ticket", b =>
                 {
-                    b.HasOne("Backend.Models.User", "UsedByUser")
-                        .WithMany()
-                        .HasForeignKey("UsedBy");
-
                     b.HasOne("Backend.Models.User", "User")
                         .WithMany()
-                        .HasForeignKey("UserID");
-
-                    b.Navigation("UsedByUser");
+                        .HasForeignKey("UsedBy");
 
                     b.Navigation("User");
                 });

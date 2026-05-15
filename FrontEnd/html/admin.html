@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chônlibi — Quản Trị Hệ Thống</title>
+    <meta name="description" content="Trang quản trị toàn diện cho chuỗi cửa hàng Chônlibi">
+    <link rel="stylesheet" href="../asset/themify-icons/themify-icons.css">
+    <link rel="stylesheet" href="../asset/css/admin.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="adm-header">
+    <div class="adm-header-brand">
+        <span class="brand-logo"></span>
+        Chônlibi <span class="brand-badge">ADMIN</span>
+    </div>
+    <div class="adm-header-right">
+        <div class="header-time" id="adm-clock"></div>
+        <div class="header-user">
+            <div class="header-avatar" id="adm-avatar">A</div>
+            <span id="adm-username"></span>
+        </div>
+        <button class="adm-logout-btn" id="btn-logout">
+            <i class="ti-power-off"></i> Đăng Xuất
+        </button>
+    </div>
+</header>
+
+<div class="adm-body">
+
+    <!-- SIDEBAR -->
+    <aside class="adm-sidebar" id="adm-sidebar">
+        <div class="sidebar-group">
+            <div class="sidebar-section">Tổng Quan</div>
+            <a class="sidebar-item active" data-section="dashboard" id="nav-dashboard">
+                <i class="ti-home"></i><span>Dashboard</span>
+            </a>
+        </div>
+
+        <div class="sidebar-group">
+            <div class="sidebar-section">Cơ Cấu Hệ Thống</div>
+            <a class="sidebar-item" data-section="stores" id="nav-stores">
+                <i class="ti-map"></i><span>Chuỗi Cửa Hàng</span>
+            </a>
+            <a class="sidebar-item" data-section="products" id="nav-products">
+                <i class="ti-menu"></i><span>Thực Đơn & Sản Phẩm</span>
+            </a>
+            <a class="sidebar-item" data-section="recipes" id="nav-recipes">
+                <i class="ti-book"></i><span>Công Thức (Recipe)</span>
+            </a>
+        </div>
+
+        <div class="sidebar-group">
+            <div class="sidebar-section">Cung Ứng & Kho</div>
+            <a class="sidebar-item" data-section="suppliers" id="nav-suppliers">
+                <i class="ti-truck"></i><span>Nhà Cung Cấp</span>
+            </a>
+            <a class="sidebar-item" data-section="purchase-orders" id="nav-purchase-orders">
+                <i class="ti-clipboard"></i><span>Phê Duyệt Đơn Mua</span>
+                <span class="sidebar-badge" id="badge-po">2</span>
+            </a>
+            <a class="sidebar-item" data-section="inventory" id="nav-inventory">
+                <i class="ti-package"></i><span>Lô Hàng & Kho</span>
+            </a>
+        </div>
+
+        <div class="sidebar-group">
+            <div class="sidebar-section">Nhân Sự</div>
+            <a class="sidebar-item" data-section="employees" id="nav-employees">
+                <i class="ti-id-badge"></i><span>Nhân Viên</span>
+            </a>
+            <a class="sidebar-item" data-section="shifts" id="nav-shifts">
+                <i class="ti-calendar"></i><span>Ca Làm Việc</span>
+            </a>
+        </div>
+
+        <div class="sidebar-group">
+            <div class="sidebar-section">Marketing & CRM</div>
+            <a class="sidebar-item" data-section="tickets" id="nav-tickets">
+                <i class="ti-ticket"></i><span>Ưu Đãi & Mã Giảm Giá</span>
+            </a>
+        </div>
+
+        <div class="sidebar-group">
+            <div class="sidebar-section">Báo Cáo</div>
+            <a class="sidebar-item" data-section="reports" id="nav-reports">
+                <i class="ti-bar-chart"></i><span>Doanh Thu & Tài Chính</span>
+            </a>
+            <a class="sidebar-item" data-section="stock-movement" id="nav-stock-movement">
+                <i class="ti-stats-up"></i><span>Biến Động Kho</span>
+            </a>
+        </div>
+
+        <div class="sidebar-group">
+            <a class="sidebar-item sidebar-home" href="./index.html">
+                <i class="ti-arrow-left"></i><span>Về Trang Chủ</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="adm-main">
+
+        <!-- ══ 0. DASHBOARD ══ -->
+        <section class="adm-section active" id="section-dashboard">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Dashboard</div>
+                    <div class="page-sub">Tổng quan hoạt động toàn chuỗi hôm nay</div>
+                </div>
+            </div>
+
+            <div class="stats-grid" id="dash-stats"></div>
+
+            <div class="two-col">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><i class="ti-package"></i> Đơn hàng gần đây</div>
+                        <a class="panel-link" data-section="reports">Xem tất cả →</a>
+                    </div>
+                    <div class="tbl-wrap">
+                        <table>
+                            <thead><tr><th>Mã đơn</th><th>Cửa hàng</th><th>Tổng tiền</th><th>Trạng thái</th></tr></thead>
+                            <tbody id="dash-bill-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><i class="ti-alert"></i> Lô hàng sắp hết hạn</div>
+                    </div>
+                    <div class="tbl-wrap">
+                        <table>
+                            <thead><tr><th>Nguyên liệu</th><th>Cửa hàng</th><th>Hết hạn</th><th>SL</th></tr></thead>
+                            <tbody id="dash-exp-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CHUỖI CỬA HÀNG -->
+        <section class="adm-section" id="section-stores">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Quản Lý Chuỗi Cửa Hàng</div>
+                    <div class="page-sub">Thêm, chỉnh sửa thông tin các chi nhánh và tiện ích</div>
+                </div>
+                <button class="btn-primary" id="btn-add-store"><i class="ti-plus"></i> Thêm Chi Nhánh</button>
+            </div>
+            <div class="store-cards" id="store-cards"></div>
+        </section>
+
+        <!--THỰC ĐƠN & SẢN PHẨM -->
+        <section class="adm-section" id="section-products">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Thực Đơn & Sản Phẩm</div>
+                    <div class="page-sub">Quản lý danh mục, sản phẩm và biến thể (Size S/M/L)</div>
+                </div>
+                <div class="btn-group">
+                    <button class="btn-outline" id="btn-add-cat"><i class="ti-plus"></i> Danh Mục</button>
+                    <button class="btn-primary" id="btn-add-product"><i class="ti-plus"></i> Sản Phẩm</button>
+                </div>
+            </div>
+
+            <div class="two-col">
+                <div class="panel" style="max-width:260px;flex-shrink:0;">
+                    <div class="panel-header"><div class="panel-title">Danh Mục</div></div>
+                    <ul class="cat-list" id="cat-list"></ul>
+                </div>
+                <div class="panel" style="flex:1;">
+                    <div class="panel-header">
+                        <div class="panel-title">Danh Sách Sản Phẩm</div>
+                        <input class="search-input" id="product-search" placeholder="🔍 Tìm sản phẩm...">
+                    </div>
+                    <div class="tbl-wrap">
+                        <table>
+                            <thead><tr><th>#</th><th>Tên sản phẩm</th><th>Danh mục</th><th>Biến thể</th><th>Giá từ</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+                            <tbody id="product-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!--CÔNG THỨC RECIPE-->
+        <section class="adm-section" id="section-recipes">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Công Thức Chế Biến (Recipe)</div>
+                    <div class="page-sub">Chỉ Admin mới có quyền định nghĩa nguyên liệu cho từng món</div>
+                </div>
+                <button class="btn-primary" id="btn-add-recipe"><i class="ti-plus"></i> Thêm Công Thức</button>
+            </div>
+            <div class="panel">
+                <div class="panel-header"><div class="panel-title">Danh Sách Công Thức</div></div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead><tr><th>Sản Phẩm</th><th>Nguyên Liệu</th><th>Định Lượng</th><th>Đơn Vị</th><th>Thao Tác</th></tr></thead>
+                        <tbody id="recipe-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!--NHÀ CUNG CẤP -->
+        <section class="adm-section" id="section-suppliers">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Quản Lý Nhà Cung Cấp</div>
+                    <div class="page-sub">Thông tin đối tác cung cấp nguyên liệu</div>
+                </div>
+                <button class="btn-primary" id="btn-add-supplier"><i class="ti-plus"></i> Thêm NCC</button>
+            </div>
+            <div class="panel">
+                <div class="panel-header"><div class="panel-title">Danh Sách Nhà Cung Cấp</div></div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead><tr><th>#</th><th>Tên NCC</th><th>Liên hệ</th><th>SĐT</th><th>Email</th><th>Nguyên liệu cung cấp</th><th>Thao tác</th></tr></thead>
+                        <tbody id="supplier-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- PHÊ DUYỆT ĐƠN MUA-->
+        <section class="adm-section" id="section-purchase-orders">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Phê Duyệt Đơn Mua Hàng (PO)</div>
+                    <div class="page-sub">Xem xét và phê duyệt các đề xuất nhập hàng từ nhân viên</div>
+                </div>
+            </div>
+            <div class="filter-tabs" id="po-filter-tabs" style="margin-bottom:16px;">
+                <button class="ftab active" data-filter="pending">Chờ Duyệt</button>
+                <button class="ftab" data-filter="approved">Đã Duyệt</button>
+                <button class="ftab" data-filter="rejected">Đã Từ Chối</button>
+                <button class="ftab" data-filter="all">Tất Cả</button>
+            </div>
+            <div class="panel">
+                <div class="tbl-wrap">
+                    <table>
+                        <thead><tr><th>Mã PO</th><th>Chi Nhánh</th><th>NCC</th><th>Nguyên Liệu</th><th>Số Lượng</th><th>Tổng Tiền</th><th>Đề Xuất Bởi</th><th>Ngày</th><th>Trạng Thái</th><th>Hành Động</th></tr></thead>
+                        <tbody id="po-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!--LÔ HÀNG & KHO -->
+        <section class="adm-section" id="section-inventory">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Kiểm Soát Lô Hàng & Kho</div>
+                    <div class="page-sub">Theo dõi hạn sử dụng (Exp) và giá vốn (UnitCost) toàn hệ thống</div>
+                </div>
+            </div>
+            <div class="stats-grid" id="inv-stats"></div>
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">Danh Sách Lô Hàng</div>
+                    <div class="filter-tabs">
+                        <button class="ftab active" data-filter="all" id="inv-filter-all">Tất Cả</button>
+                        <button class="ftab" data-filter="expiring" id="inv-filter-exp">Sắp Hết Hạn</button>
+                        <button class="ftab" data-filter="expired" id="inv-filter-expired">Đã Hết Hạn</button>
+                    </div>
+                </div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead><tr><th>Mã Lô</th><th>Nguyên Liệu</th><th>Cửa Hàng</th><th>NCC</th><th>Số Lượng</th><th>Đơn Vị</th><th>Giá Vốn/Đơn Vị</th><th>Ngày Nhập</th><th>Hết Hạn</th><th>Tình Trạng</th></tr></thead>
+                        <tbody id="inv-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!--NHÂN VIÊN-->
+        <section class="adm-section" id="section-employees">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Quản Lý Nhân Viên</div>
+                    <div class="page-sub">Tạo tài khoản, quản lý thông tin và gán nhân viên vào chi nhánh</div>
+                </div>
+                <button class="btn-primary" id="btn-add-emp"><i class="ti-plus"></i> Thêm Nhân Viên</button>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">Danh Sách Nhân Viên</div>
+                    <input class="search-input" id="emp-search" placeholder="🔍 Tìm nhân viên...">
+                </div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead><tr><th>#</th><th>Họ Tên</th><th>Chức Vụ</th><th>Chi Nhánh</th><th>SĐT</th><th>Email</th><th>Ngày Vào</th><th>Trạng Thái</th><th>Thao Tác</th></tr></thead>
+                        <tbody id="emp-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!--CA LÀM VIỆC-->
+        <section class="adm-section" id="section-shifts">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Điều Phối Ca Làm Việc</div>
+                    <div class="page-sub">Lịch trình ca theo tuần, hỗ trợ tính lương và đánh giá hiệu suất</div>
+                </div>
+                <button class="btn-primary" id="btn-add-shift"><i class="ti-plus"></i> Thêm Ca</button>
+            </div>
+            <div class="two-col" style="align-items:flex-start;">
+                <div class="panel" style="max-width:300px;flex-shrink:0;">
+                    <div class="panel-header"><div class="panel-title">Định Nghĩa Ca</div></div>
+                    <ul class="shift-def-list" id="shift-def-list"></ul>
+                </div>
+                <div class="panel" style="flex:1;">
+                    <div class="panel-header"><div class="panel-title">Lịch Ca Tuần Này</div></div>
+                    <div class="tbl-wrap">
+                        <table>
+                            <thead><tr><th>Nhân Viên</th><th>Chi Nhánh</th><th>Ca</th><th>Ngày</th><th>Check-in</th><th>Check-out</th><th>Trạng Thái</th></tr></thead>
+                            <tbody id="shift-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!--ƯU ĐÃI & MÃ GIẢM GIÁ -->
+        <section class="adm-section" id="section-tickets">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Quản Lý Ưu Đãi & Mã Giảm Giá</div>
+                    <div class="page-sub">Thiết lập chương trình khuyến mãi, mã giảm giá và thời hạn</div>
+                </div>
+                <button class="btn-primary" id="btn-add-ticket"><i class="ti-plus"></i> Tạo Ưu Đãi</button>
+            </div>
+            <div class="ticket-cards" id="ticket-cards"></div>
+            <div class="panel" style="margin-top:20px;">
+                <div class="panel-header"><div class="panel-title">Tất Cả Mã Ưu Đãi</div></div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead><tr><th>Mã Code</th><th>Tên Chương Trình</th><th>Giảm Giá</th><th>Bắt Đầu</th><th>Hết Hạn</th><th>Đã Dùng / Tổng</th><th>Trạng Thái</th><th>Thao Tác</th></tr></thead>
+                        <tbody id="ticket-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!--DOANH THU & TÀI CHÍNH-->
+        <section class="adm-section" id="section-reports">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Báo Cáo Doanh Thu & Tài Chính</div>
+                    <div class="page-sub">Tổng hợp từ hóa đơn (Bill), đối soát tiền nhận / tiền thối</div>
+                </div>
+                <div class="btn-group">
+                    <select class="search-input" id="report-store-filter" style="width:160px;">
+                        <option value="all">Tất cả chi nhánh</option>
+                    </select>
+                    <select class="search-input" id="report-period" style="width:140px;">
+                        <option value="today">Hôm nay</option>
+                        <option value="week" selected>Tuần này</option>
+                        <option value="month">Tháng này</option>
+                    </select>
+                </div>
+            </div>
+            <div class="stats-grid" id="report-stats"></div>
+            <div class="panel">
+                <div class="panel-header"><div class="panel-title">Chi Tiết Hóa Đơn (Bill)</div></div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead><tr><th>Mã Bill</th><th>Cửa Hàng</th><th>Nhân Viên</th><th>Tổng Tiền</th><th>Tiền Nhận</th><th>Tiền Thối</th><th>Phương Thức TT</th><th>Ngày</th><th>Trạng Thái</th></tr></thead>
+                        <tbody id="bill-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!--BIẾN ĐỘNG KHO-->
+        <section class="adm-section" id="section-stock-movement">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Phân Tích Biến Động Kho</div>
+                    <div class="page-sub">Theo dõi hao hụt nguyên liệu, phát hiện gian lận trong chế biến</div>
+                </div>
+                <select class="search-input" id="sm-store-filter" style="width:200px;">
+                    <option value="all">Tất cả chi nhánh</option>
+                </select>
+            </div>
+            <div class="stats-grid" id="sm-stats"></div>
+            <div class="panel">
+                <div class="panel-header"><div class="panel-title">Lịch Sử Biến Động</div></div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead><tr><th>Nguyên Liệu</th><th>Cửa Hàng</th><th>Loại</th><th>Số Lượng</th><th>Đơn Vị</th><th>Lý Do</th><th>Nhân Viên</th><th>Ngày</th></tr></thead>
+                        <tbody id="sm-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<!-- ══ MODAL OVERLAY ══ -->
+<div class="modal-overlay" id="modal-overlay">
+    <div class="modal-box" id="modal-box">
+        <div class="modal-header">
+            <div class="modal-title" id="modal-title">Modal</div>
+            <button class="modal-close" id="modal-close">×</button>
+        </div>
+        <div class="modal-body" id="modal-body"></div>
+        <div class="modal-footer">
+            <button class="btn-outline" id="modal-cancel">Huỷ</button>
+            <button class="btn-primary" id="modal-confirm">Xác Nhận</button>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toast-container"></div>
+
+<script src="../asset/js/api.js"></script>
+<script src="../asset/js/admin.js"></script>
+</body>
+</html>

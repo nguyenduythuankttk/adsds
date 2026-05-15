@@ -128,6 +128,8 @@ namespace Backend.Services.Implementations
                 throw new Exception($"An error occured while deleting user: {ex.Message}");
             }
         }
+        public async Task <int> GetQtyUser() =>
+        await _dbContext.User.Where(u => u.DeletedAt == null).CountAsync();
             
     }
 }

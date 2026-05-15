@@ -1,0 +1,31 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: always
+    volumes:
+      - mongo_data:/data/db
+
+  backend:
+    build:
+      context: ./BackEnd
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "127.0.0.1:3000:8080"
+    environment:
+      ConnectionStrings__JolibiDatabase: "server=host.docker.internal;port=3306;database=DBjolibi;user=root;password=${MYSQL_ROOT_PASSWORD};"
+      ConnectionStrings__JolibiMongoDB: "mongodb://mongo:27017"
+      Jwt__Key: ${JWT_KEY}
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+      Jwt__ExpiryMinutes: ${JWT_EXPIRY_MINUTES}
+      Resend__ApiKey: ${RESEND_API_KEY}
+      ASPNETCORE_ENVIRONMENT: Development
+    depends_on:
+      mongo:
+        condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  mongo_data:

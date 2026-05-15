@@ -9,7 +9,7 @@ namespace Backend.Services.Interface{
         Task<List<Address>> GetUserAddress(User user);
         Task AddAddress(AddressCreateRequest request);
         Task AddUserAddress(Address address, Guid userID);
-        Task DeleteUserAddress(Guid address,Guid user);
+        Task<bool> DeleteUserAddress(Guid address,Guid user);
         Task SetDefault(Guid address, Guid user);
         Task<Address?> GetDefaultAddress (Guid user);
     }
