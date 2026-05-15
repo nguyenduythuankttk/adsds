@@ -1,3 +1,6 @@
+
+
+
 # Workflow Sơ Chế (Processing) — Hệ thống Quản lý Kho Gà Rán
 
 ## Mục đích tài liệu này
