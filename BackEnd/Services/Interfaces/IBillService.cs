@@ -9,6 +9,6 @@ namespace Backend.Services.Interface{
         Task CreateDineInBill(DineInBillCreateRequest request);
         Task CreateDeliveryBill(DeliveryBillCreateRequest request);
         Task ChangeBill(BillChangeRequest changeRequest);
-        Task SoftDeleteBill(Guid billID);
+        // Task SoftDeleteBill(Guid billID);
     }
 }

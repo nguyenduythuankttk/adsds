@@ -240,7 +240,6 @@ namespace Backend.Services.Implementations
             try
             {
                 var confirmedAt = DateTime.UtcNow;
-                var batchesCreated = new List<BatchCreatedLine>();
 
                 foreach (var detail in receipt.ReceiptDetail)
                 {
@@ -267,7 +266,8 @@ namespace Backend.Services.Implementations
                         BatchCode        = batchCode,
                     };
 
-                    var movement = new StockMovement
+                    _dbContext.InventoryBatch.Add(batch);
+                    _dbContext.StockMovement.Add(new StockMovement
                     {
                         StockMovementID = Guid.NewGuid(),
                         BatchID         = batch.BatchID,
@@ -277,18 +277,6 @@ namespace Backend.Services.Implementations
                         ReferenceType   = StockReferenceType.GoodsReceipt,
                         ReferenceID     = receipt.ReceiptID,
                         TimeStamp       = confirmedAt,
-                    };
-
-                    _dbContext.InventoryBatch.Add(batch);
-                    _dbContext.StockMovement.Add(movement);
-
-                    batchesCreated.Add(new BatchCreatedLine
-                    {
-                        BatchID       = batch.BatchID,
-                        IngredientID  = detail.IngredientID,
-                        IngredientName = detail.Ingredient.IngredientName,
-                        QuantityOnHand = batch.QuantityOnHand,
-                        BatchCode     = batchCode,
                     });
                 }
 
@@ -306,10 +294,24 @@ namespace Backend.Services.Implementations
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
 
+                var batchesCreated = await _dbContext.InventoryBatch
+                    .AsNoTracking()
+                    .Where(b => b.GoodsReceiptID == receipt.ReceiptID)
+                    .Include(b => b.Ingredient)
+                    .Select(b => new BatchCreatedLine
+                    {
+                        BatchID        = b.BatchID,
+                        IngredientID   = b.IngredientID,
+                        IngredientName = b.Ingredient.IngredientName,
+                        QuantityOnHand = b.QuantityOnHand,
+                        BatchCode      = b.BatchCode ?? "",
+                    })
+                    .ToListAsync();
+
                 return new ConfirmReceiptResponse
                 {
-                    ReceiptID     = receipt.ReceiptID,
-                    ConfirmedAt   = confirmedAt,
+                    ReceiptID      = receipt.ReceiptID,
+                    ConfirmedAt    = confirmedAt,
                     BatchesCreated = batchesCreated,
                 };
             }

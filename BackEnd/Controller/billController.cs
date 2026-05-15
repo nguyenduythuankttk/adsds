@@ -107,15 +107,15 @@ namespace Backend.Controller {
             }
         }
 
-        [Authorize(Roles = "Manager")]
-        [HttpDelete("delete/{billID}")]
-        public async Task<IActionResult> SoftDelete(Guid billID) {
-            try {
-                await _billService.SoftDeleteBill(billID);
-                return Ok("Xóa hóa đơn thành công");
-            } catch (Exception e) {
-                return StatusCode(500, $"Error in billController.SoftDelete: {e.Message}");
-            }
-        }
+        // [Authorize(Roles = "Manager")]
+        // [HttpDelete("delete/{billID}")]
+        // public async Task<IActionResult> SoftDelete(Guid billID) {
+        //     try {
+        //         await _billService.SoftDeleteBill(billID);
+        //         return Ok("Xóa hóa đơn thành công");
+        //     } catch (Exception e) {
+        //         return StatusCode(500, $"Error in billController.SoftDelete: {e.Message}");
+        //     }
+        // }
     }
 }

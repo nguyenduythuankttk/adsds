@@ -83,7 +83,8 @@ builder.Services.AddCors(options =>
             {
                 if (string.IsNullOrEmpty(origin)) return false;
                 var uri = new Uri(origin);
-                return uri.Host == "localhost" || uri.Host == "127.0.0.1";
+                return uri.Host == "localhost" || uri.Host == "127.0.0.1"
+                    || uri.Host == "dhstore.it.com" || uri.Host == "api.dhstore.it.com";
             })
             .AllowAnyMethod()
             .AllowAnyHeader()
@@ -117,6 +118,7 @@ builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 builder.Services.AddScoped<IReceiptService, ReceiptService>();
 builder.Services.AddScoped<IProcessingService, ProcessingService>();
+builder.Services.AddScoped<IInventoryBatchService, InventoryBatchService>();
 builder.Services.AddScoped<IShiftService, ShiftService>();
 builder.Services.AddScoped<IRecipeService, RecipeService>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
@@ -164,7 +166,6 @@ if (!string.IsNullOrWhiteSpace(connectionString))
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "An error occurred while migrating the database.");
-        throw;
     }
 }
 

@@ -1,3 +1,7 @@
+Lí do -> Công nghệ : frontend -> backend -> database(hoặc ngược lại) -> Công nghệ: Lí do tại sao chọn công nghệ trong frontend/backend/db; đừng nói khuyên hay nó thông dụng. Nói để cho người ta có khoảng trống
+pr: Đưa ra chiến lược (nếu nói tiếng việt: 2.5 phút -> VD 4 vấn đề -> chuyển về 1 cái (vẫn giới thiệu 4 cái nhé để người ta suy nghĩ có muốn hỏi thêm kh. Nói cái đặc biệt nhất.))
+Người ta sẽ cho mình biết trước về bộ phận nào sẽ coi mình nên chọn 
+cho người ta thấy cái instruction (lộ trình - roadmap ) để ngta nắm bắt được những ý mà mình đi muốn đi sâu 
 # ☕ Jolibi — Hệ thống quản lý nhà hàng
 
 Jolibi là ứng dụng quản lý nhà hàng/quán cà phê full-stack, cung cấp giao diện riêng biệt cho **khách hàng** và **nhân viên**. Hệ thống xử lý toàn bộ quy trình từ đặt bàn, gọi món, thanh toán đến quản lý kho và nhà cung cấp.

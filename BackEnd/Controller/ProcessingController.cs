@@ -58,5 +58,19 @@ namespace Backend.Controller
                 return StatusCode(500, $"An error occurred in ProcessingController.GetAllProcessing: {ex.Message}");
             }
         }
+
+        [HttpDelete("delete/{processingID}/{employeeID}")]
+        public async Task<IActionResult> DeleteProcessing(Guid processingID, Guid employeeID)
+        {
+            try
+            {
+                await _processingService.DeleteProcessing(processingID, employeeID);
+                return Ok("Processing log soft-deleted successfully.");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred in ProcessingController.DeleteProcessing: {ex.Message}");
+            }
+        }
     }
 }

@@ -75,7 +75,7 @@ namespace Backend.Services.Implementations{
                     Phone = request.Phone,
                     Email = request.Email,
                     Gender = request.Gender,
-                    IsVerified = false
+                    IsVerified = true
                 };
                 newCustomer.HashPassword = BCrypt.Net.BCrypt.HashPassword(request.HashPassword);
                 var token = GenerateSecureToken();
@@ -196,8 +196,6 @@ namespace Backend.Services.Implementations{
             if (usr == null || !BCrypt.Net.BCrypt.Verify(request.HashPassword, usr.HashPassword))
                 throw new InvalidOperationException("Sai tên đăng nhập hoặc mật khẩu");
 
-            if (!usr.IsVerified)
-                throw new InvalidOperationException("Email chưa được xác thực. Vui lòng kiểm tra hộp thư của bạn.");
 
             var accessToken = GenerateAcessToken(usr);
             return new UserAuthReponse{

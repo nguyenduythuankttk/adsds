@@ -4,6 +4,7 @@ using Backend.Models;
 using Backend.Models.DTOs.Reponse;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
+using BackEnd.Migrations;
 using Microsoft.EntityFrameworkCore;
 namespace Backend.Services.Implementations{
     public class BillService : IBillService{
@@ -77,15 +78,35 @@ namespace Backend.Services.Implementations{
             }
         }
         public async Task CreateDineInBill(DineInBillCreateRequest request){
+            if (request.products == null || request.products.Count == 0)
+                throw new Exception("Bill must have at least one product.");
+            if (request.EmployeID == null)
+                throw new Exception("EmployeeID is required.");
+
+            var storeExists = await _dbcontext.Store
+                .AnyAsync(s => s.StoreID == request.StoreID && s.DeletedAt == null);
+            if (!storeExists)
+                throw new Exception($"Store {request.StoreID} not found.");
+
+            if (request.TableID.HasValue)
+            {
+                var table = await _dbcontext.DiningTable
+                    .FirstOrDefaultAsync(t => t.TableID == request.TableID && t.DeletedAt == null);
+                if (table == null)
+                    throw new Exception($"Table {request.TableID} not found.");
+                if (table.Status == TableStatus.Occupied)
+                    throw new Exception($"Table {request.TableID} is currently occupied.");
+            }
+
             using var tx = await _dbcontext.Database.BeginTransactionAsync();
             try{
                 Guid userID;
                 if (string.IsNullOrEmpty(request.contact))
                     userID = Guid.Empty;
                 else{
-                    var user = await _userService.GetUserByContact(request.contact ?? "default");
-                    if (user == null) throw new Exception("user not found");
-                    else userID = user.UserID;
+                    var user = await _userService.GetUserByContact(request.contact);
+                    if (user == null) throw new Exception("User not found.");
+                    userID = user.UserID;
                 }
                 var bill = new Bill{
                         BillID = Guid.NewGuid(),
@@ -111,7 +132,10 @@ namespace Backend.Services.Implementations{
                     total += price * i.qty;
                 }
                 bill.Total = total * (1 + bill.VAT);
+                if (request.MoneyReceived < bill.Total)
+                    throw new Exception($"MoneyReceived ({request.MoneyReceived}) is less than Total ({bill.Total}).");
                 bill.MoneyGiveBack = bill.MoneyReceived - bill.Total;
+
                 var billChange = new BillChange
                 {
                     BillID = bill.BillID,
@@ -122,7 +146,7 @@ namespace Backend.Services.Implementations{
                 bill.BillChange.Add(billChange);
                 _dbcontext.Bill.Add(bill);
                 await _dbcontext.SaveChangesAsync();
-                await ConsumeIngredients(bill.BillID, bill.BillDetail.ToList(), request.EmployeID ?? Guid.Empty);
+                await ConsumeIngredients(bill.BillID, bill.BillDetail.ToList(), request.EmployeID.Value, request.StoreID);
                 await tx.CommitAsync();
             } catch (Exception e)
             {
@@ -132,6 +156,21 @@ namespace Backend.Services.Implementations{
         }
         public async Task CreateDeliveryBill(DeliveryBillCreateRequest request)
         {
+            if (request.products == null || request.products.Count == 0)
+                throw new Exception("Bill must have at least one product.");
+            if (request.EmployeID == null)
+                throw new Exception("EmployeeID is required.");
+
+            var storeExists = await _dbcontext.Store
+                .AnyAsync(s => s.StoreID == request.StoreID && s.DeletedAt == null);
+            if (!storeExists)
+                throw new Exception($"Store {request.StoreID} not found.");
+
+            var userExists = await _dbcontext.User
+                .AnyAsync(u => u.UserID == request.UserID);
+            if (!userExists)
+                throw new Exception($"User {request.UserID} not found.");
+
             using var tx = await _dbcontext.Database.BeginTransactionAsync();
             try {
                 Guid addressID;
@@ -140,7 +179,7 @@ namespace Backend.Services.Implementations{
                 } else {
                     var defaultAddress = await _addressService.GetDefaultAddress(request.UserID);
                     if (defaultAddress == null)
-                        throw new Exception("Không tìm thấy địa chỉ giao hàng");
+                        throw new Exception("Không tìm thấy địa chỉ giao hàng.");
                     addressID = defaultAddress.AddressID;
                 }
 
@@ -169,7 +208,9 @@ namespace Backend.Services.Implementations{
                 }
                 decimal shippingFee = 0.0m;
                 bill.Total = total * (1 + bill.VAT);
-                bill.MoneyGiveBack = bill.MoneyReceived - (bill.Total + shippingFee);
+                if (request.MoneyReceived < bill.Total + shippingFee)
+                    throw new Exception($"MoneyReceived ({request.MoneyReceived}) is less than Total ({bill.Total + shippingFee}).");
+                bill.MoneyGiveBack = request.MoneyReceived - (bill.Total + shippingFee);
 
                 var billChange = new BillChange
                 {
@@ -199,7 +240,7 @@ namespace Backend.Services.Implementations{
                 _dbcontext.DeliveryInfo.Add(delivery);
 
                 await _dbcontext.SaveChangesAsync();
-                await ConsumeIngredients(bill.BillID, bill.BillDetail.ToList(), request.EmployeID ?? Guid.Empty);
+                await ConsumeIngredients(bill.BillID, bill.BillDetail.ToList(), request.EmployeID.Value, request.StoreID);
                 await tx.CommitAsync();
             } catch (Exception e) {
                 await tx.RollbackAsync();
@@ -207,7 +248,7 @@ namespace Backend.Services.Implementations{
             }
         }
 
-        private async Task ConsumeIngredients(Guid billID, List<BillDetail> billDetails, Guid employeeID)
+        private async Task ConsumeIngredients(Guid billID, List<BillDetail> billDetails, Guid employeeID, int storeID)
         {
             var productVarientIDs = billDetails.Select(d => d.ProductVarientID).ToList();
             var recipes = await _dbcontext.Receipe
@@ -215,6 +256,7 @@ namespace Backend.Services.Implementations{
                 .ToListAsync();
 
             var now = DateTime.UtcNow;
+            var today = DateOnly.FromDateTime(now);
 
             foreach (var detail in billDetails)
             {
@@ -228,7 +270,9 @@ namespace Backend.Services.Implementations{
                         .Where(b => b.IngredientID == recipe.IngredientID
                                  && b.BatchType == BatchType.Processed
                                  && b.Status == BatchStatus.Available
-                                 && b.QuantityOnHand > 0)
+                                 && b.QuantityOnHand > 0
+                                 && b.Exp >= today
+                                 && b.Warehouse.StoreID == storeID)
                         .OrderBy(b => b.ImportDate)
                         .ToListAsync();
 
@@ -238,11 +282,8 @@ namespace Backend.Services.Implementations{
                         if (remaining <= 0) break;
                         var deduct = Math.Min(remaining, batch.QuantityOnHand);
                         batch.QuantityOnHand -= deduct;
-                        if (batch.QuantityOnHand <= 0)
-                        {
-                            batch.QuantityOnHand = 0;
+                        if (batch.QuantityOnHand == 0)
                             batch.Status = BatchStatus.Depleted;
-                        }
                         batch.UpdatedAt = now;
 
                         _dbcontext.StockMovement.Add(new StockMovement
@@ -290,16 +331,16 @@ namespace Backend.Services.Implementations{
             }
         }
 
-        public async Task SoftDeleteBill(Guid billID){
-            try {
-                var bill = await _dbcontext.Bill.FirstOrDefaultAsync(b => b.BillID == billID);
-                if (bill == null) throw new Exception("Không tìm thấy hóa đơn");
-                bill.DeletedAt = DateTime.UtcNow;
-                _dbcontext.Bill.Update(bill);
-                await _dbcontext.SaveChangesAsync();
-            } catch (Exception e) {
-                throw new Exception("Lỗi khi xóa hóa đơn: " + e.Message);
-            }
-        }
+        // public async Task SoftDeleteBill(Guid billID){
+        //     try {
+        //         var bill = await _dbcontext.Bill.FirstOrDefaultAsync(b => b.BillID == billID);
+        //         if (bill == null) throw new Exception("Không tìm thấy hóa đơn");
+        //         bill.DeletedAt = DateTime.UtcNow;
+        //         _dbcontext.Bill.Update(bill);
+        //         await _dbcontext.SaveChangesAsync();
+        //     } catch (Exception e) {
+        //         throw new Exception("Lỗi khi xóa hóa đơn: " + e.Message);
+        //     }
+        // }
     }
 }

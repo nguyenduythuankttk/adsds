@@ -1,0 +1,74 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tài Khoản — Chônlibi </title>
+    <link rel="stylesheet" href="../asset/css/style.css">
+    <link rel="stylesheet" href="../asset/css/user.css">
+    <link rel="stylesheet" href="../asset/themify-icons/themify-icons.css">
+</head>
+<body>
+
+    <!-- HEADER -->
+     <div id="header">
+        <ul id="nav">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="">Promotion</a></li>
+            <li><a href="">Menu</a></li>
+        </ul>
+        <a href="" class="delivery-btn"><i class="ti-truck"></i> Giao Hàng</a>
+        <div class="search-bar">
+            <i class="ti-search search-bar-icon"></i>
+            <input type="text" class="search-bar-input" placeholder="Tìm món ăn...">
+        </div>
+        <button class="login-btn" id="headerAvatarBtn">
+            <span class="user-avatar-btn" id="header-avatar-initial">A</span>
+            <span id="header-avatar-name">Tài khoản</span>
+        </button>
+    </div>
+
+    <!-- MAIN LAYOUT -->
+    <div class="user-page-wrapper">
+
+        <!-- SIDEBAR TRÁI -->
+        <aside class="user-sidebar">
+            <div class="sidebar-profile">
+                <div class="sidebar-avatar" id="sidebar-avatar">A</div>
+                <div class="sidebar-name" id="sidebar-name">Người dùng</div>
+                <div class="sidebar-role">Người Dùng </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#" class="sidebar-item active" data-section="profile">
+                    <i class="ti-user"></i> Thông tin tài khoản
+                </a>
+                <a href="#" class="sidebar-item" data-section="orders">
+                    <i class="ti-package"></i> Lịch sử đơn hàng
+                </a>
+                <!-- <a href="#" class="sidebar-item" data-section="reservation">
+                    <i class="ti-calendar"></i> Đặt bàn
+                </a> -->
+                <a href="#" class="sidebar-item" data-section="address">
+                    <i class="ti-location-pin"></i> Địa chỉ giao hàng
+                </a>
+                <a href="#" class="sidebar-item" data-section="ticket">
+                    <i class="ti-ticket"></i> Mã giảm giá
+                </a>
+                <a href="#" class="sidebar-item sidebar-logout" id="btn-logout">
+                    <i class="ti-power-off"></i> Đăng xuất
+                </a>
+            </nav>
+        </aside>
+
+        <main class="user-main" id="user-main-content">
+            <!-- JS sẽ render nội dung vào đây -->
+        </main>
+
+    </div>
+
+    <script src="../asset/js/api.js"></script>
+    <script src="../asset/js/user.js"></script>
+</body>
+</html>
