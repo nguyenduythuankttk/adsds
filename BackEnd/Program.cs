@@ -128,15 +128,11 @@ builder.Services.AddScoped<IComboService, ComboService>();
 builder.Services.AddHostedService<HardDeleteService>();
 
 builder.Services.AddOptions();
-var resendApiKey = builder.Configuration["Resend:ApiKey"];
-if (!string.IsNullOrWhiteSpace(resendApiKey)) {
-    builder.Services.AddHttpClient<ResendClient>();
-    builder.Services.Configure<ResendClientOptions>(o => { o.ApiToken = resendApiKey; });
-    builder.Services.AddTransient<IResend, ResendClient>();
-    builder.Services.AddScoped<IEmailService, EmailService>();
-} else {
-    builder.Services.AddScoped<IEmailService, NoOpEmailService>();
-}
+var resendApiKey = builder.Configuration["Resend:ApiKey"] ?? throw new InvalidOperationException("Resend:ApiKey is not configured");
+builder.Services.AddHttpClient<ResendClient>();
+builder.Services.Configure<ResendClientOptions>(o => { o.ApiToken = resendApiKey; });
+builder.Services.AddTransient<IResend, ResendClient>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 builder.Services.AddResponseCompression(options =>
 {

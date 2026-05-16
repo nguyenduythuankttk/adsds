@@ -63,6 +63,7 @@ Controller/
  diningtableController.cs
  employeeController.cs
  ingredientController.cs
+ inventoryBatchController.cs
  ProcessingController.cs
  productController.cs
  purchaseOrderController.cs
@@ -113,6 +114,8 @@ Migrations/
  20260515143822_fix.Designer.cs
  20260515145414_fixs.cs
  20260515145414_fixs.Designer.cs
+ 20260516011312_sync_model.cs
+ 20260516011312_sync_model.Designer.cs
  AppDbContextModelSnapshot.cs
 Models/
  AddressModel.cs
@@ -201,7 +204,6 @@ Services/Implementations/
  HardDelService.cs
  IngredientService.cs
  IventoryBatchService.cs
- NoOpEmailService.cs
  ProcessingService.cs
  ProductService.cs
  PurchaseOrderService.cs

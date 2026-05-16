@@ -44,7 +44,7 @@ namespace Backend.Services.Implementations{
                 var deliveryLog = new DeliveryLog{
                     DeliveryID = delivery.DeliveryID,
                     EmployeeID = request.EmployeeID,
-                    ChangeAt = DateTime.UtcNow,
+                    ChangeAt = DateTime.UtcNow.AddHours(7),
                     Status = DeliveryStatus.Pending,
                     Note = request.Note
                 };

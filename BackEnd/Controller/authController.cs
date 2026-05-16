@@ -133,6 +133,19 @@ namespace Backend.Controller
             }
         }
 
+        /// <summary>Xác thực OTP nhập từ frontend sau khi đăng ký</summary>
+        [HttpPost("verify-otp")]
+        public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpRequest request){
+            try{
+                await _AuthService.VerifyEmail(request.Otp);
+                return Ok(new { message = "Xác thực thành công. Bạn có thể đăng nhập ngay bây giờ." });
+            } catch (InvalidOperationException e){
+                return BadRequest(new { message = e.Message });
+            } catch (Exception){
+                return BadRequest(new { message = "OTP không hợp lệ hoặc đã hết hạn." });
+            }
+        }
+
         /// <summary>Yêu cầu gửi email đặt lại mật khẩu</summary>
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request){

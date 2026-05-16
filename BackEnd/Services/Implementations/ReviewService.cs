@@ -70,7 +70,7 @@ namespace Backend.Services.Implementations
                     StoreID = createRequest.StoreID,
                     Rating = createRequest.Rating,
                     Comment = createRequest.Comment,
-                    CreatedAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow.AddHours(7),
                     DeletedAt = null
                 });
                 
@@ -131,7 +131,7 @@ namespace Backend.Services.Implementations
 
                 await _mongoDbContext.Reviews.UpdateOneAsync(
                     r => r.ReviewID == reviewId,
-                    Builders<Review>.Update.Set(r => r.DeletedAt, DateTime.UtcNow)
+                    Builders<Review>.Update.Set(r => r.DeletedAt, DateTime.UtcNow.AddHours(7))
                 );
             }
             catch (Exception ex)

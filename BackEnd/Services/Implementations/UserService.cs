@@ -59,6 +59,7 @@ namespace Backend.Services.Implementations
         {
             try
             {
+                user.IsVerified = false;
                 user.HashPassword = _passwordHasher.HashPassword(user, user.HashPassword);
                 _dbContext.User.Add(user);
                 await _dbContext.SaveChangesAsync();

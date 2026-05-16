@@ -1,3 +1,4 @@
+using Backend.Models;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
@@ -34,8 +35,7 @@ namespace Backend.Controller {
                     ?? User.FindFirst("user_id")?.Value;
                 if (string.IsNullOrWhiteSpace(userID)) return Unauthorized();
                 var bills = await _billService.GetUserBill(Guid.Parse(userID));
-                if (bills == null || bills.Count == 0) return NotFound("Không có hóa đơn nào");
-                return Ok(bills);
+                return Ok(bills ?? new List<Bill>());
             } catch (Exception e) {
                 return StatusCode(500, $"Error in billController.GetMyBills: {e.Message}");
             }

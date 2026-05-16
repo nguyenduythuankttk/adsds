@@ -21,7 +21,7 @@ public class HardDeleteService : BackgroundService {
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
                 try {
-                    var cutoff = DateTime.UtcNow.AddDays(-30);
+                    var cutoff = DateTime.UtcNow.AddHours(7).AddDays(-30);
                     var cutoffDateOnly = DateOnly.FromDateTime(cutoff);
                     var del = 0;
                     del += await db.Ticket.Where(x =>
