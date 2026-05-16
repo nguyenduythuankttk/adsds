@@ -78,7 +78,7 @@ namespace Backend.Services.Implementations{
                 var approval = new POApproval{
                     POID        = newPO.POID,
                     EmployeeID  = createRequest.EmployeeID,
-                    LastUpdated = DateTime.UtcNow,
+                    LastUpdated = DateTime.UtcNow.AddHours(7),
                     Comment     = createRequest.Comment,
                     POStatus      = PO_Status.Submitted
                 };
@@ -138,7 +138,7 @@ namespace Backend.Services.Implementations{
                     EmployeeID      = updateRequest.EmployeeID,
                     Comment         = updateRequest.Comment,
                     CancelledReason = updateRequest.CancelledReason,
-                    LastUpdated     = DateTime.UtcNow,
+                    LastUpdated     = DateTime.UtcNow.AddHours(7),
                     POStatus          = updateRequest.POStatus
                 };
                 _dbContext.POApproval.Add(newChange);

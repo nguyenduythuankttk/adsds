@@ -230,7 +230,7 @@ namespace Backend.Services.Implementations
 
             try
             {
-                employee.DeleteAt = DateTime.UtcNow;
+                employee.DeleteAt = DateTime.UtcNow.AddHours(7);
                 await _dbContext.SaveChangesAsync();
             }
             catch (Exception ex)

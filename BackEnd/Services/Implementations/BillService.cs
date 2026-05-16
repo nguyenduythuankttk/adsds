@@ -141,7 +141,7 @@ namespace Backend.Services.Implementations{
                     BillID = bill.BillID,
                     Status = BillStatus.Create,
                     EmployeeID = request.EmployeID,
-                    ChangeAt = DateTime.UtcNow
+                    ChangeAt = DateTime.UtcNow.AddHours(7)
                 };
                 bill.BillChange.Add(billChange);
                 _dbcontext.Bill.Add(bill);
@@ -217,7 +217,7 @@ namespace Backend.Services.Implementations{
                     BillID = bill.BillID,
                     Status = BillStatus.Create,
                     EmployeeID = request.EmployeID,
-                    ChangeAt = DateTime.UtcNow
+                    ChangeAt = DateTime.UtcNow.AddHours(7)
                 };
                 bill.BillChange.Add(billChange);
                 _dbcontext.Bill.Add(bill);
@@ -233,7 +233,7 @@ namespace Backend.Services.Implementations{
                 var deliveryLog = new DeliveryLog{
                     DeliveryID = delivery.DeliveryID,
                     Status = DeliveryStatus.Pending,
-                    ChangeAt = DateTime.UtcNow,
+                    ChangeAt = DateTime.UtcNow.AddHours(7),
                     Note = request.NoteForDelivery
                 };
                 delivery.DeliveryLog.Add(deliveryLog);
@@ -255,7 +255,7 @@ namespace Backend.Services.Implementations{
                 .Where(r => productVarientIDs.Contains(r.ProductVarientID) && r.DeletedAt == null)
                 .ToListAsync();
 
-            var now = DateTime.UtcNow;
+            var now = DateTime.UtcNow.AddHours(7);
             var today = DateOnly.FromDateTime(now);
 
             foreach (var detail in billDetails)
@@ -335,7 +335,7 @@ namespace Backend.Services.Implementations{
         //     try {
         //         var bill = await _dbcontext.Bill.FirstOrDefaultAsync(b => b.BillID == billID);
         //         if (bill == null) throw new Exception("Không tìm thấy hóa đơn");
-        //         bill.DeletedAt = DateTime.UtcNow;
+        //         bill.DeletedAt = DateTime.UtcNow.AddHours(7);
         //         _dbcontext.Bill.Update(bill);
         //         await _dbcontext.SaveChangesAsync();
         //     } catch (Exception e) {

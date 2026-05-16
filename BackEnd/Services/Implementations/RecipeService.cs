@@ -72,7 +72,7 @@ namespace Backend.Services.Implementations
             if (recipe == null)
                 throw new KeyNotFoundException($"Recipe not found for Ingredient {ingredientID} and Product Varient {productVarientID}");
 
-            recipe.DeletedAt = DateTime.UtcNow;
+            recipe.DeletedAt = DateTime.UtcNow.AddHours(7);
             _dbContext.Receipe.Update(recipe);
             await _dbContext.SaveChangesAsync();
         }

@@ -98,7 +98,7 @@ namespace Backend.Services.Implementations
                     SupplierID  = po.SupplierID,
                     StoreID     = po.StoreID,
                     EmployeeID  = request.EmployeeID,
-                    DateReceive = DateTime.UtcNow,
+                    DateReceive = DateTime.UtcNow.AddHours(7),
                 };
 
                 var details = request.ReceiptLines.Select(i => new ReceiptDetail
@@ -239,7 +239,7 @@ namespace Backend.Services.Implementations
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                var confirmedAt = DateTime.UtcNow;
+                var confirmedAt = DateTime.UtcNow.AddHours(7);
 
                 foreach (var detail in receipt.ReceiptDetail)
                 {
