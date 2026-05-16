@@ -44,8 +44,8 @@ TemporaryDependencyNodeTargetIdentifier=net10.0
 /debug:portable
 /filealign:512
 /optimize-
-/out:obj/Debug/net10.0/BackEnd.dll
-/refout:obj/Debug/net10.0/refint/BackEnd.dll
+/out:obj\Debug\net10.0\BackEnd.dll
+/refout:obj\Debug\net10.0\refint\BackEnd.dll
 /target:exe
 /warnaserror-
 /utf8output
@@ -63,6 +63,7 @@ Controller/
  diningtableController.cs
  employeeController.cs
  ingredientController.cs
+ inventoryBatchController.cs
  ProcessingController.cs
  productController.cs
  purchaseOrderController.cs
