@@ -2,7 +2,9 @@ using System.Linq.Expressions;
 using Backend.Models;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Backend.Controller
 {
@@ -16,6 +18,24 @@ namespace Backend.Controller
         public ticketController (ITicketService ticketService)
         {
             _ticketService = ticketService;
+        }
+
+        [Authorize]
+        [HttpGet("my-tickets")]
+        public async Task<IActionResult> GetMyTickets()
+        {
+            try
+            {
+                var userID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrWhiteSpace(userID))
+                    return Unauthorized();
+                var tickets = await _ticketService.GetMyTickets(Guid.Parse(userID));
+                return Ok(tickets);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred in ticketController.GetMyTickets {ex.Message}");
+            }
         }
 
         [HttpGet("get-all/{start}/{end}")]

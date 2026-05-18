@@ -26,4 +26,8 @@ namespace Backend.Models.DTOs.Request{
         public string NewPassword { get; set; } = null!;
     }
 
+    public class VerifyOtpRequest {
+        public string Otp { get; set; } = null!;
+    }
+
 }

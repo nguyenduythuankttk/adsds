@@ -1,69 +1,66 @@
 using Backend.Data;
 using Backend.Models;
+using Backend.Models.DTOs.Reponse;
+using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
 using Microsoft.EntityFrameworkCore;
-using Backend.Models.DTOs.Request;
-using Backend.Models.DTOs.Reponse;
-namespace Backend.Services.Implementations{
-    public class ComboService : IComboService{
-        private readonly AppDbContext _dbcontext;
-        public ComboService(AppDbContext dbContext){
-            _dbcontext = dbContext;
+using Microsoft.VisualBasic;
+namespace Backend.Services.Implementations
+{
+    public class ComboService : IComboService
+    {
+        private readonly AppDbContext _dbContext;
+        private readonly IProductService _productService;
+        public ComboService(AppDbContext dbContext, IProductService productService)
+        {
+            _dbContext = dbContext;
+            _productService = productService;
         }
-        public async Task AddCombo (Combo newCombo){
-            try {
-                _dbcontext.Combo.Add(newCombo);
-                await _dbcontext.SaveChangesAsync();
-            }   catch (Exception e){
-                Console.WriteLine(e.Message);
+        public async Task <Product?> GetAllProductInCombo(int comboID)
+        {
+            try
+            {
+                Product? combo = await  _dbContext.Product
+                                        .Include(c => c.ComboDetail)
+                                        .FirstOrDefaultAsync(c => c.ProductID == comboID);
+                if (combo == null) throw new Exception("Combo not found");
+                if (combo?.ProductType != ProductType.Combo) throw new Exception("Combo not found");
+                return combo;
+            } catch (Exception e)
+            {
+                throw new Exception("Error in ComboService.GetAllProductInCombo" + e.Message);
             }
         }
-        public async Task <List<Combo>?> GetAllCombo() =>
-        await _dbcontext.Combo
-        .AsNoTracking()
-        .Include(c => c.ComboProduct)
-            .ThenInclude(c => c.ProductVarient)
-                .ThenInclude(c => c.Product)
-        .ToListAsync();
-        public async Task <List<Combo>?> GetAllComboIsActive() =>
-        await _dbcontext.Combo
-        .AsNoTracking()
-        .Include(c => c.ComboProduct)
-            .ThenInclude(c => c.ProductVarient)
-                .ThenInclude(c => c.Product)
-        .Where (c => c.IsActive ==true)
-        .ToListAsync();
-        public async Task UpdateCombo (ComboChangeRequest comboUpdate, int comboID){
-            try {
-                var combo = await _dbcontext.Combo.FirstOrDefaultAsync( a => a.ComboID == comboID);
-                if (combo != null){
-                    combo.ComboName = comboUpdate.ComboName;
-                    combo.FixedPrice = comboUpdate.FixedPrice;
-                    combo.IsActive = comboUpdate.IsActive;
-                    _dbcontext.Combo.Update(combo);
-                    await _dbcontext.SaveChangesAsync();
+        public async Task CreateNewCombo(ComboCreateRequest request)
+        {
+            try
+            {
+                var combo = new Product();
+                foreach (var product in request.Products)
+                {
+                    Product? p =await _productService.GetProductByID(product.ProductID);
+                    if (p?.ProductType == ProductType.Combo) throw new Exception("Combo in combo isn't acepted");
+                    var comboDetail = new ComboDetail
+                    {
+                        ComboID =combo.ProductID,
+                        ProductID = p.ProductID, 
+                        qty = product.qty
+                    };
+                    combo.ComboDetail.Add(comboDetail);
+                    _dbContext.ComboDetail.Add(comboDetail);
                 }
-            } catch (Exception e){
-                Console.WriteLine(e.Message);
-            }
-        }
-        public async Task <Combo?> GetComboByID(int comboID) => await _dbcontext.Combo.FirstOrDefaultAsync( c => c.ComboID == comboID);
-        
-        public async Task SoftDeleteCombo(int comboID){
-            var combo = await _dbcontext.Combo
-                .FirstOrDefaultAsync(c => c.ComboID == comboID &&
-                                    c.DeletedAt == null);
-            
-            if(combo == null){
-                throw new Exception("Combo not found");
-            }
-
-            try{
-                combo.DeletedAt = DateTime.UtcNow;
-                await _dbcontext.SaveChangesAsync();
-            }catch(Exception ex){
-                Console.WriteLine($"Soft delete combo error {ex.Message}");
-                throw new Exception($"An error occurred while soft deleting combo: {ex.Message}");
+                var comboVarient = new ProductVarient{
+                    ProductID = combo.ProductID,
+                    Size = ProductSize.Default,
+                    Price = request.Price
+                };
+                combo.ProductVarient.Add(comboVarient);
+                _dbContext.ProductVarient.Add(comboVarient);
+                _dbContext.Product.Add(combo);
+                await _dbContext.SaveChangesAsync();
+            } catch(Exception e)
+            {
+                throw new Exception("Error in ComboService.CreateNewCombo"+ e.Message);
             }
         }
     }

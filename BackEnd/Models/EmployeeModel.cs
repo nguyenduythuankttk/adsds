@@ -30,8 +30,6 @@ namespace Backend.Models{
         public virtual ICollection<DeliveryLog> DeliveryLog { get; set; } = new List<DeliveryLog>();
         [JsonIgnore]
         public virtual ICollection<StockMovement> StockMovement { get; set; } = new List<StockMovement>();
-        [JsonIgnore]
-        public virtual ICollection<BookingChange> BookingChange {get; set; } = new List<BookingChange>();
         [Required]
         public decimal BasicSalary { get; set; }
         public DateTime? DeleteAt {get; set;}

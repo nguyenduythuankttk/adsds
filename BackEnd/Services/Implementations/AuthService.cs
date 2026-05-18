@@ -40,7 +40,7 @@ namespace Backend.Services.Implementations{
                     new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                     new Claim(ClaimTypes.Role, user is Employee emp ? emp.Role.ToString() : "Customer")
                 };
-                var expiryMinutes = int.Parse(_configuration["Jwt:ExpiryMinutes"] ?? "480");
+                var expiryMinutes = int.Parse(_configuration["Jwt:ExpiryMinutes"] ?? "45");
                 var token = new JwtSecurityToken(
                     issuer: issuer,
                     audience: audience,
@@ -79,7 +79,7 @@ namespace Backend.Services.Implementations{
                 };
                 newCustomer.HashPassword = BCrypt.Net.BCrypt.HashPassword(request.HashPassword);
                 var token = GenerateSecureToken();
-                newCustomer.VerifiedExp = DateTime.UtcNow.AddHours(24);
+                newCustomer.VerifiedExp = DateTime.UtcNow.AddHours(7).AddSeconds(60);
                 newCustomer.EmailVerified = token;
                 _dbContext.User.Add(newCustomer);
                 await _dbContext.SaveChangesAsync();
@@ -106,7 +106,7 @@ namespace Backend.Services.Implementations{
 
             var token = GenerateSecureToken();
             user.EmailVerified = token;
-            user.VerifiedExp = DateTime.UtcNow.AddHours(24);
+            user.VerifiedExp = DateTime.UtcNow.AddHours(7).AddSeconds(60);
             await _dbContext.SaveChangesAsync();
 
             try {
@@ -125,7 +125,7 @@ namespace Backend.Services.Implementations{
 
             var token = GenerateSecureToken();
             user.PasswordEmail = token;
-            user.PasswordEmailExp = DateTime.UtcNow.AddHours(1);
+            user.PasswordEmailExp = DateTime.UtcNow.AddHours(7).AddHours(1);
             await _dbContext.SaveChangesAsync();
 
             try {
@@ -139,13 +139,12 @@ namespace Backend.Services.Implementations{
 
         public async Task VerifyEmail(string token) {
             var record = await _dbContext.User.FirstOrDefaultAsync(u => u.EmailVerified == token);
-            if (record == null) {
-                throw new Exception("OTP khong hop le");
-            }
-            if (record.VerifiedExp < DateTime.UtcNow){
+            if (record == null)
+                throw new InvalidOperationException("OTP không hợp lệ.");
+            if (record.VerifiedExp < DateTime.UtcNow.AddHours(7)) {
                 _dbContext.User.Remove(record);
                 await _dbContext.SaveChangesAsync();
-                throw new Exception();
+                throw new InvalidOperationException("OTP đã hết hạn. Vui lòng đăng ký lại.");
             }
             record.VerifiedExp = null;
             record.EmailVerified = null;
@@ -157,7 +156,7 @@ namespace Backend.Services.Implementations{
             var user = await _dbContext.User.FirstOrDefaultAsync(u => u.PasswordEmail == request.Token);
             if (user == null)
                 throw new InvalidOperationException("Token đặt lại mật khẩu không hợp lệ");
-            if (user.PasswordEmailExp < DateTime.UtcNow)
+            if (user.PasswordEmailExp < DateTime.UtcNow.AddHours(7))
                 throw new InvalidOperationException("Token đặt lại mật khẩu đã hết hạn");
 
             user.HashPassword = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
@@ -197,7 +196,8 @@ namespace Backend.Services.Implementations{
                 throw new InvalidOperationException("Sai tên đăng nhập hoặc mật khẩu");
 
             if (!usr.IsVerified)
-                throw new InvalidOperationException("Email chưa được xác thực. Vui lòng kiểm tra hộp thư của bạn.");
+                throw new InvalidOperationException("Tài khoản chưa được xác thực. Vui lòng nhập mã OTP từ email.");
+
 
             var accessToken = GenerateAcessToken(usr);
             return new UserAuthReponse{
@@ -217,7 +217,7 @@ namespace Backend.Services.Implementations{
 
                 _dbContext.BlackListedToken.Add(new BlacklistedToken{
                     Token = accessToken,
-                    ExpiryDate = DateTime.UtcNow.AddMinutes(480)
+                    ExpiryDate = DateTime.UtcNow.AddHours(7).AddMinutes(480)
                 });
 
                 await _dbContext.SaveChangesAsync();

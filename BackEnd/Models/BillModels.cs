@@ -24,7 +24,7 @@ namespace Backend.Models{
         [ForeignKey("StoreID")]
         public virtual Store Store { get; set; } = null!;
         [Required]
-        public decimal VAT { get; set; }
+        public decimal VAT { get; set; } = 0.1m;
         [Required]
         public PaymentMethods PaymentMethods { get; set; }
         public string? Note { get; set; }
@@ -34,11 +34,19 @@ namespace Backend.Models{
         [Required]
         public decimal Total { get; set; }
         [Required]
-        public decimal Paid {get; set;}
-        [Required]
         public decimal MoneyReceived {get; set; }
         [Required]
         public decimal MoneyGiveBack {get; set; }
+
+        public int? TableID { get; set; }
+
+        [ForeignKey("TableID")]
+        [JsonIgnore]
+        public virtual DiningTable? Table { get; set; }
+        public Guid? AddressID {get; set;}
+        [ForeignKey("AddressID")]
+        [JsonIgnore]
+        public virtual Address? Address {get; set;}
 
         public DateTime? DeletedAt { get; set; }
 
@@ -47,6 +55,9 @@ namespace Backend.Models{
 
         [JsonIgnore]
         public virtual ICollection<BillChange> BillChange { get; set; } = new List<BillChange>();
-
+        public Guid? DeliveryInfoID {get; set;}
+        [ForeignKey("DeliveryInfoID")]
+        [JsonIgnore]
+        public virtual DeliveryInfo? DeliveryInfo { get; set; }
     }
 }

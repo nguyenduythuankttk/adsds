@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu – Chônlibi </title>
+    <meta name="description" content="Khám phá thực đơn gà rán Chônlibi – combo, best seller, ưu đãi hôm nay và món mới hấp dẫn.">
+    <link rel="stylesheet" href="../asset/css/style.css">
+    <link rel="stylesheet" href="../asset/css/menu.css">
+    <link rel="stylesheet" href="../asset/themify-icons/themify-icons.css">
+    <link rel="stylesheet" href="../asset/css/menu-auth.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- ===== HEADER ===== -->
+    <div id="header">
+        <ul id="nav">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="">Promotion</a></li>
+            <li><a href="menu.html" class="nav-active">Menu</a></li>
+            <!-- <li><a href="">Booking</a></li> -->
+        </ul>
+        <button class="delivery-btn delivery-cart-btn" id="cart-fab" aria-label="Xem giỏ hàng">
+            <i class="ti-shopping-cart"></i> Giỏ Hàng
+            <span class="cart-count" id="cart-count">0</span>
+        </button>
+        <div class="search-bar">
+            <i class="ti-search search-bar-icon"></i>
+            <input type="text" class="search-bar-input" placeholder="Tìm món ăn..." id="menu-search-input">
+        </div>
+        <!-- <button class="login-btn" id="openLoginBtn">
+            <i class="ti-user"></i>
+            <span>Đăng Nhập</span>
+        </button> -->
+    </div>
+    <!-- ===== LOCATION BAR ===== -->
+    <div class="location-bar">
+        <div class="location-inner">
+            <i class="ti-location-pin"></i>
+            <span>Đang giao tại: <strong>Liên Chiểu, Đà Nẵng</strong></span>
+            <button class="change-location-btn" id="changeLocationBtn">Đổi địa chỉ</button>
+        </div>
+    </div>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <main class="menu-main" id="menu-main">
+
+        <!-- Best Seller Section -->
+        <section class="menu-section" data-section="bestseller" id="section-bestseller">
+            <div class="menu-section-header">
+                <h2 class="menu-section-title"> Best Seller</h2>
+                <p class="menu-section-sub">Những món được yêu thích nhất</p>
+            </div>
+            <div class="menu-grid" id="grid-bestseller" data-type="Food">
+            </div>
+        </section>
+
+        <!-- Ưu Đãi Hôm Nay Section -->
+        <section class="menu-section promo-section" data-section="combo1" id="section-combo1">
+            <div class="menu-section-header">
+                <h2 class="menu-section-title" style="color:#ff6b00;">🎉 Ưu Đãi Hôm Nay</h2>
+                <p class="menu-section-sub">Combo siêu tiết kiệm – chỉ có hôm nay!</p>
+            </div>
+            <div class="menu-grid" id="grid-combo" data-type="Combo">
+            </div>
+        </section>
+
+        <!-- Món Phụ Section -->
+        <section class="menu-section" data-section="side" id="section-side">
+            <div class="menu-section-header">
+                <h2 class="menu-section-title">Món Khác</h2>
+                <p class="menu-section-sub">Hoàn thiện bữa ăn với những món ăn tuyệt vời</p>
+            </div>
+            <div class="menu-grid" id="grid-addon" data-type="Addon">
+            </div>
+        </section>
+
+        <!-- Đồ Uống Section -->
+        <section class="menu-section" data-section="drink" id="section-drink">
+            <div class="menu-section-header">
+                <h2 class="menu-section-title"> Đồ Uống</h2>
+                <p class="menu-section-sub">Nước uống tươi mát, giải nhiệt sau mỗi bữa gà ngon</p>
+            </div>
+            <div class="menu-grid" id="grid-drink" data-type="Drink">
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ===== CART TOAST ===== -->
+    <div class="cart-toast" id="cart-toast">
+        <i class="ti-check"></i> Đã thêm vào giỏ hàng!
+    </div>
+
+
+    <!-- ===== CART SIDEBAR ===== -->
+    <div class="cart-sidebar-overlay" id="cart-overlay"></div>
+    <div class="cart-sidebar" id="cart-sidebar">
+        <div class="cart-sidebar-header">
+            <h2>🛒 Giỏ Hàng</h2>
+            <button class="cart-close-btn" id="cart-close-btn"><i class="ti-close"></i></button>
+        </div>
+        <div class="cart-items-list" id="cart-items-list">
+            <div class="cart-empty" id="cart-empty">
+                <span>🍗</span>
+                <p>Giỏ hàng đang trống<br><small>Hãy chọn món ngon nào!</small></p>
+            </div>
+        </div>
+        <div class="cart-footer" id="cart-footer">
+            <div class="cart-total-row">
+                <span>Tổng cộng</span>
+                <strong id="cart-total">0 đ</strong>
+            </div>
+            <button class="cart-order-btn" id="cart-order-btn">Đặt Hàng Ngay 🍗</button>
+        </div>
+    </div>
+
+    <div class="cq-backdrop" id="cq-backdrop"></div>
+    <div class="cq-modal" id="cq-modal" role="dialog" aria-modal="true" aria-label="Đơn hàng của bạn">
+        <!-- Header -->
+        <div class="cq-header">
+            <div class="cq-header-left">
+                <div class="cq-header-icon">🛒</div>
+                <div>
+                    <div class="cq-header-title">Đơn hàng của bạn</div>
+                    <div class="cq-header-sub" id="cq-item-count">0 món</div>
+                </div>
+            </div>
+            <button class="cq-close-btn" id="cq-close-btn" aria-label="Đóng">
+                <i class="ti-close"></i>
+            </button>
+        </div>
+
+        <!-- Items list -->
+        <div class="cq-body">
+            <div class="cq-items-wrap" id="cq-items-wrap">
+            </div>
+
+            <!-- Upsell banner -->
+            <div class="cq-upsell" id="cq-upsell">
+                <div class="cq-upsell-inner">
+                    <div class="cq-upsell-label">Món ngon phải thử</div>
+                    <div class="cq-upsell-row">
+                        <button class="cq-upsell-nav" id="cq-upsell-prev" aria-label="Trước">&lsaquo;</button>
+                        <div class="cq-upsell-item" id="cq-upsell-item">
+                            <img class="cq-upsell-img" src="../asset/img/slider/KTC.webdp" alt="Khoai Tây Chiên" id="cq-upsell-img">
+                            <div class="cq-upsell-info">
+                                <div class="cq-upsell-name" id="cq-upsell-name">Khoai Tây Chiên Giòn (Alacarte)</div>
+                                <div class="cq-upsell-price" id="cq-upsell-price">35.000 đ</div>
+                                <button class="cq-upsell-add-btn" id="cq-upsell-add">Thêm vào giỏ hàng</button>
+                            </div>
+                        </div>
+                        <button class="cq-upsell-nav" id="cq-upsell-next" aria-label="Tiếp">&rsaquo;</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="cq-footer">
+            <div class="cq-price-breakdown">
+                <div class="cq-price-row">
+                    <span>Tổng</span>
+                    <span class="cq-price-val" id="cq-subtotal">0 đ</span>
+                </div>
+                <div class="cq-price-row cq-discount-row" id="cq-discount-row" style="display:none">
+                    <span>Giảm giá</span>
+                    <span class="cq-price-val cq-discount" id="cq-discount">-0 đ</span>
+                </div>
+                <div class="cq-price-row">
+                    <span>Phí giao hàng</span>
+                    <span class="cq-price-val" id="cq-shipping">0 đ</span>
+                </div>
+                <div class="cq-price-row cq-total-row">
+                    <span>Tổng cộng</span>
+                    <span class="cq-price-val cq-grand-total" id="cq-grand-total">0 đ</span> 
+                </div>
+            </div>
+            <button class="cq-checkout-btn" id="cq-checkout-btn">
+                Hoàn tất đơn hàng
+            </button>
+        </div>
+    </div>
+
+   <!--login-->
+    <div id="menu-login-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Đăng nhập">
+        <div class="modal-box">
+            <button class="modal-close" id="menu-closeLoginBtn" aria-label="Đóng">✕</button>
+            <div class="modal-logo">Chônlibi 🍗</div>
+            <div class="modal-subtitle" id="menu-login-subtitle">Đăng nhập để thêm món vào giỏ hàng</div>
+            <div class="modal-tabs">
+                <button class="modal-tab active" data-tab="login" id="menu-tab-login">Đăng Nhập</button>
+                <button class="modal-tab" data-tab="register" id="menu-tab-register">Đăng Ký</button>
+            </div>
+
+            <!-- Panel Đăng Nhập -->
+            <div class="modal-panel active" id="menu-panel-login">
+                <div class="form-group">
+                    <label>Tên đăng nhập</label>
+                    <input type="text" id="menu-login-username" placeholder="Tên đăng nhập" autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label>Mật khẩu</label>
+                    <input type="password" id="menu-login-password" placeholder="Nhập mật khẩu" autocomplete="current-password">
+                </div>
+                <p id="menu-login-error" class="form-error"></p>
+                <div class="form-forgot"><a href="#">Quên mật khẩu?</a></div>
+                <button class="form-submit" id="menu-btn-login">Đăng Nhập</button>
+                <div class="form-divider">— hoặc —</div>
+                <div class="form-social">
+                    <button class="social-btn" id="menu-google-btn">Google</button>
+                    <button class="social-btn" id="menu-fb-btn">Facebook</button>
+                </div>
+            </div>
+
+            <!-- Panel Đăng Ký -->
+            <div class="modal-panel" id="menu-panel-register">
+                <div class="form-group">
+                    <label>Họ và tên</label>
+                    <input type="text" id="menu-reg-fullname" placeholder="Nguyễn Văn A">
+                </div>
+                <div class="form-group">
+                    <label>Tên đăng nhập</label>
+                    <input type="text" id="menu-reg-username" placeholder="Tên đăng nhập (không dấu)">
+                </div>
+                <div class="form-group">
+                    <label>Số điện thoại</label>
+                    <input type="tel" id="menu-reg-phone" placeholder="0947 392 552">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="menu-reg-email" placeholder="example@email.com">
+                </div>
+                <div class="form-group">
+                    <label>Ngày sinh</label>
+                    <input type="date" id="menu-reg-birthdate">
+                </div>
+                <div class="form-group">
+                    <label>Giới tính</label>
+                    <select id="menu-reg-gender"><option value="Male">Nam</option><option value="Female">Nữ</option><option value="Other">Khác</option></select>
+                </div>
+                <div class="form-group">
+                    <label>Mật khẩu</label>
+                    <input type="password" id="menu-reg-password" placeholder="Tối thiểu 6 ký tự">
+                </div>
+                <p id="menu-register-error" class="form-error"></p>
+                <button class="form-submit" id="menu-btn-register">Tạo Tài Khoản</button>
+            </div>
+        </div>
+    </div>
+
+    <!--FOOTER-->
+    <div id="footer">
+        <div class="footer-grid">
+            <div class="footer-col">
+                <div class="footer-brand">Chônlibi 🍗</div>
+                <p class="footer-about-text">Chônlibi — nơi mỗi miếng gà đều kể một câu chuyện về hương vị.</p>
+            </div>
+            <div class="footer-col">
+                <span class="footer-col-title">Thông Tin Liên Hệ</span>
+                <ul class="footer-contact-list">
+                    <li><div class="fc-icon"><i class="ti-location-pin"></i></div><span>Liên Chiểu, Đà Nẵng</span></li>
+                    <li><div class="fc-icon"><i class="ti-headphone-alt"></i></div><span>Hotline: <a href="tel:0272375252">0272 375 252</a></span></li>
+                    <li><div class="fc-icon"><i class="ti-time"></i></div><span>Mở cửa: 9:00 – 22:00</span></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">Copyright © 2025 <span>Chônlibi</span>. All rights reserved.</div>
+    </div>
+
+    <script src="../asset/js/api.js"></script>
+    <script src="../asset/js/menu.js"></script>
+</body>
+</html>

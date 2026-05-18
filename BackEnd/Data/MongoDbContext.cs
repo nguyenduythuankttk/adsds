@@ -22,8 +22,8 @@ public class MongoDbContext
             configuration.GetConnectionString("JolibiMongoDB")
         );
 
-        _database = client.GetDatabase("JolibiDb");
+        _database = client.GetDatabase("JoliDb");
     }
     
-    public IMongoCollection<Review> Reviews => _database.GetCollection<Review>("Reviews");
+    public IMongoCollection<Review> Reviews => _database.GetCollection<Review>("reviews");
 }

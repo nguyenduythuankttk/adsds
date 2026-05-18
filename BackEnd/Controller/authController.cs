@@ -12,18 +12,15 @@ namespace Backend.Controller
         private readonly IAuthService _AuthService;
         private readonly IUserService _UserService;
         private readonly IEmployeeService _EmployeeSevice;
-        private readonly ILogger<authController> _logger;
 
         public authController (
             IAuthService authService,
             IUserService userService,
-            IEmployeeService employeeService,
-            ILogger<authController> logger
+            IEmployeeService employeeService
         ){
             _AuthService = authService;
             _EmployeeSevice = employeeService;
             _UserService = userService;
-            _logger = logger;
         }
 
         [HttpPost("customer_login")]
@@ -69,21 +66,12 @@ namespace Backend.Controller
         [HttpGet("me")]
         public async Task<IActionResult> GetCurrentUser(){
             try{
-                var authHeader = Request.Headers["Authorization"].ToString();
-                _logger.LogInformation("[auth/me] Authorization header: '{Header}'",
-                    string.IsNullOrEmpty(authHeader) ? "(missing)" : authHeader[..Math.Min(authHeader.Length, 40)] + "...");
-                _logger.LogInformation("[auth/me] IsAuthenticated={IsAuth} Claims={Claims}",
-                    User.Identity?.IsAuthenticated,
-                    string.Join(", ", User.Claims.Select(c => $"{c.Type}={c.Value}")));
-
-                var userID = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                _logger.LogInformation("[auth/me] NameIdentifier claim = '{UserID}'", userID);
-
+                var userID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("user_id")?.Value;
                 if (string.IsNullOrWhiteSpace(userID)) return Unauthorized(new {Message = "Invalid token claims"});
                 var user = await _UserService.GetUserByID(Guid.Parse(userID));
                 return Ok(user);
-            }catch(Exception e){
-                _logger.LogError(e, "[auth/me] Exception");
+            }catch(Exception){
                 return StatusCode(500, "Error in authController.getcurrentuser");
             }
         }
@@ -92,7 +80,8 @@ namespace Backend.Controller
         [HttpGet("me/employee")]
         public async Task<IActionResult> GetCurrentEmployee(){
             try{
-                var empID = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var empID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("user_id")?.Value;
                 if (string.IsNullOrWhiteSpace(empID)) return Unauthorized();
                 var emp = await _EmployeeSevice.GetEmployeeByID(Guid.Parse(empID));
                 return Ok(emp);
@@ -144,6 +133,19 @@ namespace Backend.Controller
             }
         }
 
+        /// <summary>Xác thực OTP nhập từ frontend sau khi đăng ký</summary>
+        [HttpPost("verify-otp")]
+        public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpRequest request){
+            try{
+                await _AuthService.VerifyEmail(request.Otp);
+                return Ok(new { message = "Xác thực thành công. Bạn có thể đăng nhập ngay bây giờ." });
+            } catch (InvalidOperationException e){
+                return BadRequest(new { message = e.Message });
+            } catch (Exception){
+                return BadRequest(new { message = "OTP không hợp lệ hoặc đã hết hạn." });
+            }
+        }
+
         /// <summary>Yêu cầu gửi email đặt lại mật khẩu</summary>
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request){
@@ -178,7 +180,8 @@ namespace Backend.Controller
         [HttpPut("change-password")]
         public async Task<IActionResult> ChangePassword([FromBody] PasswordRequest request){
             try{
-                var userID = User.FindFirstValue("sub");
+                var userID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("user_id")?.Value;
                 if (string.IsNullOrWhiteSpace(userID)) return Unauthorized();
                 await _AuthService.ChangePassword(request, Guid.Parse(userID));
                 return Ok(new { message = "Đổi mật khẩu thành công." });

@@ -10,28 +10,24 @@ namespace Backend.Data {
         public DbSet<User> User { get; set; }
         public DbSet<Employee> Employee { get; set; }
         public DbSet<Address> Address { get; set; }
-        public DbSet<UserAddress> UserAddress { get; set; }
         public DbSet<Store> Store { get; set; }
         public DbSet<Shift> Shift { get; set; }
-        public DbSet<Category> Category { get; set; }
         public DbSet<Product> Product { get; set; }
         public DbSet<ProductVarient> ProductVarient { get; set; }
-        public DbSet<Combo> Combo { get; set; }
-        public DbSet<ComboProduct> ComboProduct { get; set; }
         public DbSet<Receipe> Receipe { get; set; }
         public DbSet<Bill> Bill { get; set; }
         public DbSet<BillDetail> BillDetail { get; set; }
         public DbSet<BillChange> BillChange { get; set; }
         public DbSet<Ticket> Ticket { get; set; }
         public DbSet<DiningTable> DiningTable { get; set; }
-        public DbSet<Booking> Booking { get; set; }
-        public DbSet<BookingChange> BookingChange {get; set; }
         public DbSet<DeliveryInfo> DeliveryInfo { get; set; }
         public DbSet<DeliveryLog> DeliveryLog { get; set; }
         public DbSet<Supplier> Supplier { get; set; }
         public DbSet<PurchaseOrder> PurchaseOrder { get; set; }
         public DbSet<PODetail> PODetail { get; set; }
         public DbSet<POApproval> POApproval { get; set; }
+        public DbSet<ProcessingLog> ProcessingLog {get; set; }
+        public DbSet<ProcessingDetail> ProcessingDetail {get; set; }
         public DbSet<Receipt> Receipt { get; set; }
         public DbSet<ReceiptDetail> ReceiptDetail { get; set; }
         public DbSet<Warehouse> Warehouse { get; set; }
@@ -42,17 +38,39 @@ namespace Backend.Data {
         public DbSet<TicketUser> TicketUser {get; set;}
         public DbSet<BlacklistedToken> BlackListedToken {get; set;}
         public DbSet<EmailVerificationToken> EmailVerificationToken {get; set;}
+        public DbSet<ComboDetail> ComboDetail {get; set;}
 
         protected override void OnModelCreating(ModelBuilder modelBuilder) {
             base.OnModelCreating(modelBuilder);
 
             // many to many
-            modelBuilder.Entity<UserAddress>()
-                .HasKey(x => new { x.UserID, x.AddressID });
-            modelBuilder.Entity<UserAddress>()
-                .HasOne(x => x.User).WithMany(u => u.UserAddress).HasForeignKey(x => x.UserID).OnDelete(DeleteBehavior.Cascade);
-            modelBuilder.Entity<UserAddress>()
-                .HasOne(x => x.Address).WithMany(a => a.UserAddresses).HasForeignKey(x => x.AddressID).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<ComboDetail>()
+                .HasKey(x => new {x.ComboID, x.ProductID});
+            modelBuilder.Entity<ComboDetail>()
+                .HasOne(x => x.Combo).WithMany(p => p.ComboDetail).HasForeignKey(x => x.ComboID).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<ComboDetail>()
+                .HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductID).OnDelete(DeleteBehavior.Restrict);
+
+            // one to many: User -> Address
+            modelBuilder.Entity<User>()
+                .HasMany(u => u.Addresses)
+                .WithOne(a => a.User)
+                .HasForeignKey(a => a.UserID)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // zero or one: Bill -> DeliveryInfo (0..1)
+            modelBuilder.Entity<Bill>()
+                .HasOne(b => b.DeliveryInfo)
+                .WithOne(di => di.Bill)
+                .HasForeignKey<DeliveryInfo>(di => di.BillID)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // one to many: DeliveryInfo -> DeliveryLog (1-N)
+            modelBuilder.Entity<DeliveryInfo>()
+                .HasMany(di => di.DeliveryLog)
+                .WithOne(dl => dl.DeliveryInfo)
+                .HasForeignKey(dl => dl.DeliveryID)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<BillDetail>()
                 .HasKey(x => new { x.BillID, x.ProductVarientID });
@@ -60,13 +78,6 @@ namespace Backend.Data {
                 .HasOne(x => x.Bill).WithMany(b => b.BillDetail).HasForeignKey(x => x.BillID).OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<BillDetail>()
                 .HasOne(x => x.ProductVarient).WithMany(p => p.BillDetail).HasForeignKey(x => x.ProductVarientID).OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<ComboProduct>()
-                .HasKey(x => new { x.ComboID, x.ProductVarientID });
-            modelBuilder.Entity<ComboProduct>()
-                .HasOne(x => x.Combo).WithMany(c => c.ComboProduct).HasForeignKey(x => x.ComboID).OnDelete(DeleteBehavior.Cascade);
-            modelBuilder.Entity<ComboProduct>()
-                .HasOne(x => x.ProductVarient).WithMany(p => p.ComboProduct).HasForeignKey(x => x.ProductVarientID).OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Receipe>()
                 .HasKey(x => new { x.IngredientID, x.ProductVarientID });
@@ -88,6 +99,17 @@ namespace Backend.Data {
                 .HasOne(x => x.Receipt).WithMany(r => r.ReceiptDetail).HasForeignKey(x => x.GoodsReceiptID).OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<ReceiptDetail>()
                 .HasOne(x => x.Ingredient).WithMany(i => i.ReceiptDetail).HasForeignKey(x => x.IngredientID).OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ProcessingDetail>()
+                .HasKey(x => new { x.ProcessingID, x.SourceBatchID });
+            modelBuilder.Entity<ProcessingDetail>()
+                .HasOne(x => x.ProcessingLog).WithMany(p => p.Details).HasForeignKey(x => x.ProcessingID).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<ProcessingDetail>()
+                .HasOne(x => x.SourceBatch).WithMany().HasForeignKey(x => x.SourceBatchID).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<ProcessingDetail>()
+                .HasOne(x => x.OutputBatch).WithMany().HasForeignKey(x => x.OutputBatchID).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<ProcessingDetail>()
+                .HasOne(x => x.OutputIngredient).WithMany().HasForeignKey(x => x.OutputIngredientID).OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<TicketUser>()
                 .HasKey(x => new { x.TicketID, x.UserID });
@@ -159,12 +181,6 @@ namespace Backend.Data {
                 .HasMany(e => e.POApproval)
                 .WithOne(p => p.Employee)
                 .HasForeignKey(p => p.EmployeeID)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<Category>()
-                .HasMany(c => c.Product)
-                .WithOne(p => p.Category)
-                .HasForeignKey(p => p.CategoryID)
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Product>()
@@ -275,10 +291,6 @@ namespace Backend.Data {
                 .Property(x => x.PaymentMethods)
                 .HasConversion<string>().HasMaxLength(20).IsRequired();
             
-            modelBuilder.Entity<BookingChange>()
-                .Property(x => x.BookingStatus)
-                .HasConversion<string>().HasMaxLength(20).IsRequired();
-
             modelBuilder.Entity<Product>()
                 .Property(x => x.ProductType)
                 .HasConversion<string>().HasMaxLength(20).IsRequired();
@@ -295,6 +307,10 @@ namespace Backend.Data {
                 .Property(x => x.Status)
                 .HasConversion<string>().HasMaxLength(20).IsRequired();
 
+            modelBuilder.Entity<InventoryBatch>()
+                .Property(x => x.BatchType)
+                .HasConversion<string>().HasMaxLength(20).IsRequired();
+
             modelBuilder.Entity<StockMovement>()
                 .Property(x => x.MovementType)
                 .HasConversion<string>().HasMaxLength(30).IsRequired();
@@ -304,7 +320,7 @@ namespace Backend.Data {
                 .HasConversion<string>().HasMaxLength(20).IsRequired();
 
             modelBuilder.Entity<POApproval>()
-                .Property(x => x.Status)
+                .Property(x => x.POStatus)
                 .HasConversion<string>().HasMaxLength(20).IsRequired();
 
             modelBuilder.Entity<Ingredient>()
@@ -322,6 +338,12 @@ namespace Backend.Data {
             modelBuilder.Entity<DeliveryLog>()
                 .Property(x => x.Status)
                 .HasConversion<string>().HasMaxLength(20).IsRequired();
+
+            modelBuilder.Entity<Bill>()
+                .HasOne(b => b.Table)
+                .WithOne(t => t.Bill)
+                .HasForeignKey<Bill>(b => b.TableID)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

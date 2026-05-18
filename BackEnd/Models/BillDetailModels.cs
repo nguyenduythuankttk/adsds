@@ -14,7 +14,6 @@ namespace Backend.Models
         [ForeignKey("ProductVarientID")]
         public virtual ProductVarient ProductVarient { get; set; } = null!;
         [Required]
-
         public decimal Quantity { get; set; }
         [Required]
         public decimal Price { get; set; }

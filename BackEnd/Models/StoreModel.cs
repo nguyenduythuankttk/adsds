@@ -23,6 +23,7 @@ namespace Backend.Models{
         public int SeatingCapacity { get; set; }
         public DateTime? DeletedAt {get; set; }
 
+        [JsonIgnore]
         public virtual Address Address { get; set; } = null!;
 
         [JsonIgnore]

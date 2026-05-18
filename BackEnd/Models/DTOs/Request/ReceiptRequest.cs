@@ -1,20 +1,34 @@
-using Microsoft.AspNetCore.Identity;
-
 namespace Backend.Models.DTOs.Request
 {
     public class ReceiptCreateRequest
     {
+        public Guid POID { get; set; }
         public Guid EmployeeID { get; set; }
-        public DateTime DateReceive { get; set; }
-        public ReceiptStatus Status { get; set; }
+        public List<ReceiptDetailItem> ReceiptLines { get; set; } = [];
     }
 
-    public class ReceiptUpdateRequest
+    public class ReceiptDetailItem
     {
-        //public Guid EmployeeID { get; set; } -> Quang đang hơi thắc mắc vì người cập nhật thì cần thêm thuộc tính chứ nhỉ..
-        public int StoreID { get; set; }
-        public int SupplierID { get; set; }
-        public ReceiptStatus Status { get; set; }
+        public int IngredientID { get; set; }
+        public decimal Quantity { get; set; }       // số kg giao thực tế
+        public decimal GoodQuantity { get; set; }   // số kg không bị hỏng
+        public decimal UnitPrice { get; set; }      // giá thực tế trên hóa đơn
+    }
+
+    public class ConfirmReceiptRequest
+    {
+        public Guid ReceiptID { get; set; }
+        public Guid EmployeeID { get; set; }
+        public List<ConfirmReceiptLine> Lines { get; set; } = [];
+    }
+
+    public class ConfirmReceiptLine
+    {
+        public int IngredientID { get; set; }
+        public int WarehouseID { get; set; }
+        public DateOnly Mfd { get; set; }
+        public DateOnly Exp { get; set; }
+        public string? BatchCode { get; set; }
     }
 }
 

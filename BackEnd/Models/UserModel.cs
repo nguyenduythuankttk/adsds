@@ -35,7 +35,7 @@ namespace Backend.Models {
         public string? PasswordEmail {get; set;}
         public DateTime?  PasswordEmailExp {get; set;}
         [JsonIgnore]
-        public virtual ICollection<UserAddress> UserAddress { get; set; } = new List<UserAddress>();
+        public virtual ICollection<Address> Addresses { get; set; } = new List<Address>();
         [JsonIgnore]
         public virtual ICollection<TicketUser> TicketUser { get; set; } = new List<TicketUser>();
     }       

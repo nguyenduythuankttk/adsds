@@ -10,7 +10,8 @@ namespace Backend.Models{
         Waste,
         TransferIn,
         TransferOut,
-        ManualAdjustment
+        ManualAdjustment,
+        Processing
     }
 
     public enum StockReferenceType
@@ -43,6 +44,7 @@ namespace Backend.Models{
         public StockReferenceType ReferenceType { get; set; }
         [Required]
         public DateTime TimeStamp { get; set; }
+        public Guid? ReferenceID { get; set; }
         public string? Reason { get; set; }
         public string? Note { get; set; }
         public DateTime? DeleteAt {get; set;}

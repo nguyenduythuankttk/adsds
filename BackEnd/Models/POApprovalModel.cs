@@ -5,12 +5,11 @@ namespace Backend.Models{
 
     public enum PO_Status
     {
-        Submitted,
-        Approved,
-        Rejected,
-        Ordered,
-        Received,
-        Cancelled
+        Submitted,   // nhân viên vừa tạo, chờ manager duyệt
+        Ordered,     // manager xác nhận → đặt hàng NCC
+        Received,    // hàng về, đã tạo Receipt
+        Rejected,    // manager từ chối (terminal)
+        Cancelled    // manager hủy sau khi đã Ordered (terminal, bắt buộc có lý do)
     }
 
     public class POApproval
@@ -26,8 +25,9 @@ namespace Backend.Models{
         [Required]
         public DateTime LastUpdated { get; set; }
         public string? Comment { get; set; }
+        public string? CancelledReason { get; set; }
         [Required]
-        public PO_Status Status { get; set; }
+        public PO_Status POStatus { get; set; }
 
     }
 }

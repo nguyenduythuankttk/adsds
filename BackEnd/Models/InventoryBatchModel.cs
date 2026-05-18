@@ -10,7 +10,14 @@ namespace Backend.Models{
         Depleted,
         Expired,
         Damaged,
-        Locked
+        Locked,
+        Cancelled
+    }
+
+    public enum BatchType
+    {
+        Raw,        // Nhập từ NCC — đơn vị kg, dùng trong Processing
+        Processed   // Sau sơ chế — đơn vị miếng/Unit, dùng trong Bill
     }
 
     public class InventoryBatch
@@ -41,7 +48,9 @@ namespace Backend.Models{
         public int IngredientID { get; set; }
         [ForeignKey("IngredientID")]
         public virtual Ingredient Ingredient { get; set; } = null!;
-        public Guid GoodsReceiptID { get; set; }
+        public Guid? GoodsReceiptID { get; set; }
+        [Required]
+        public BatchType BatchType { get; set; }
         [JsonIgnore]
         public virtual ICollection<StockMovement> StockMovement { get; set; } = new List<StockMovement>();
     }

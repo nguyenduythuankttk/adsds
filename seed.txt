@@ -1,0 +1,464 @@
+-- ================================================================
+-- JOLIBEE DATABASE SEED SCRIPT
+-- Xoá toàn bộ dữ liệu cũ, insert dữ liệu test mới
+--
+-- Cách dùng:
+--   1. Mở MySQL Workbench (hoặc DBeaver)
+--   2. Chọn đúng database (USE <tên_db>;)
+--   3. Chạy toàn bộ file này từ đầu đến cuối
+--
+-- Mật khẩu đăng nhập cho mọi tài khoản: password
+-- (BCrypt hash cost=12 cho chuỗi "password")
+-- ================================================================
+USE DBjolibi;
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- ----------------------------------------------------------------
+-- XOÁ DỮ LIỆU CŨ (theo thứ tự phụ thuộc khoá ngoại)
+-- ----------------------------------------------------------------
+TRUNCATE TABLE DeliveryLog;
+TRUNCATE TABLE DeliveryInfo;
+TRUNCATE TABLE StockMovement;
+TRUNCATE TABLE InventoryBatch;
+TRUNCATE TABLE ReceiptChange;
+TRUNCATE TABLE ReceiptDetail;
+TRUNCATE TABLE Receipt;
+TRUNCATE TABLE POApproval;
+TRUNCATE TABLE PODetail;
+TRUNCATE TABLE PurchaseOrder;
+TRUNCATE TABLE BillChange;
+TRUNCATE TABLE BillDetail;
+TRUNCATE TABLE Bill;
+TRUNCATE TABLE TicketUser;
+TRUNCATE TABLE Ticket;
+TRUNCATE TABLE Shift;
+TRUNCATE TABLE Receipe;
+TRUNCATE TABLE ComboDetail;
+TRUNCATE TABLE ProductVarient;
+TRUNCATE TABLE Product;
+TRUNCATE TABLE DiningTable;
+TRUNCATE TABLE Warehouse;
+TRUNCATE TABLE EmailVerificationToken;
+TRUNCATE TABLE BlackListedToken;
+TRUNCATE TABLE Address;
+TRUNCATE TABLE `User`;
+TRUNCATE TABLE Store;
+TRUNCATE TABLE Supplier;
+TRUNCATE TABLE Ingredient;
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+
+-- ================================================================
+-- 1. STORE
+-- ================================================================
+INSERT INTO Store (StoreID, StoreName, Phone, Email, TotalReviews, TotalPoints, SeatingCapacity, DeletedAt)
+VALUES (1, 'Jolibee - Chi nhánh Quận 5', '0909123456', 'q5@jolibee.vn', 5, 23, 60, NULL);
+
+
+-- ================================================================
+-- 2. SUPPLIER
+-- ================================================================
+INSERT INTO Supplier (SupplierID, SupplierName, Phone, Email, TaxCode, DeletedAt)
+VALUES (1, 'Cty TNHH Nguyên Liệu Việt', '0281234567', 'ncc@nguyen-lieu.vn', '0301234567', NULL);
+
+
+-- ================================================================
+-- 3. USER
+-- Discriminator = 'User'     → khách hàng thường
+-- Discriminator = 'Employee' → nhân viên (có thêm Role, BasicSalary, StoreID)
+-- ================================================================
+INSERT INTO `User` (
+  UserID, Discriminator,
+  UserName, HashPassword, FullName, Email, Phone, Gender,
+  BirthDate, CreateAt, IsVerified,
+  DeletedAt, EmailVerified, VerifiedExp, PasswordEmail, PasswordEmailExp,
+  Role, BasicSalary, StoreID, DeleteAt
+) VALUES
+
+-- Khách hàng
+('usr00001-0000-0000-0000-000000000001', 'User',
+ 'nguyen_van_a',
+ '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/lewKyBArcFMuf5Ede',
+ 'Nguyễn Văn A', 'van.a@gmail.com', '0901234561', 'Male',
+ '1995-03-15', '2025-01-10 08:00:00', 1,
+ NULL, NULL, NULL, NULL, NULL,
+ NULL, NULL, NULL, NULL),
+
+('usr00001-0000-0000-0000-000000000002', 'User',
+ 'tran_thi_b',
+ '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/lewKyBArcFMuf5Ede',
+ 'Trần Thị B', 'thi.b@gmail.com', '0901234562', 'Female',
+ '1998-07-20', '2025-02-01 09:00:00', 1,
+ NULL, NULL, NULL, NULL, NULL,
+ NULL, NULL, NULL, NULL),
+
+-- Nhân viên: Quản lý
+('emp00001-0000-0000-0000-000000000001', 'Employee',
+ 'manager_q5',
+ '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/lewKyBArcFMuf5Ede',
+ 'Lê Minh Quân', 'manager@jolibee.vn', '0901234563', 'Male',
+ '1990-01-10', '2024-06-01 07:00:00', 1,
+ NULL, NULL, NULL, NULL, NULL,
+ 'Manager', 15000000.00, 1, NULL),
+
+-- Nhân viên: Phục vụ
+('emp00001-0000-0000-0000-000000000002', 'Employee',
+ 'dining_nga',
+ '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/lewKyBArcFMuf5Ede',
+ 'Phạm Thị Nga', 'dining@jolibee.vn', '0901234564', 'Female',
+ '2000-05-22', '2024-06-01 07:00:00', 1,
+ NULL, NULL, NULL, NULL, NULL,
+ 'Dining', 8000000.00, 1, NULL),
+
+-- Nhân viên: Bếp
+('emp00001-0000-0000-0000-000000000003', 'Employee',
+ 'kitchen_khai',
+ '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/lewKyBArcFMuf5Ede',
+ 'Đỗ Công Khải', 'kitchen@jolibee.vn', '0901234565', 'Male',
+ '1997-11-30', '2024-06-01 07:00:00', 1,
+ NULL, NULL, NULL, NULL, NULL,
+ 'Kitchen', 8500000.00, 1, NULL);
+
+
+-- ================================================================
+-- 4. ADDRESS
+--   add...-001 : địa chỉ cửa hàng  (StoreID=1)
+--   add...-002 : địa chỉ nhà cung cấp (SupplierID=1)
+--   add...-003 : địa chỉ của nguyen_van_a
+--   add...-004 : địa chỉ của tran_thi_b
+--
+-- Lưu ý: UserAddress table đã bị xóa (migration UserAddressOneToMany).
+-- Địa chỉ khách hàng bây giờ dùng cột UserID trực tiếp trên bảng Address.
+-- ================================================================
+INSERT INTO Address (AddressID, HouseNumber, Street, Ward, District, Province, Country, StoreID, SupplierID, UserID, IsDefault)
+VALUES
+  ('add00001-0000-0000-0000-000000000001', 123, 'Nguyễn Trãi',   'Phường 2',  'Quận 5',    'TP. Hồ Chí Minh', 'Viet Nam', 1,    NULL, NULL, 0),
+  ('add00001-0000-0000-0000-000000000002',  45, 'Điện Biên Phủ', 'Phường 15', 'Bình Thạnh','TP. Hồ Chí Minh', 'Viet Nam', NULL, 1,    NULL, 0),
+  ('add00001-0000-0000-0000-000000000003',  88, 'Lê Văn Sỹ',     'Phường 13', 'Quận 3',    'TP. Hồ Chí Minh', 'Viet Nam', NULL, NULL, 'usr00001-0000-0000-0000-000000000001', 1),
+  ('add00001-0000-0000-0000-000000000004',  88, 'Lê Văn Sỹ',     'Phường 13', 'Quận 3',    'TP. Hồ Chí Minh', 'Viet Nam', NULL, NULL, 'usr00001-0000-0000-0000-000000000002', 1);
+
+
+-- ================================================================
+-- 5. INGREDIENT
+-- ================================================================
+INSERT INTO Ingredient (IngredientID, IngredientName, IngredientUnit, CostPerUnit, DeletedAt)
+VALUES
+  (1, 'Bánh phở',    'Gram',   50,    NULL),
+  (2, 'Thịt bò',    'Gram',   200,   NULL),
+  (3, 'Cà phê rang', 'Gram',   150,   NULL),
+  (4, 'Trà xanh',   'Gram',   100,   NULL),
+  (5, 'Sữa tươi',   'Liter',  30000, NULL);
+
+
+-- ================================================================
+-- 6. PRODUCT
+-- ProductID 6 là sản phẩm Combo (type='Combo'), dùng cho ComboDetail
+-- ================================================================
+INSERT INTO Product (ProductID, ProductName, ProductType, Image, DeletedAt)
+VALUES
+  (1, 'Phở Bò',              'Food',  NULL, NULL),
+  (2, 'Bánh Mì Thịt',        'Food',  NULL, NULL),
+  (3, 'Cà Phê Đen',          'Drink', NULL, NULL),
+  (4, 'Trà Sữa',             'Drink', NULL, NULL),
+  (5, 'Đường Thêm',          'Addon', NULL, NULL),
+  (6, 'Combo Phở + Cà Phê',  'Combo', NULL, NULL);
+
+
+-- ================================================================
+-- 7. PRODUCT VARIANT
+-- ================================================================
+INSERT INTO ProductVarient (ProductVarientID, ProductID, Size, Price, IsActive, DeletedAt)
+VALUES
+  (1, 1, 'Default', 65000, 1, NULL),   -- Phở Bò
+  (2, 2, 'Default', 30000, 1, NULL),   -- Bánh Mì Thịt
+  (3, 3, 'S',       25000, 1, NULL),   -- Cà Phê Đen S
+  (4, 3, 'M',       30000, 1, NULL),   -- Cà Phê Đen M
+  (5, 4, 'M',       45000, 1, NULL),   -- Trà Sữa M
+  (6, 4, 'L',       55000, 1, NULL),   -- Trà Sữa L
+  (7, 5, 'Default',  5000, 1, NULL);   -- Đường Thêm
+
+
+-- ================================================================
+-- 8. COMBO DETAIL
+-- Lưu ý: Combo table và ComboProduct table đã bị xóa (migration RemoveCombo).
+-- Hiện tại dùng ComboDetail: ComboID → Product(Combo), ProductID → Product(thành phần)
+-- Combo Phở + Cà Phê (ProductID=6) gồm: Phở Bò (1) + Cà Phê Đen (3)
+-- ================================================================
+INSERT INTO ComboDetail (ComboID, ProductID, qty)
+VALUES
+  (6, 1, 1),   -- Combo chứa 1x Phở Bò
+  (6, 3, 1);   -- Combo chứa 1x Cà Phê Đen
+
+
+-- ================================================================
+-- 9. RECIPE
+-- ================================================================
+INSERT INTO Receipe (IngredientID, ProductVarientID, QtyBeforeProcess, QtyAfterProcess, DeletedAt)
+VALUES
+  (1, 1, 200,    180,   NULL),   -- Bánh phở    → Phở Bò Default
+  (2, 1, 150,    120,   NULL),   -- Thịt bò     → Phở Bò Default
+  (3, 3,  20,     18,   NULL),   -- Cà phê rang → Cà Phê Đen S
+  (3, 4,  25,     22,   NULL),   -- Cà phê rang → Cà Phê Đen M
+  (4, 5,  15,     12,   NULL),   -- Trà xanh    → Trà Sữa M
+  (5, 5,   0.15,   0.15, NULL);  -- Sữa tươi    → Trà Sữa M (150ml)
+
+
+-- ================================================================
+-- 10. DINING TABLE
+-- ================================================================
+INSERT INTO DiningTable (TableID, StoreID, TableNumber, Capacity, Status, DeletedAt)
+VALUES
+  (1, 1, 1, 4, 'Available', NULL),
+  (2, 1, 2, 6, 'Available', NULL),
+  (3, 1, 3, 2, 'Available', NULL);
+
+
+-- ================================================================
+-- 11. WAREHOUSE
+-- ================================================================
+INSERT INTO Warehouse (WarehouseID, StoreID, Capacity, DeletedAt)
+VALUES (1, 1, 1000, NULL);
+
+
+-- ================================================================
+-- 12. TICKET (Mã giảm giá 20% cho tran_thi_b)
+-- ================================================================
+INSERT INTO Ticket (TicketID, StartDate, EndDate, Discount, DeletedAt, UsedAt, UsedBy, UserID)
+VALUES (
+  'tic00001-0000-0000-0000-000000000001',
+  '2026-01-01 00:00:00', '2026-12-31 23:59:59',
+  0.20, NULL, NULL, NULL,
+  'usr00001-0000-0000-0000-000000000002'
+);
+
+INSERT INTO TicketUser (TicketID, UserID)
+VALUES ('tic00001-0000-0000-0000-000000000001', 'usr00001-0000-0000-0000-000000000002');
+
+
+-- ================================================================
+-- 13. SHIFT
+-- ================================================================
+INSERT INTO Shift (ShiftID, EmployeeID, TimeIn, TimeOut, CheckIn, CheckOut, DeletedAt)
+VALUES
+  ('shf00001-0000-0000-0000-000000000001',
+   'emp00001-0000-0000-0000-000000000001',
+   '2026-05-10 08:00:00', '2026-05-10 17:00:00',
+   '2026-05-10 08:05:00', '2026-05-10 17:02:00', NULL),
+
+  ('shf00001-0000-0000-0000-000000000002',
+   'emp00001-0000-0000-0000-000000000002',
+   '2026-05-10 08:00:00', '2026-05-10 17:00:00',
+   '2026-05-10 07:58:00', '2026-05-10 17:01:00', NULL),
+
+  ('shf00001-0000-0000-0000-000000000003',
+   'emp00001-0000-0000-0000-000000000003',
+   '2026-05-10 08:00:00', '2026-05-10 17:00:00',
+   '2026-05-10 08:10:00', '2026-05-10 17:05:00', NULL);
+
+
+-- ================================================================
+-- 14. PURCHASE ORDER
+-- PO tổng: 5000g bánh phở × 50đ = 250,000đ
+--        + 3000g thịt bò  × 200đ = 600,000đ
+--        = 850,000đ + thuế 10% = 935,000đ
+-- ================================================================
+INSERT INTO PurchaseOrder (POID, StoreID, SupplierID, TaxRate, Total, DeletedAt)
+VALUES ('po000001-0000-0000-0000-000000000001', 1, 1, 0.10, 935000, NULL);
+
+INSERT INTO PODetail (POID, IngredientID, Quantity, UnitPriceExpected)
+VALUES
+  ('po000001-0000-0000-0000-000000000001', 1, 5000, 50),
+  ('po000001-0000-0000-0000-000000000001', 2, 3000, 200);
+
+INSERT INTO POApproval (POApprovalID, POID, EmployeeID, LastUpdated, Comment, Status)
+VALUES (
+  'poa00001-0000-0000-0000-000000000001',
+  'po000001-0000-0000-0000-000000000001',
+  'emp00001-0000-0000-0000-000000000001',
+  '2026-05-08 09:00:00', 'Đã kiểm tra và duyệt', 'Approved'
+);
+
+
+-- ================================================================
+-- 15. RECEIPT
+-- Bánh phở: đặt 5000g, nhận đạt 4950g (hao hụt 50g)
+-- Thịt bò : đặt 3000g, nhận đủ 3000g
+-- ================================================================
+INSERT INTO Receipt (ReceiptID, DateReceive, DeletedAt, EmployeeID, StoreID, SupplierID, POID)
+VALUES (
+  'rec00001-0000-0000-0000-000000000001',
+  '2026-05-09 10:00:00', NULL,
+  'emp00001-0000-0000-0000-000000000003',
+  1, 1,
+  'po000001-0000-0000-0000-000000000001'
+);
+
+INSERT INTO ReceiptDetail (GoodsReceiptID, IngredientID, Quantity, GoodQuantity, UnitPrice)
+VALUES
+  ('rec00001-0000-0000-0000-000000000001', 1, 5000, 4950,  50),
+  ('rec00001-0000-0000-0000-000000000001', 2, 3000, 3000, 200);
+
+INSERT INTO ReceiptChange (ReceiptChangeID, ReceiptID, Status, EmployeeID, UpdateAt)
+VALUES (
+  'rcg00001-0000-0000-0000-000000000001',
+  'rec00001-0000-0000-0000-000000000001',
+  'Received',
+  'emp00001-0000-0000-0000-000000000003',
+  '2026-05-09 10:30:00'
+);
+
+
+-- ================================================================
+-- 16. INVENTORY BATCH
+-- ================================================================
+INSERT INTO InventoryBatch (
+  BatchID, WarehouseID,
+  ImportDate, Exp, Mfd,
+  QuantityOriginal, QuantityOnHand, Status, UnitCost,
+  UpdatedAt, BatchCode, Note,
+  IngredientID, GoodsReceiptID,
+  ReceiptDetailGoodsReceiptID, ReceiptDetailIngredientID
+) VALUES
+  ('bat00001-0000-0000-0000-000000000001', 1,
+   '2026-05-09 10:30:00', '2026-11-09', '2026-04-01',
+   4950, 4700, 'Available', 50,
+   NULL, 'BT-PHO-20260509', NULL,
+   1, 'rec00001-0000-0000-0000-000000000001',
+   'rec00001-0000-0000-0000-000000000001', 1),
+
+  ('bat00001-0000-0000-0000-000000000002', 1,
+   '2026-05-09 10:30:00', '2026-07-09', '2026-04-20',
+   3000, 2850, 'Available', 200,
+   NULL, 'BT-BO-20260509', NULL,
+   2, 'rec00001-0000-0000-0000-000000000001',
+   'rec00001-0000-0000-0000-000000000001', 2);
+
+
+-- ================================================================
+-- 17. STOCK MOVEMENT
+-- ================================================================
+INSERT INTO StockMovement (
+  StockMovementID, BatchID, EmployeeID,
+  QtyChange, MovementType, ReferenceType,
+  TimeStamp, Reason, Note, DeleteAt
+) VALUES
+  ('stm00001-0000-0000-0000-000000000001',
+   'bat00001-0000-0000-0000-000000000001',
+   'emp00001-0000-0000-0000-000000000003',
+   4950, 'PurchaseReceipt', 'GoodsReceipt',
+   '2026-05-09 10:30:00', 'Nhập kho từ phiếu nhập REC-001', NULL, NULL),
+
+  ('stm00001-0000-0000-0000-000000000002',
+   'bat00001-0000-0000-0000-000000000002',
+   'emp00001-0000-0000-0000-000000000003',
+   3000, 'PurchaseReceipt', 'GoodsReceipt',
+   '2026-05-09 10:30:00', 'Nhập kho từ phiếu nhập REC-001', NULL, NULL),
+
+  ('stm00001-0000-0000-0000-000000000003',
+   'bat00001-0000-0000-0000-000000000001',
+   'emp00001-0000-0000-0000-000000000003',
+   -200, 'Consumption', 'Bill',
+   '2026-05-10 12:15:00', 'Dùng bánh phở làm Phở Bò (1 phần)', NULL, NULL),
+
+  ('stm00001-0000-0000-0000-000000000004',
+   'bat00001-0000-0000-0000-000000000002',
+   'emp00001-0000-0000-0000-000000000003',
+   -150, 'Consumption', 'Bill',
+   '2026-05-10 12:15:00', 'Dùng thịt bò làm Phở Bò (1 phần)', NULL, NULL);
+
+
+-- ================================================================
+-- 18. BILL
+-- Bill 1: Ăn tại bàn (Table 1) - nguyen_van_a
+--   1x Phở Bò Default (65,000đ) + 1x Cà Phê Đen M (30,000đ)
+--   Tổng trước thuế: 95,000đ | VAT 10% | Tổng: 104,500đ
+--
+-- Bill 2: Giao hàng - tran_thi_b
+--   1x Trà Sữa M (45,000đ) | VAT 10% | Tổng: 49,500đ
+-- ================================================================
+INSERT INTO Bill (
+  BillID, UserID, StoreID, VAT, PaymentMethods, Note,
+  TicketID, Total, MoneyReceived, MoneyGiveBack, TableID, DeletedAt
+) VALUES
+  ('bil00001-0000-0000-0000-000000000001',
+   'usr00001-0000-0000-0000-000000000001', 1,
+   0.10, 'Cash', NULL,
+   NULL, 104500, 110000, 5500, 1, NULL),
+
+  ('bil00001-0000-0000-0000-000000000002',
+   'usr00001-0000-0000-0000-000000000002', 1,
+   0.10, 'Card', 'Giao tại nhà',
+   NULL, 49500, 49500, 0, NULL, NULL);
+
+INSERT INTO BillDetail (BillID, ProductVarientID, Quantity, Price, InlineTotal)
+VALUES
+  ('bil00001-0000-0000-0000-000000000001', 1, 1, 65000, 65000),
+  ('bil00001-0000-0000-0000-000000000001', 4, 1, 30000, 30000),
+  ('bil00001-0000-0000-0000-000000000002', 5, 1, 45000, 45000);
+
+INSERT INTO BillChange (BillChangeID, BillID, EmployeeID, ChangeAt, Status)
+VALUES
+  ('bch00001-0000-0000-0000-000000000001',
+   'bil00001-0000-0000-0000-000000000001',
+   'emp00001-0000-0000-0000-000000000002',
+   '2026-05-10 12:00:00', 'Create'),
+  ('bch00001-0000-0000-0000-000000000002',
+   'bil00001-0000-0000-0000-000000000001',
+   'emp00001-0000-0000-0000-000000000002',
+   '2026-05-10 12:30:00', 'Paid'),
+  ('bch00001-0000-0000-0000-000000000003',
+   'bil00001-0000-0000-0000-000000000002',
+   'emp00001-0000-0000-0000-000000000002',
+   '2026-05-10 14:00:00', 'Create'),
+  ('bch00001-0000-0000-0000-000000000004',
+   'bil00001-0000-0000-0000-000000000002',
+   'emp00001-0000-0000-0000-000000000002',
+   '2026-05-10 14:30:00', 'Paid');
+
+
+-- ================================================================
+-- 19. DELIVERY INFO & LOG (cho Bill 2)
+-- Dùng add...-004 vì đó là địa chỉ của tran_thi_b
+-- ================================================================
+INSERT INTO DeliveryInfo (DeliveryID, BillID, UserID, AddressID, ShippingFee, Note, DeletedAt)
+VALUES (
+  'del00001-0000-0000-0000-000000000001',
+  'bil00001-0000-0000-0000-000000000002',
+  'usr00001-0000-0000-0000-000000000002',
+  'add00001-0000-0000-0000-000000000004',
+  15000, NULL, NULL
+);
+
+INSERT INTO DeliveryLog (LogID, DeliveryID, EmployeeID, Status, ChangeAt, Note)
+VALUES
+  ('dlg00001-0000-0000-0000-000000000001',
+   'del00001-0000-0000-0000-000000000001',
+   'emp00001-0000-0000-0000-000000000002',
+   'Create', '2026-05-10 14:00:00', NULL),
+
+  ('dlg00001-0000-0000-0000-000000000002',
+   'del00001-0000-0000-0000-000000000001',
+   'emp00001-0000-0000-0000-000000000002',
+   'Confirmed', '2026-05-10 14:05:00', NULL),
+
+  ('dlg00001-0000-0000-0000-000000000003',
+   'del00001-0000-0000-0000-000000000001',
+   'emp00001-0000-0000-0000-000000000002',
+   'Delivered', '2026-05-10 15:00:00', NULL);
+
+
+-- ================================================================
+-- DONE
+-- TÀI KHOẢN TEST:
+-- ┌─────────────────┬────────────────────────┬──────────┬──────────┐
+-- │ UserName        │ Email                  │ Password │ Role     │
+-- ├─────────────────┼────────────────────────┼──────────┼──────────┤
+-- │ manager_q5      │ manager@jolibee.vn     │ password │ Manager  │
+-- │ dining_nga      │ dining@jolibee.vn      │ password │ Dining   │
+-- │ kitchen_khai    │ kitchen@jolibee.vn     │ password │ Kitchen  │
+-- │ nguyen_van_a    │ van.a@gmail.com        │ password │ User     │
+-- │ tran_thi_b      │ thi.b@gmail.com        │ password │ User     │
+-- └─────────────────┴────────────────────────┴──────────┴──────────┘
+-- ================================================================

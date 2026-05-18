@@ -1,6 +1,7 @@
 using Backend.Models;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Backend.Controller
@@ -89,14 +90,15 @@ namespace Backend.Controller
         {
             try
             {
-                await _purchaseOrderService.CreatePO(createRequest);
-                return Ok("Add purchase order successfully!");
+                var result = await _purchaseOrderService.CreatePO(createRequest);
+                return CreatedAtAction(nameof(GetPOByID), new { id = result.POID }, result);
             }catch (Exception ex)
             {
                 return StatusCode(500, $"An error occurred in purchaseOrderController.CreatePO {ex.Message}");
             }
         }
 
+        [Authorize(Roles = "Manager")]
         [HttpPut("update/{id}")]
         public async Task<IActionResult> UpdatePO(Guid id, POUpdateRequest updateRequest)
         {
@@ -110,6 +112,17 @@ namespace Backend.Controller
             }
         }
 
-        
+        [HttpDelete("soft-delete/{id}")]
+        public async Task<IActionResult> SoftDeletePO(Guid id)
+        {
+            try
+            {
+                await _purchaseOrderService.SoftDeletePO(id);
+                return Ok("Soft delete purchase order successfully!");
+            }catch(Exception ex)
+            {
+                return StatusCode(500, $"An error occurred in purchaseOrderController.SoftDeletePO {ex.Message}");
+            }
+        }
     }
 }

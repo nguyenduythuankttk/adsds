@@ -7,25 +7,23 @@ namespace Backend.Models{
     {
         Food,
         Drink,
-        Addon
+        Addon,
+        Combo
     }
 
     public class Product
     {
         [Key]
         public int ProductID { get; set; }
-        public int CategoryID { get; set; }
-        [ForeignKey("CategoryID")]
-        public virtual Category Category { get; set; } = null!;
         [Required]
         public string ProductName { get; set; } = null!;
         [Required]
         public ProductType ProductType { get; set; }
         public string? Image { get; set; }
         public DateTime? DeletedAt { get; set; }
-        // Bỏ JsonIgnore để variants được trả về trong response (ReferenceHandler.IgnoreCycles xử lý vòng lặp)
+        [JsonIgnore]
         public virtual ICollection<ProductVarient> ProductVarient { get; set; } = new List<ProductVarient>();
-
-
+        [JsonIgnore]
+        public virtual ICollection<ComboDetail>? ComboDetail {get;set;} = new List<ComboDetail>();
     }
 }

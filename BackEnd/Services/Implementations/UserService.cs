@@ -25,7 +25,7 @@ namespace Backend.Services.Implementations
             await _dbContext.User
                 .Where(u => u.DeletedAt == null)
                 .AsNoTracking()
-                .Include(u => u.UserAddress)
+                .Include(u => u.Addresses)
                 .Select(u => new UserResponse
                 {
                     UserID = u.UserID,
@@ -41,7 +41,7 @@ namespace Backend.Services.Implementations
         public async Task<UserResponse?> GetUserByID(Guid userID) =>
             await _dbContext.User
                 .AsNoTracking()
-                .Include(u => u.UserAddress)
+                .Include(u => u.Addresses)
                 .Where(u => u.UserID == userID && u.DeletedAt == null)
                 .Select(u => new UserResponse
                 {
@@ -59,6 +59,7 @@ namespace Backend.Services.Implementations
         {
             try
             {
+                user.IsVerified = false;
                 user.HashPassword = _passwordHasher.HashPassword(user, user.HashPassword);
                 _dbContext.User.Add(user);
                 await _dbContext.SaveChangesAsync();
@@ -67,6 +68,8 @@ namespace Backend.Services.Implementations
                 Console.WriteLine(e.Message);
             }
         }
+        public async Task<User?> GetUserByContact (string contact) =>
+            await _dbContext.User.FirstOrDefaultAsync(u => u.Phone == contact || u.Email == contact);
 
         public async Task UpdateUser(Guid userID, UserUpdateRequest request)
         {
@@ -126,6 +129,8 @@ namespace Backend.Services.Implementations
                 throw new Exception($"An error occured while deleting user: {ex.Message}");
             }
         }
+        public async Task <int> GetQtyUser() =>
+        await _dbContext.User.Where(u => u.DeletedAt == null).CountAsync();
             
     }
 }

@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chônlibi — Nhân Viên</title>
+    <meta name="description" content="Giao diện nhân viên Chônlibi — quản lý hóa đơn, bàn, đặt bàn, kho và giao hàng.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../asset/themify-icons/themify-icons.css">
+    <link rel="stylesheet" href="../asset/css/employee.css">
+</head>
+<body>
+
+<!--HEADER -->
+<header class="emp-header">
+    <a href="index.html" class="emp-brand">
+        Chônlibi 🍗
+        <span class="emp-brand-badge">Nhân Viên</span>
+    </a>
+    <div class="emp-header-right">
+        <span class="emp-header-greeting">Xin chào, <strong id="header-name">...</strong></span>
+        <button class="emp-logout-btn" onclick="logout()">Đăng Xuất</button>
+    </div>
+</header>
+
+<!-- SIDEBAR  -->
+<aside class="emp-sidebar">
+    <div class="sidebar-group-label">Bán hàng & Phục vụ</div>
+
+    <div class="sidebar-item active" id="tab-invoice" onclick="showTab('invoice')">
+        <i class="ti-receipt"></i> Lập hóa đơn
+    </div>
+    <div class="sidebar-item" id="tab-table" onclick="showTab('table')">
+        <i class="ti-layout-grid2"></i> Sơ đồ bàn
+    </div>
+
+
+    <!-- Group 2: Kho -->
+    <div class="sidebar-group-label">Kho & Cung ứng</div>
+
+    <div class="sidebar-item" id="tab-warehouse" onclick="showTab('warehouse')">
+        <i class="ti-package"></i> Nhập kho
+    </div>
+    <div class="sidebar-item" id="tab-stockmove" onclick="showTab('stockmove')">
+        <i class="ti-arrow-circle-right"></i> Biến động kho
+    </div>
+
+    <!-- Group 3: Vận hành -->
+    <div class="sidebar-group-label">Vận hành & Logistics</div>
+
+    <div class="sidebar-item" id="tab-delivery" onclick="showTab('delivery')">
+        <i class="ti-truck"></i> Giao hàng
+    </div>
+
+</aside>
+
+<!-- ══ MAIN ════════════════════════════════════════════ -->
+<main class="emp-main">
+    <section class="emp-section active" id="section-invoice">
+        <h1 class="page-heading"><i class="ti-receipt"></i> Lập <span>Hóa Đơn</span></h1>
+
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-icon orange"><i class="ti-receipt"></i></div>
+                <div><div class="stat-num" id="stat-inv-count">0</div><div class="stat-lbl">Hóa đơn hôm nay</div></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon green"><i class="ti-money"></i></div>
+                <div><div class="stat-num" id="stat-inv-revenue">0đ</div><div class="stat-lbl">Doanh thu hôm nay</div></div>
+            </div>
+        </div>
+
+        <div class="two-col">
+            <!-- Tạo hóa đơn -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">🛒 Tạo hóa đơn mới</span>
+                </div>
+                <div class="panel-body">
+                    <div class="form-row">
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label>Tên khách hàng</label>
+                                <input type="text" id="inv-customer" placeholder="Nguyễn Văn A">
+                            </div>
+                            <div class="form-group">
+                                <label>Số điện thoại</label>
+                                <input type="tel" id="inv-phone" placeholder="0947 xxx xxx">
+                            </div>
+                        </div>
+                        <div class="form-row-3">
+                            <div class="form-group">
+                                <label>Loại đơn</label>
+                                <select id="inv-type">
+                                    <option value="dine-in">Tại quán</option>
+                                    <option value="takeaway">Mang về</option>
+                                    <option value="delivery">Giao hàng</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Mã giảm giá</label>
+                                <input type="text" id="inv-ticket" placeholder="WELCOME20">
+                            </div>
+                            <div class="form-group">
+                                <label>Số bàn</label>
+                                <input type="text" id="inv-table" placeholder="B1">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:16px">
+                        <div class="panel-title" style="margin-bottom:10px">📋 Chọn món</div>
+                        <div id="inv-menu"></div>
+                    </div>
+                </div>
+
+                <div class="inv-total-bar">
+                    <span>Tổng cộng (VAT 10%)</span>
+                    <span class="inv-total-val" id="inv-total">0 đ</span>
+                </div>
+                <div class="panel-body" style="padding-top:12px">
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label>Tiền nhận</label>
+                            <input type="number" id="inv-received" placeholder="0" oninput="calcChange()">
+                        </div>
+                        <div class="form-group">
+                            <label>Tiền thối</label>
+                            <input type="number" id="inv-change" placeholder="0" readonly style="background:#f9f9f9">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="createInvoice()">
+                        <i class="ti-check"></i> Xuất hóa đơn
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dsách hóa đơn -->
+            <div class="panel">
+                <div class="panel-header"><span class="panel-title">📄 Hóa đơn trong ngày</span></div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Mã HD</th>
+                                <th>Khách hàng</th>
+                                <th>Tổng tiền</th>
+                                <th>Loại</th>
+                                <th>Giờ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="invoice-tbody">
+                            <tr><td colspan="5" class="tbl-empty">Chưa có hóa đơn</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+    <section class="emp-section" id="section-table">
+        <h1 class="page-heading"><i class="ti-layout-grid2"></i> Sơ Đồ <span>Bàn</span></h1>
+
+        <div class="panel" style="margin-bottom:16px">
+            <div class="panel-header">
+                <span class="panel-title">Chú thích trạng thái</span>
+                <div style="display:flex;gap:10px;flex-wrap:wrap">
+                    <span class="badge badge-green">Trống</span>
+                    <span class="badge badge-orange">Đang phục vụ</span>
+                    <span class="badge badge-blue">Đã đặt trước</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title">🪑 Sơ đồ bàn — Tầng 1</span>
+                <button class="btn btn-primary btn-sm" onclick="openTableModal()"><i class="ti-plus"></i> Thêm bàn</button>
+            </div>
+            <div class="panel-body">
+                <div class="table-grid" id="table-grid"></div>
+            </div>
+        </div>
+    </section>
+
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 4. NHẬP KHO                                      -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="emp-section" id="section-warehouse">
+        <h1 class="page-heading"><i class="ti-package"></i> Nhập <span>Kho</span></h1>
+
+        <div class="two-col">
+            <!-- Form nhập kho -->
+            <div class="panel">
+                <div class="panel-header"><span class="panel-title">📦 Tạo phiếu nhập kho (Receipt)</span></div>
+                <div class="panel-body">
+                    <div class="form-row">
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label>Nhà cung cấp *</label>
+                                <input type="text" id="wh-supplier" placeholder="Cty Gà Sạch">
+                            </div>
+                            <div class="form-group">
+                                <label>Người nhận hàng *</label>
+                                <input type="text" id="wh-receiver" placeholder="Tên nhân viên">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Tên hàng hóa (Inventory Batch) *</label>
+                            <input type="text" id="wh-items" placeholder="VD: Gà tươi 50kg, Dầu ăn 20L...">
+                        </div>
+                        <div class="form-row-3">
+                            <div class="form-group">
+                                <label>Số lượng thực nhập</label>
+                                <input type="number" id="wh-qty" placeholder="50" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Đơn giá (UnitCost)</label>
+                                <input type="number" id="wh-cost" placeholder="50000" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Đơn vị</label>
+                                <select id="wh-unit">
+                                    <option value="kg">kg</option>
+                                    <option value="lít">lít</option>
+                                    <option value="túi">túi</option>
+                                    <option value="thùng">thùng</option>
+                                    <option value="cái">cái</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label>Ngày sản xuất (Mfd)</label>
+                                <input type="date" id="wh-mfd">
+                            </div>
+                            <div class="form-group">
+                                <label>Hạn sử dụng (Exp)</label>
+                                <input type="date" id="wh-exp">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Ghi chú</label>
+                            <textarea id="wh-note" placeholder="Ghi chú thêm về lô hàng..."></textarea>
+                        </div>
+                        <button class="btn btn-primary" onclick="confirmWarehouse()">
+                            <i class="ti-check"></i> Xác nhận nhập kho
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lịch sử nhập kho -->
+            <div class="panel">
+                <div class="panel-header"><span class="panel-title">📋 Lịch sử nhập kho</span></div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nhà CC</th>
+                                <th>Hàng hóa</th>
+                                <th>SL</th>
+                                <th>Đơn giá</th>
+                                <th>Người nhận</th>
+                                <th>Thời gian</th>
+                            </tr>
+                        </thead>
+                        <tbody id="warehouse-tbody">
+                            <tr><td colspan="6" class="tbl-empty">Chưa có dữ liệu</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 5. BIẾN ĐỘNG KHO                                -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="emp-section" id="section-stockmove">
+        <h1 class="page-heading"><i class="ti-arrow-circle-right"></i> Biến Động <span>Kho</span></h1>
+
+        <div class="two-col">
+            <!-- Form ghi biến động -->
+            <div class="panel">
+                <div class="panel-header"><span class="panel-title">📊 Ghi nhận biến động (StockMovement)</span></div>
+                <div class="panel-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Tên nguyên liệu *</label>
+                            <input type="text" id="sm-item" placeholder="Gà tươi, Dầu ăn...">
+                        </div>
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label>Loại biến động</label>
+                                <select id="sm-type">
+                                    <option value="import">Nhập mới (+)</option>
+                                    <option value="consume">Chế biến món (−)</option>
+                                    <option value="waste">Hao hụt (−)</option>
+                                    <option value="adjust">Điều chỉnh</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Thay đổi số lượng (QtyChange)</label>
+                                <input type="number" id="sm-qty" placeholder="5">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Đơn vị</label>
+                            <select id="sm-unit">
+                                <option value="kg">kg</option>
+                                <option value="lít">lít</option>
+                                <option value="cái">cái</option>
+                                <option value="gói">gói</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Ghi chú lý do *</label>
+                            <textarea id="sm-note" placeholder="Lý do thay đổi số lượng kho..."></textarea>
+                        </div>
+                        <button class="btn btn-primary" onclick="addStockMovement()">
+                            <i class="ti-plus"></i> Ghi nhận biến động
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nhật ký biến động -->
+            <div class="panel">
+                <div class="panel-header"><span class="panel-title">📋 Nhật ký biến động kho</span></div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nguyên liệu</th>
+                                <th>Loại</th>
+                                <th>SL thay đổi</th>
+                                <th>Lý do</th>
+                                <th>Thời gian</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockmove-tbody">
+                            <tr><td colspan="5" class="tbl-empty">Chưa có dữ liệu</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 6. GIAO HÀNG                                    -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="emp-section" id="section-delivery">
+        <h1 class="page-heading"><i class="ti-truck"></i> Quản Lý <span>Giao Hàng</span></h1>
+
+        <div class="panel" style="margin-bottom:20px">
+            <div class="panel-header"><span class="panel-title">🔄 Đơn đang chờ giao</span></div>
+            <div id="delivery-pending-list" class="panel-body"></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title">✅ Lịch sử giao hàng đã hoàn thành</span>
+            </div>
+            <div class="tbl-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Mã đơn</th>
+                            <th>Khách hàng</th>
+                            <th>Địa chỉ</th>
+                            <th>Giao lúc</th>
+                            <th>Nhân viên giao</th>
+                            <th>Ghi chú</th>
+                        </tr>
+                    </thead>
+                    <tbody id="delivery-done-tbody">
+                        <tr><td colspan="6" class="tbl-empty">Chưa có lịch sử</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<!-- ══ TOAST ═══════════════════════════════════════════ -->
+<div id="emp-toast"></div>
+
+<script src="../asset/js/api.js"></script>
+<script src="../asset/js/employee.js"></script>
+</body>
+</html>

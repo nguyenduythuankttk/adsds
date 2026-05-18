@@ -12,6 +12,7 @@ namespace Backend.Services.Implementations
     public class TicketService : ITicketService
     {
         private readonly AppDbContext _dbcontext;
+        private readonly IUserService _userService;
         public TicketService (AppDbContext dbcontext)
         {
             _dbcontext = dbcontext;
@@ -19,8 +20,8 @@ namespace Backend.Services.Implementations
         public async Task <List<Ticket>?> GetAllTicketIn(DateOnly start, DateOnly end) =>
             await _dbcontext.Ticket
             .AsNoTracking()
-            .Where( b => b.EndDate >= start.ToDateTime(TimeOnly.MinValue) &&
-                    b.StartDate <= end.ToDateTime(TimeOnly.MaxValue) &&
+            .Where( b => b.EndDate >= start &&
+                    b.StartDate <= end &&
                     b.DeletedAt == null
                 )
             .ToListAsync();
@@ -30,17 +31,23 @@ namespace Backend.Services.Implementations
             .AsNoTracking()
             .FirstOrDefaultAsync(t => t.TicketID == ticketID && t.DeletedAt == null);
 
+        public async Task<List<Ticket>> GetMyTickets(Guid userId) =>
+            await _dbcontext.TicketUser
+            .AsNoTracking()
+            .Where(tu => tu.UserID == userId)
+            .Select(tu => tu.Ticket)
+            .Where(t => t.DeletedAt == null)
+            .ToListAsync();
+
         public async Task AddTicket(TicketCreateRequest createRequest)
         {
             try
             {
-                var startDate  = createRequest.StartDate.Date;  
-                var endDate = createRequest.EndDate.Date;       
                 var newticket = new Ticket
                 {
                     TicketID = Guid.NewGuid(),
-                    StartDate = new DateTime(startDate.Year, startDate.Month, startDate.Day, 0, 0, 0),  // 00:00:00
-                    EndDate = new DateTime(endDate.Year, endDate.Month, endDate.Day, 23, 59, 59),      // 23:59:59
+                    StartDate = createRequest.StartDate,
+                    EndDate = createRequest.EndDate,
                     Discount = createRequest.Discount,
                     DeletedAt = null
                 };
@@ -52,6 +59,44 @@ namespace Backend.Services.Implementations
                 throw new Exception($"An error occurred while adding ticket {ex.Message}");
             }
             
+        }
+        public async Task CreateVoucher(TicketCreateRequest createRequest)
+        {
+            try
+            {
+                var tickets = new List<Ticket>();
+                for (int i = 0; i < createRequest.Qty; i++)
+                {
+                    var ticket =new Ticket
+                    {
+                        TicketID = Guid.NewGuid(),
+                        StartDate = createRequest.StartDate,
+                        EndDate = createRequest.EndDate,
+                        Discount = createRequest.Discount,
+                        DeletedAt = null
+                    };
+                    tickets.Add(ticket);
+                    _dbcontext.Ticket.Add(ticket);
+                }
+                var users = await _userService.GetAllUsers();
+                int count = users.Count;
+                for (int i = 0; i < count; i++){
+                    for (int j = 0; j < createRequest.Qty; j++)
+                    {
+                        var userTicket = new TicketUser
+                        {
+                            UserID = users[i].UserID,
+                            TicketID = tickets[j].TicketID
+                        };
+                        _dbcontext.TicketUser.Add(userTicket);
+                    }
+                }
+                await _dbcontext.SaveChangesAsync();
+
+            }catch (Exception e)
+            {
+                throw new Exception("Error in TicketService.CreateTicket" + e.Message);
+            }
         }
 
         public async Task UpdateTicket(Guid ticketID, TicketUpdateRequest request)
@@ -79,6 +124,30 @@ namespace Backend.Services.Implementations
             {
                 Console.WriteLine($"Update ticket Error {ex.Message}");
                 throw new Exception($"An error occurred while updating the ticket: {ex.Message}");
+            }
+        }
+
+        public async Task SetUsedAt(Guid ticketID, Guid userID)
+        {
+            var ticket = await _dbcontext.Ticket
+                .FirstOrDefaultAsync(t => t.TicketID == ticketID && t.DeletedAt == null);
+
+            if (ticket == null)
+                throw new Exception("Ticket not found");
+            if (ticket.UsedAt != null)
+                throw new Exception("Ticket đã được sử dụng");
+            if (ticket.EndDate < DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7)))
+                throw new Exception("Ticket đã hết hạn");
+
+            try
+            {
+                ticket.UsedAt = DateTime.UtcNow.AddHours(7);
+                ticket.UsedBy = userID;
+                await _dbcontext.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Lỗi khi đánh dấu ticket đã dùng: {ex.Message}");
             }
         }
 

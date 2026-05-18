@@ -24,7 +24,6 @@ namespace Backend.Services.Implementations{
                     ProductName = request.ProductName,
                     ProductType = request.ProductType,
                     Image = request.Image,
-                    CategoryID = request.CategoryID,
                 };
                 _dbContext.Product.Add(newProduct);
                 await _dbContext.SaveChangesAsync();
@@ -73,30 +72,6 @@ namespace Backend.Services.Implementations{
                 Console.WriteLine(e.Message);
             }
         }
-        public async Task HardDeleteProduct (int productID){
-            try {
-                var del = await _dbContext.Product
-                                .FirstOrDefaultAsync(p => p.ProductID == productID);
-                if (del != null){
-                    _dbContext.Product.Remove(del);
-                    await _dbContext.SaveChangesAsync();
-                }
-            } catch (Exception e){
-                Console.WriteLine(e.Message);
-            }
-        }
-        public async Task HardDeleteProductVarient (int productID, ProductSize size){
-            try {
-                var del = await _dbContext.ProductVarient
-                                    .FirstOrDefaultAsync (p => p.ProductID == productID && p.Size == size);
-                if (del != null){
-                    _dbContext.ProductVarient.Remove(del);
-                    await _dbContext.SaveChangesAsync();
-                }
-            } catch (Exception e){
-                Console.WriteLine (e.Message);
-            }
-        }
         public async Task SoftDeleteProduct(int productID){
             var product = await _dbContext.Product
                 .FirstOrDefaultAsync(p => p.ProductID == productID &&
@@ -114,5 +89,26 @@ namespace Backend.Services.Implementations{
                 throw new Exception($"An error occurred while soft deleting product: {ex.Message}");
             }
         }
-    } 
+        public async Task<decimal> GetPriceByID (int productVarientID)
+        {
+            var productVarient = await _dbContext.ProductVarient.FirstOrDefaultAsync(p => p.ProductVarientID == productVarientID);
+            if (productVarient == null) throw new Exception("Not Found Product Varient");
+            return productVarient.Price;
+        }
+        public async Task<List<Product>?> GetProductByType(ProductType type) =>
+            await _dbContext.Product
+                    .AsNoTracking()
+                    .Where(p => p.ProductType == type)
+                    .Include(p => p.ProductVarient)
+                    .Include(p => p.ComboDetail)
+                    .ToListAsync();
+
+        public async Task SetIsActive(int productVarientID, bool isActive){
+            var pv = await _dbContext.ProductVarient
+                .FirstOrDefaultAsync(p => p.ProductVarientID == productVarientID);
+            if (pv == null) throw new Exception("ProductVarient not found");
+            pv.IsActive = isActive;
+            await _dbContext.SaveChangesAsync();
+        }
+    }
 }

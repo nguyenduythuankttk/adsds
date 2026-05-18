@@ -21,8 +21,8 @@ namespace Backend.Models {
         [Required]
         public TableStatus Status { get; set; } = TableStatus.Available;
         public DateTime? DeletedAt { get; set; }
-        public bool IsBooking {get; set;}
+
         [JsonIgnore]
-        public virtual ICollection<Booking> Booking { get; set; } = new List<Booking>();
+        public virtual Bill? Bill { get; set; }
     }
 }

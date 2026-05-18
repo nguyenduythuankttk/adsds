@@ -1,0 +1,72 @@
+// Kết nối tới MongoDB
+db = db.getSiblingDB('JolibiDb');
+
+// Xóa collection cũ nếu có
+db.reviews.deleteMany({});
+
+// Thêm dữ liệu mẫu
+db.reviews.insertMany([
+  {
+    _id: UUID("550e8400-e29b-41d4-a716-446655440001"),
+    userID: UUID("550e8400-e29b-41d4-a716-446655440011"),
+    username: "Nguyễn Văn A",
+    storeID: UUID("550e8400-e29b-41d4-a716-446655440021"),
+    comment: "Thức ăn rất ngon, phục vụ nhanh chóng!",
+    rating: 5,
+    guestName: null,
+    createdAt: new Date("2026-05-09"),
+    updatedAt: null,
+    deletedAt: null
+  },
+  {
+    _id: UUID("550e8400-e29b-41d4-a716-446655440002"),
+    userID: UUID("550e8400-e29b-41d4-a716-446655440012"),
+    username: "Trần Thị B",
+    storeID: UUID("550e8400-e29b-41d4-a716-446655440021"),
+    comment: "Giá hơi mắc nhưng chất lượng tốt",
+    rating: 4,
+    guestName: null,
+    createdAt: new Date("2026-05-08"),
+    updatedAt: null,
+    deletedAt: null
+  },
+  {
+    _id: UUID("550e8400-e29b-41d4-a716-446655440003"),
+    userID: UUID("550e8400-e29b-41d4-a716-446655440013"),
+    username: "Phạm Văn C",
+    storeID: UUID("550e8400-e29b-41d4-a716-446655440022"),
+    comment: "Không tươi, đã chế biến từ hôm trước",
+    rating: 2,
+    guestName: null,
+    createdAt: new Date("2026-05-07"),
+    updatedAt: null,
+    deletedAt: null
+  },
+  {
+    _id: UUID("550e8400-e29b-41d4-a716-446655440004"),
+    userID: UUID("550e8400-e29b-41d4-a716-446655440014"),
+    username: "Lê Hữu D",
+    storeID: UUID("550e8400-e29b-41d4-a716-446655440022"),
+    comment: "Tuyệt vời! Sẽ quay lại lần nữa",
+    rating: 5,
+    guestName: null,
+    createdAt: new Date("2026-05-06"),
+    updatedAt: null,
+    deletedAt: null
+  },
+  {
+    _id: UUID("550e8400-e29b-41d4-a716-446655440005"),
+    userID: UUID("550e8400-e29b-41d4-a716-446655440015"),
+    username: "Hoàng Thị E",
+    storeID: UUID("550e8400-e29b-41d4-a716-446655440021"),
+    comment: "Bình thường, không gì đặc biệt",
+    rating: 3,
+    guestName: null,
+    createdAt: new Date("2026-05-05"),
+    updatedAt: null,
+    deletedAt: null
+  }
+]);
+
+print("✓ Đã thêm 5 bình luận mẫu vào MongoDB");
+db.reviews.find().pretty();
