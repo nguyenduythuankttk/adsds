@@ -18,9 +18,8 @@ public class HardDeleteService : BackgroundService {
             _Logger.LogInformation("Hard Delete is working");
 
             using (var scope = _ServiceProvider.CreateScope()){
-                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
                 try {
+                    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                     var cutoff = DateTime.UtcNow.AddHours(7).AddDays(-30);
                     var cutoffDateOnly = DateOnly.FromDateTime(cutoff);
                     var del = 0;

@@ -2,7 +2,6 @@ using Backend.Data;
 using Backend.Models;
 using Backend.Services.Interface;
 using Backend.Services.Implementations;
-using Resend;
 using Scalar.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -95,7 +94,7 @@ var connectionString = builder.Configuration.GetConnectionString("JolibiDatabase
 if (!string.IsNullOrWhiteSpace(connectionString))
 {
     builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+        options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 0))));
 }
 
 builder.Services.AddSingleton<MongoDbContext>();
@@ -128,10 +127,6 @@ builder.Services.AddScoped<IComboService, ComboService>();
 builder.Services.AddHostedService<HardDeleteService>();
 
 builder.Services.AddOptions();
-var resendApiKey = builder.Configuration["Resend:ApiKey"] ?? throw new InvalidOperationException("Resend:ApiKey is not configured");
-builder.Services.AddHttpClient<ResendClient>();
-builder.Services.Configure<ResendClientOptions>(o => { o.ApiToken = resendApiKey; });
-builder.Services.AddTransient<IResend, ResendClient>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 
 builder.Services.AddResponseCompression(options =>

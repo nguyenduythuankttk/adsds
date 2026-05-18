@@ -58,6 +58,7 @@ namespace Backend.Services.Implementations{
         private string GenerateSecureToken() => Random.Shared.Next(100000,999999).ToString();
 
         public async Task Register(RegisterRequest request){
+            Console.WriteLine($"[Register] Called for email={request.Email}");
             bool isExisted = await _dbContext.User.AnyAsync(u => request.Email == u.Email ||
                                                                  request.Phone == u.Phone);
             if (isExisted)
@@ -77,12 +78,14 @@ namespace Backend.Services.Implementations{
                     Gender = request.Gender,
                     IsVerified = false
                 };
+                Console.WriteLine($"[Register] New user created: UserName={newCustomer.UserName}, IsVerified={newCustomer.IsVerified}");
                 newCustomer.HashPassword = BCrypt.Net.BCrypt.HashPassword(request.HashPassword);
                 var token = GenerateSecureToken();
                 newCustomer.VerifiedExp = DateTime.UtcNow.AddHours(7).AddSeconds(60);
                 newCustomer.EmailVerified = token;
                 _dbContext.User.Add(newCustomer);
                 await _dbContext.SaveChangesAsync();
+                Console.WriteLine($"[Register] User saved to DB: UserName={newCustomer.UserName}, IsVerified={newCustomer.IsVerified}");
 
                 try {
                     await _emailService.SendVerifyEmail(request.Email, token);
@@ -98,9 +101,11 @@ namespace Backend.Services.Implementations{
         }
 
         public async Task<bool> ResendVerificationEmail(string email) {
+            Console.WriteLine($"[ResendVerificationEmail] Called for email={email}");
             var user = await _dbContext.User.FirstOrDefaultAsync(u => u.Email == email);
             if (user == null)
                 throw new InvalidOperationException("Email không tồn tại trong hệ thống");
+            Console.WriteLine($"[ResendVerificationEmail] User found: UserName={user.UserName}, IsVerified={user.IsVerified}");
             if (user.IsVerified)
                 throw new InvalidOperationException("Email này đã được xác thực");
 
@@ -138,9 +143,11 @@ namespace Backend.Services.Implementations{
         }
 
         public async Task VerifyEmail(string token) {
+            Console.WriteLine($"[VerifyEmail] Called with token={token}");
             var record = await _dbContext.User.FirstOrDefaultAsync(u => u.EmailVerified == token);
             if (record == null)
                 throw new InvalidOperationException("OTP không hợp lệ.");
+            Console.WriteLine($"[VerifyEmail] User found: UserName={record.UserName}, IsVerified={record.IsVerified} (before verify)");
             if (record.VerifiedExp < DateTime.UtcNow.AddHours(7)) {
                 _dbContext.User.Remove(record);
                 await _dbContext.SaveChangesAsync();
@@ -150,6 +157,7 @@ namespace Backend.Services.Implementations{
             record.EmailVerified = null;
             record.IsVerified = true;
             await _dbContext.SaveChangesAsync();
+            Console.WriteLine($"[VerifyEmail] User verified: UserName={record.UserName}, IsVerified={record.IsVerified}");
         }
 
         public async Task ResetPassword(ResetPasswordRequest request) {
@@ -189,12 +197,14 @@ namespace Backend.Services.Implementations{
         }
 
         public async Task<UserAuthReponse> UserLogin(LoginRequest request){
+            Console.WriteLine($"[UserLogin] Called for UserName={request.UserName}");
             var usr = await _dbContext.User
                 .FirstOrDefaultAsync(e => e.UserName == request.UserName);
 
             if (usr == null || !BCrypt.Net.BCrypt.Verify(request.HashPassword, usr.HashPassword))
                 throw new InvalidOperationException("Sai tên đăng nhập hoặc mật khẩu");
 
+            Console.WriteLine($"[UserLogin] User found: UserName={usr.UserName}, IsVerified={usr.IsVerified}");
             if (!usr.IsVerified)
                 throw new InvalidOperationException("Tài khoản chưa được xác thực. Vui lòng nhập mã OTP từ email.");
 
