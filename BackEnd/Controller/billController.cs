@@ -1,9 +1,9 @@
 using Backend.Models;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
-using Backend.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Backend.Controller {
     [ApiController]
@@ -26,7 +26,10 @@ namespace Backend.Controller {
         [Authorize]
         [HttpGet("my-bills")]
         public async Task<IActionResult> GetMyBills() {
-            var bills = await _billService.GetUserBill(ClaimsHelper.GetUserId(User));
+            var userID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value;
+            if (string.IsNullOrWhiteSpace(userID)) return Unauthorized();
+            var bills = await _billService.GetUserBill(Guid.Parse(userID));
             return Ok(bills ?? new List<Bill>());
         }
 
@@ -36,7 +39,12 @@ namespace Backend.Controller {
             var bill = await _billService.GetBillByID(billID);
             if (bill == null) return NotFound("Không tìm thấy hóa đơn");
 
-            if (!ClaimsHelper.IsEmployee(User) && bill.UserID != ClaimsHelper.GetUserId(User))
+            var callerID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value)!);
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            bool isEmployee = role != "Customer";
+
+            if (!isEmployee && bill.UserID != callerID)
                 return Forbid();
 
             return Ok(bill);
@@ -52,8 +60,13 @@ namespace Backend.Controller {
         [Authorize]
         [HttpPost("create-delivery")]
         public async Task<IActionResult> CreateDeliveryBill([FromBody] DeliveryBillCreateRequest request) {
-            if (!ClaimsHelper.IsEmployee(User))
-                request.UserID = ClaimsHelper.GetUserId(User);
+            var callerID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value)!);
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            bool isEmployee = role != "Customer";
+
+            if (!isEmployee)
+                request.UserID = callerID;
 
             await _billService.CreateDeliveryBill(request);
             return Ok("Tạo hóa đơn giao hàng thành công");

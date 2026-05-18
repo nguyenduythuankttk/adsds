@@ -1,8 +1,8 @@
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
-using Backend.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Backend.Controller
 {
@@ -21,7 +21,9 @@ namespace Backend.Controller
         [HttpGet("my-tickets")]
         public async Task<IActionResult> GetMyTickets()
         {
-            var tickets = await _ticketService.GetMyTickets(ClaimsHelper.GetUserId(User));
+            var userID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(userID)) return Unauthorized();
+            var tickets = await _ticketService.GetMyTickets(Guid.Parse(userID));
             return Ok(tickets);
         }
 

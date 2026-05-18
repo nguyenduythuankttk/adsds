@@ -1,9 +1,9 @@
 using Backend.Models;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
-using Backend.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Backend.Controller {
     [ApiController]
@@ -18,7 +18,9 @@ namespace Backend.Controller {
 
         [HttpGet("my-addresses")]
         public async Task<IActionResult> GetMyAddresses() {
-            var addresses = await _addressService.GetUserAddress(new User { UserID = ClaimsHelper.GetUserId(User) });
+            var userID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value)!);
+            var addresses = await _addressService.GetUserAddress(new User { UserID = userID });
             return Ok(addresses);
         }
 
@@ -27,7 +29,12 @@ namespace Backend.Controller {
             var address = await _addressService.GetAddressByID(addressID);
             if (address == null) return NotFound("Không tìm thấy địa chỉ");
 
-            if (!ClaimsHelper.IsEmployee(User) && address.UserID != ClaimsHelper.GetUserId(User))
+            var callerID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value)!);
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            bool isEmployee = role != "Customer";
+
+            if (!isEmployee && address.UserID != callerID)
                 return Forbid();
 
             return Ok(address);
@@ -35,6 +42,8 @@ namespace Backend.Controller {
 
         [HttpPost("add")]
         public async Task<IActionResult> AddAddress([FromBody] AddressCreateRequest request) {
+            var userID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value)!);
             var address = new Address {
                 HouseNumber = request.HouseNumber,
                 Street = request.Street,
@@ -43,13 +52,14 @@ namespace Backend.Controller {
                 Province = request.Province,
                 Country = request.Country
             };
-            await _addressService.AddUserAddress(address, ClaimsHelper.GetUserId(User));
+            await _addressService.AddUserAddress(address, userID);
             return Ok("Thêm địa chỉ thành công");
         }
 
         [HttpPut("set-default/{addressID}")]
         public async Task<IActionResult> SetDefault(Guid addressID) {
-            var userID = ClaimsHelper.GetUserId(User);
+            var userID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value)!);
             var address = await _addressService.GetAddressByID(addressID);
             if (address == null) return NotFound("Không tìm thấy địa chỉ");
             if (address.UserID != userID) return Forbid();
@@ -60,7 +70,8 @@ namespace Backend.Controller {
 
         [HttpDelete("delete/{addressID}")]
         public async Task<IActionResult> DeleteAddress(Guid addressID) {
-            var userID = ClaimsHelper.GetUserId(User);
+            var userID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value)!);
             var address = await _addressService.GetAddressByID(addressID);
             if (address == null) return NotFound("Không tìm thấy địa chỉ");
             if (address.UserID != userID) return Forbid();

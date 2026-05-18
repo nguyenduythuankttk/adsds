@@ -1,8 +1,8 @@
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
-using Backend.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Backend.Controller
 {
@@ -46,14 +46,20 @@ namespace Backend.Controller
         [Authorize]
         [HttpGet("me")]
         public async Task<IActionResult> GetCurrentUser(){
-            var user = await _UserService.GetUserByID(ClaimsHelper.GetUserId(User));
+            var userID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value;
+            if (string.IsNullOrWhiteSpace(userID)) return Unauthorized(new { Message = "Invalid token claims" });
+            var user = await _UserService.GetUserByID(Guid.Parse(userID));
             return Ok(user);
         }
 
         [Authorize]
         [HttpGet("me/employee")]
         public async Task<IActionResult> GetCurrentEmployee(){
-            var emp = await _EmployeeSevice.GetEmployeeByID(ClaimsHelper.GetUserId(User));
+            var empID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value;
+            if (string.IsNullOrWhiteSpace(empID)) return Unauthorized();
+            var emp = await _EmployeeSevice.GetEmployeeByID(Guid.Parse(empID));
             return Ok(emp);
         }
 
@@ -104,7 +110,10 @@ namespace Backend.Controller
         [Authorize]
         [HttpPut("change-password")]
         public async Task<IActionResult> ChangePassword([FromBody] PasswordRequest request){
-            await _AuthService.ChangePassword(request, ClaimsHelper.GetUserId(User));
+            var userID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value;
+            if (string.IsNullOrWhiteSpace(userID)) return Unauthorized();
+            await _AuthService.ChangePassword(request, Guid.Parse(userID));
             return Ok(new { message = "Đổi mật khẩu thành công." });
         }
     }

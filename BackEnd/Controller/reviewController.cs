@@ -1,8 +1,8 @@
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interfaces;
-using Backend.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Backend.Controller
 {
@@ -16,6 +16,10 @@ namespace Backend.Controller
         {
             _reviewService = reviewService;
         }
+
+        private Guid GetUserId() =>
+            Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value)!);
 
         [HttpGet("get-all")]
         public async Task<IActionResult> GetAllReview()
@@ -35,7 +39,7 @@ namespace Backend.Controller
         [HttpPost("create")]
         public async Task<IActionResult> AddReview([FromBody] ReviewCreateRequest createRequest)
         {
-            await _reviewService.AddReview(ClaimsHelper.GetUserId(User), createRequest);
+            await _reviewService.AddReview(GetUserId(), createRequest);
             return Ok("Add review successfully!");
         }
 
@@ -43,7 +47,7 @@ namespace Backend.Controller
         [HttpPut("update/{reviewId}")]
         public async Task<IActionResult> UpdateReview(Guid reviewId, [FromBody] ReviewUpdateRequest updateRequest)
         {
-            await _reviewService.UpdateReview(reviewId, ClaimsHelper.GetUserId(User), updateRequest);
+            await _reviewService.UpdateReview(reviewId, GetUserId(), updateRequest);
             return Ok("Update review successfully!");
         }
 
@@ -51,7 +55,7 @@ namespace Backend.Controller
         [HttpDelete("soft-delete/{reviewId}")]
         public async Task<IActionResult> DeleteReview(Guid reviewId)
         {
-            await _reviewService.SoftDeleteReview(reviewId, ClaimsHelper.GetUserId(User));
+            await _reviewService.SoftDeleteReview(reviewId, GetUserId());
             return Ok("Soft delete successfully!");
         }
     }
