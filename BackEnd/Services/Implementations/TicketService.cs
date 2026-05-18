@@ -31,6 +31,14 @@ namespace Backend.Services.Implementations
             .AsNoTracking()
             .FirstOrDefaultAsync(t => t.TicketID == ticketID && t.DeletedAt == null);
 
+        public async Task<List<Ticket>> GetMyTickets(Guid userId) =>
+            await _dbcontext.TicketUser
+            .AsNoTracking()
+            .Where(tu => tu.UserID == userId)
+            .Select(tu => tu.Ticket)
+            .Where(t => t.DeletedAt == null)
+            .ToListAsync();
+
         public async Task AddTicket(TicketCreateRequest createRequest)
         {
             try
@@ -128,12 +136,12 @@ namespace Backend.Services.Implementations
                 throw new Exception("Ticket not found");
             if (ticket.UsedAt != null)
                 throw new Exception("Ticket đã được sử dụng");
-            if (ticket.EndDate < DateOnly.FromDateTime(DateTime.UtcNow))
+            if (ticket.EndDate < DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7)))
                 throw new Exception("Ticket đã hết hạn");
 
             try
             {
-                ticket.UsedAt = DateTime.UtcNow;
+                ticket.UsedAt = DateTime.UtcNow.AddHours(7);
                 ticket.UsedBy = userID;
                 await _dbcontext.SaveChangesAsync();
             }

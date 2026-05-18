@@ -53,7 +53,7 @@ namespace Backend.Services.Implementations{
                 var table = await _dbContext.DiningTable
                                 .FirstOrDefaultAsync(t => t.TableID == tableID);
                 if (table == null) throw new Exception("Not Found Table");
-                table.DeletedAt = DateTime.UtcNow;
+                table.DeletedAt = DateTime.UtcNow.AddHours(7);
                 _dbContext.DiningTable.Update(table);
                 await _dbContext.SaveChangesAsync();
             } catch (Exception e){

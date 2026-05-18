@@ -58,7 +58,7 @@ namespace Backend.Services.Implementations
                 ?? throw new Exception($"Warehouse {warehouseID} not found.");
             if (wh.DeletedAt != null)
                 throw new Exception($"Warehouse {warehouseID} is already deleted.");
-            wh.DeletedAt = DateTime.UtcNow;
+            wh.DeletedAt = DateTime.UtcNow.AddHours(7);
             await _dbcontext.SaveChangesAsync();
         }
     }

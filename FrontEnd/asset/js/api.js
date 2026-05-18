@@ -1,6 +1,6 @@
 // Khi chạy qua Live Server (port 5500) thì gọi thẳng backend; khi qua nginx thì dùng relative path
-var API_BASE = (window.location.port === '5500' || window.location.port === '3001')
-    ? 'http://127.0.0.1:3000/api/pbl3'
+var API_BASE = (window.location.port === '5500' || window.location.port === '5501' || window.location.port === '3001')
+    ? 'http://127.0.0.1:5188/api/pbl3'
     : '/api/pbl3';
 
 function getToken()  { return localStorage.getItem('token'); }

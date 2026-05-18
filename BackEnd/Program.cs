@@ -2,6 +2,7 @@ using Backend.Data;
 using Backend.Models;
 using Backend.Services.Interface;
 using Backend.Services.Implementations;
+using Backend.Middleware;
 using Resend;
 using Scalar.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -9,8 +10,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.IdentityModel.JsonWebTokens;
-using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using System.Text.Json.Serialization;
 using Backend.Services.Interfaces;
@@ -36,9 +35,6 @@ var jwtSettings = builder.Configuration.GetSection("Jwt");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        // options.MapInboundClaims = false;
-        options.TokenHandlers.Clear();
-        options.TokenHandlers.Add(new JwtSecurityTokenHandler());
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -49,29 +45,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = jwtSettings["Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(jwtSettings["Key"]!))
-        };
-
-        options.Events = new JwtBearerEvents
-        {
-            OnTokenValidated = async context =>
-            {
-                var dbContext = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
-
-                string? tokenString = context.SecurityToken switch {
-                    JsonWebToken jwt => jwt.EncodedToken,
-                    JwtSecurityToken legacyJwt => legacyJwt.RawData,
-                    _ => null
-                };
-
-                if (tokenString != null)
-                {
-                    var isBlacklisted = await dbContext.BlackListedToken
-                        .AnyAsync(bt => bt.Token == tokenString);
-
-                    if (isBlacklisted)
-                        context.Fail("This token has been blacklisted.");
-                }
-            }
         };
     });
 builder.Services.AddAuthorization();
@@ -128,15 +101,11 @@ builder.Services.AddScoped<IComboService, ComboService>();
 builder.Services.AddHostedService<HardDeleteService>();
 
 builder.Services.AddOptions();
-var resendApiKey = builder.Configuration["Resend:ApiKey"];
-if (!string.IsNullOrWhiteSpace(resendApiKey)) {
-    builder.Services.AddHttpClient<ResendClient>();
-    builder.Services.Configure<ResendClientOptions>(o => { o.ApiToken = resendApiKey; });
-    builder.Services.AddTransient<IResend, ResendClient>();
-    builder.Services.AddScoped<IEmailService, EmailService>();
-} else {
-    builder.Services.AddScoped<IEmailService, NoOpEmailService>();
-}
+var resendApiKey = builder.Configuration["Resend:ApiKey"] ?? throw new InvalidOperationException("Resend:ApiKey is not configured");
+builder.Services.AddHttpClient<ResendClient>();
+builder.Services.Configure<ResendClientOptions>(o => { o.ApiToken = resendApiKey; });
+builder.Services.AddTransient<IResend, ResendClient>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 builder.Services.AddResponseCompression(options =>
 {
@@ -178,8 +147,9 @@ if (app.Environment.IsDevelopment())
 // app.UseHttpsRedirection(); // Tắt redirect HTTPS khi dev với frontend HTTP
 app.UseCors("AllowFrontend");
 
-
+app.UseMiddleware<ErrorHandlingMiddleware>();
 app.UseAuthentication();
+app.UseMiddleware<BlacklistTokenMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 app.Run();

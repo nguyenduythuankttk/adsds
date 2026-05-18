@@ -237,15 +237,24 @@
                 </div>
             </div>
             <div class="modal-panel" id="panel-register">
-                <div class="form-group"><label>Họ và tên</label><input type="text" id="reg-fullname" placeholder="Nguyễn Văn A"></div>
-                <div class="form-group"><label>Tên đăng nhập</label><input type="text" id="reg-username" placeholder="Tên đăng nhập (không dấu)"></div>
-                <div class="form-group"><label>Số điện thoại</label><input type="tel" id="reg-phone" placeholder="0947 392 552"></div>
-                <div class="form-group"><label>Email</label><input type="email" id="reg-email" placeholder="example@email.com"></div>
-                <div class="form-group"><label>Ngày sinh</label><input type="date" id="reg-birthdate"></div>
-                <div class="form-group"><label>Giới tính</label><select id="reg-gender"><option value="Male">Nam</option><option value="Female">Nữ</option><option value="Other">Khác</option></select></div>
-                <div class="form-group"><label>Mật khẩu</label><input type="password" id="reg-password" placeholder="Tối thiểu 6 ký tự"></div>
-                <p id="register-error" class="form-error"></p>
-                <button class="form-submit" id="btn-register">Tạo Tài Khoản</button>
+                <div id="register-form-step">
+                    <div class="form-group"><label>Họ và tên</label><input type="text" id="reg-fullname" placeholder="Nguyễn Văn A"></div>
+                    <div class="form-group"><label>Tên đăng nhập</label><input type="text" id="reg-username" placeholder="Tên đăng nhập (không dấu)"></div>
+                    <div class="form-group"><label>Số điện thoại</label><input type="tel" id="reg-phone" placeholder="0947 392 552"></div>
+                    <div class="form-group"><label>Email</label><input type="email" id="reg-email" placeholder="example@email.com"></div>
+                    <div class="form-group"><label>Ngày sinh</label><input type="date" id="reg-birthdate"></div>
+                    <div class="form-group"><label>Giới tính</label><select id="reg-gender"><option value="Male">Nam</option><option value="Female">Nữ</option><option value="Others">Khác</option></select></div>
+                    <div class="form-group"><label>Mật khẩu</label><input type="password" id="reg-password" placeholder="Tối thiểu 6 ký tự"></div>
+                    <p id="register-error" class="form-error"></p>
+                    <button class="form-submit" id="btn-register">Tạo Tài Khoản</button>
+                </div>
+                <div id="otp-step" style="display:none;">
+                    <p style="margin-bottom:12px;color:#555;">Nhập mã OTP đã được gửi đến email của bạn (có hiệu lực trong 10 phút).</p>
+                    <div class="form-group"><label>Mã OTP</label><input type="text" id="otp-input" placeholder="Nhập 6 chữ số" maxlength="6"></div>
+                    <p id="otp-error" class="form-error"></p>
+                    <button class="form-submit" id="btn-verify-otp">Xác Thực</button>
+                    <button class="form-submit" id="btn-resend-otp" style="background:#888;margin-top:8px;">Gửi lại OTP</button>
+                </div>
             </div>
         </div>
     </div>

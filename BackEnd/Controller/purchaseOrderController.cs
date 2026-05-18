@@ -20,109 +20,55 @@ namespace Backend.Controller
         [HttpGet("Get-all/{start}/{end}")]
         public async Task<IActionResult> GetAllPOIn(DateOnly start, DateOnly end)
         {
-            try
-            {
-                var pos = await _purchaseOrderService.GetAllPOIn(start, end);
-                return Ok(pos);
-            }catch(Exception Ex)
-            {
-                return StatusCode(500, $"An error occurred in purchaseOrderController.GetAllPOIn {Ex.Message}");
-            }
+            return Ok(await _purchaseOrderService.GetAllPOIn(start, end));
         }
 
         [HttpGet("get/{id}")]
         public async Task<IActionResult> GetPOByID(Guid id)
         {
-            try
-            {
-                var po = await _purchaseOrderService.GetPOByID(id);
-                if(po == null)
-                    return NotFound("Purchase Order not found!");
-
-                return Ok(po);
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in purchaseOrderController.GetPOByID {ex.Message}");
-            }
+            var po = await _purchaseOrderService.GetPOByID(id);
+            if (po == null) return NotFound("Purchase Order not found!");
+            return Ok(po);
         }
 
         [HttpGet("get-by-store/{storeID}")]
         public async Task<IActionResult> GetAllPOByStore(int storeID)
         {
-            try
-            {
-                var postores = await _purchaseOrderService.GetAllPOByStore(storeID);
-                return Ok(postores);
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in purchaseOderController.GetPOByStore {ex.Message}");
-            }
+            return Ok(await _purchaseOrderService.GetAllPOByStore(storeID));
         }
 
         [HttpGet("get-by-supplier/{supplierID}")]
         public async Task<IActionResult> GetAllPOBySupplier(int supplierID)
         {
-            try
-            {
-                var posuppliers = await _purchaseOrderService.GetAllPOBySupplier(supplierID);
-                return Ok(posuppliers);
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in purchaseOderController.GetPOBySupplier {ex.Message}");
-            }
+            return Ok(await _purchaseOrderService.GetAllPOBySupplier(supplierID));
         }
 
         [HttpGet("get-by-status/{statusID}")]
         public async Task<IActionResult> GetPOByStatus(PO_Status statusID)
         {
-            try
-            {
-                var postatuses = await _purchaseOrderService.GetPOByStatus(statusID);
-                return Ok(postatuses);
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in purchaseOderController.GetPOByStatus {ex.Message}");
-            }
+            return Ok(await _purchaseOrderService.GetPOByStatus(statusID));
         }
 
         [HttpPost("create")]
         public async Task<IActionResult> CreatePO(POCreateRequest createRequest)
         {
-            try
-            {
-                var result = await _purchaseOrderService.CreatePO(createRequest);
-                return CreatedAtAction(nameof(GetPOByID), new { id = result.POID }, result);
-            }catch (Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in purchaseOrderController.CreatePO {ex.Message}");
-            }
+            var result = await _purchaseOrderService.CreatePO(createRequest);
+            return CreatedAtAction(nameof(GetPOByID), new { id = result.POID }, result);
         }
 
         [Authorize(Roles = "Manager")]
         [HttpPut("update/{id}")]
         public async Task<IActionResult> UpdatePO(Guid id, POUpdateRequest updateRequest)
         {
-            try
-            {
-                await _purchaseOrderService.UpdatePO(id, updateRequest);
-                return Ok("Update purchase order successfully!");
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in purchaseOrderController.UpdatePO {ex.Message}");
-            }
+            await _purchaseOrderService.UpdatePO(id, updateRequest);
+            return Ok("Update purchase order successfully!");
         }
 
         [HttpDelete("soft-delete/{id}")]
         public async Task<IActionResult> SoftDeletePO(Guid id)
         {
-            try
-            {
-                await _purchaseOrderService.SoftDeletePO(id);
-                return Ok("Soft delete purchase order successfully!");
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in purchaseOrderController.SoftDeletePO {ex.Message}");
-            }
+            await _purchaseOrderService.SoftDeletePO(id);
+            return Ok("Soft delete purchase order successfully!");
         }
     }
 }

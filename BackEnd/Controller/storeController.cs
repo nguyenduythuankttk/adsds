@@ -1,6 +1,6 @@
 using Backend.Models;
-using Backend.Services.Interface;
 using Backend.Models.DTOs.Request;
+using Backend.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Backend.Controller
@@ -19,85 +19,44 @@ namespace Backend.Controller
         [HttpGet("get-all")]
         public async Task<IActionResult> GetAllStore()
         {
-            try
-            {
-                var stores = await _storeService.GetAllStore();
-                return Ok(stores);
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in storeController.GetAllStore {ex.Message}");
-            }
+            return Ok(await _storeService.GetAllStore());
         }
 
         [HttpGet("get/{storeID}")]
         public async Task<IActionResult> GetStoreByID(int storeID)
         {
-            try
-            {
-                var store = await _storeService.GetStoreByID(storeID);
-                if(store == null)
-                    return NotFound("Store not found!");
-
-                return Ok(store);
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error ocurred in storeController.GetStoreByID {ex.Message}");
-            }
+            var store = await _storeService.GetStoreByID(storeID);
+            if (store == null) return NotFound("Store not found!");
+            return Ok(store);
         }
 
         [HttpGet("get-byaddress/{addressID}")]
         public async Task<IActionResult> GetStoreByAddress(Guid addressID)
         {
-            try
-            {
-                var storeaddress = await _storeService.GetStoreByAdress(addressID);
-                if(storeaddress == null)
-                    return NotFound("Store not found!");
-
-                return Ok(storeaddress);
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occrred in storeController.GetStoreByAddress {ex.Message}");
-            }
+            var store = await _storeService.GetStoreByAdress(addressID);
+            if (store == null) return NotFound("Store not found!");
+            return Ok(store);
         }
 
         [HttpPost("add/{store}")]
         public async Task<IActionResult> AddStore(Store store)
         {
-            try
-            {
-                await _storeService.AddStore(store);
-                return Ok("Add store sucessfully!");
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in storeController.AddStore {ex.Message}");
-            }
+            await _storeService.AddStore(store);
+            return Ok("Add store successfully!");
         }
 
         [HttpPut("update/{storeID}")]
         public async Task<IActionResult> UpdateStore(int storeID, StoreUpdateRequest request)
         {
-            try
-            {
-                await _storeService.UpdateStore(storeID, request);
-                return Ok("Update store successfully!");
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in storeController.UpdateStore {ex.Message}");
-            }
+            await _storeService.UpdateStore(storeID, request);
+            return Ok("Update store successfully!");
         }
 
         [HttpDelete("softdelete/{storeID}")]
         public async Task<IActionResult> SoftDeleteStore(int storeID)
         {
-            try
-            {
-                await _storeService.SoftDeleteStore(storeID);
-                return Ok("Soft delete store succesfully!");
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in storeController.SoftDeletingStore {ex.Message}");
-            }
+            await _storeService.SoftDeleteStore(storeID);
+            return Ok("Soft delete store successfully!");
         }
     }
 }
