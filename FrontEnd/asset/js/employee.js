@@ -7,6 +7,11 @@
         window.location.href = 'index.html';
         return;
     }
+    if (isTokenExpired()) {
+        clearAuth();
+        window.location.href = 'index.html';
+        return;
+    }
     var el = document.getElementById('header-name');
     if (el) el.textContent = name || 'Nhân viên';
 })();

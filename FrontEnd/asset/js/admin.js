@@ -2,6 +2,7 @@
 (function(){
     var r=localStorage.getItem('role');
     if(r!=='admin'){alert('No access!');window.location.href='./index.html';return;}
+    if(isTokenExpired()){clearAuth();window.location.href='./index.html';return;}
     var u=document.getElementById('adm-username');
     if(u)u.textContent=localStorage.getItem('fullName')||'Admin';
 })();

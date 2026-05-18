@@ -5,6 +5,11 @@
         window.location.href = 'index.html';
         return;
     }
+    if (isTokenExpired()) {
+        clearAuth();
+        window.location.href = 'index.html';
+        return;
+    }
     var name    = localStorage.getItem('fullName') || '';
     var initial = name.charAt(0).toUpperCase();
 
@@ -256,9 +261,7 @@ function deleteAddress(id) {
 
 // 4. MÃ GIẢM GIÁ
 function renderTicket(main) {
-    var start = '2020-01-01';
-    var end   = new Date().toISOString().slice(0, 10);
-    apiGet('/ticket/get-all/' + start + '/' + end).then(function (r) { return r.json(); }).then(function (d) {
+    apiGet('/ticket/my-tickets').then(function (r) { return r.json(); }).then(function (d) {
         var tickets = Array.isArray(d) ? d : (d.data || []);
         if (!tickets.length) {
             main.innerHTML =

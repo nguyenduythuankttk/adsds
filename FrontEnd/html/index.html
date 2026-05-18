@@ -247,6 +247,18 @@
                 <p id="register-error" class="form-error"></p>
                 <button class="form-submit" id="btn-register">Tạo Tài Khoản</button>
             </div>
+            <div class="modal-panel" id="panel-otp">
+                <button id="btn-cancel-otp" style="position:absolute;top:14px;right:48px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#888;line-height:1" title="Huỷ xác thực">✕</button>
+                <p style="text-align:center;margin-bottom:14px;color:var(--muted,#666)">Mã OTP đã được gửi đến email của bạn.<br>Vui lòng nhập mã để xác thực tài khoản.</p>
+                <div class="form-group">
+                    <label>Mã OTP (6 chữ số)</label>
+                    <input type="text" id="otp-input" placeholder="123456" maxlength="6" style="text-align:center;letter-spacing:4px;font-size:1.4rem">
+                </div>
+                <p id="otp-countdown" style="text-align:center;font-size:0.9rem;color:var(--muted,#888);margin-bottom:4px">Mã hết hạn sau: <span id="otp-timer">60</span> giây</p>
+                <p id="otp-error" class="form-error"></p>
+                <button class="form-submit" id="btn-verify-otp">Xác Thực</button>
+                <button class="form-submit" id="btn-resend-otp" style="display:none;background:#888;margin-top:8px">Gửi lại mã OTP</button>
+            </div>
         </div>
     </div>
     <script src="../asset/js/api.js"></script>

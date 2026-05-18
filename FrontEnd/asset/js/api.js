@@ -8,6 +8,17 @@ function setToken(t) { localStorage.setItem('token', t); }
 
 function clearAuth() { localStorage.clear(); }
 
+function isTokenExpired() {
+    var token = getToken();
+    if (!token) return true;
+    try {
+        var payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        return payload.exp * 1000 < Date.now();
+    } catch (e) {
+        return true;
+    }
+}
+
 function apiFetch(method, path, body) {
     var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
     var token = getToken();

@@ -116,6 +116,8 @@ Migrations/
  20260515145414_fixs.Designer.cs
  20260516011312_sync_model.cs
  20260516011312_sync_model.Designer.cs
+ 20260516060829_isV.cs
+ 20260516060829_isV.Designer.cs
  AppDbContextModelSnapshot.cs
 Models/
  AddressModel.cs
