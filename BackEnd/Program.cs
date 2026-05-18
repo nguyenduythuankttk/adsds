@@ -95,7 +95,7 @@ var connectionString = builder.Configuration.GetConnectionString("JolibiDatabase
 if (!string.IsNullOrWhiteSpace(connectionString))
 {
     builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+        options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 0))));
 }
 
 builder.Services.AddSingleton<MongoDbContext>();
