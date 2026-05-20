@@ -45,49 +45,61 @@
         </div>
     </div>
 
+    <!-- ===== CATEGORY TABS ===== -->
+    <div class="menu-category-bar">
+        <div class="category-tabs-wrapper">
+            <button class="cat-tab active" data-category="all" id="tab-all">
+                <span class="cat-icon">🏆</span>
+                Tất Cả
+            </button>
+            <button class="cat-tab" data-category="food">
+                <span class="cat-icon">🍗</span>
+                Món Chính
+            </button>
+            <button class="cat-tab" data-category="combo">
+                <span class="cat-icon">🎁</span>
+                Combo
+            </button>
+            <button class="cat-tab" data-category="addon">
+                <span class="cat-icon">🥗</span>
+                Món Phụ
+            </button>
+            <button class="cat-tab" data-category="drink">
+                <span class="cat-icon">🥤</span>
+                Thức Uống
+            </button>
+        </div>
+    </div>
+
     <!-- ===== MAIN CONTENT ===== -->
     <main class="menu-main" id="menu-main">
+        <section class="bs-section">
 
-        <!-- Best Seller Section -->
-        <section class="menu-section" data-section="bestseller" id="section-bestseller">
-            <div class="menu-section-header">
-                <h2 class="menu-section-title"> Best Seller</h2>
-                <p class="menu-section-sub">Những món được yêu thích nhất</p>
+            <!-- Toolbar: sort -->
+            <div class="bs-toolbar">
+                <div class="bs-sort-wrap">
+                    <i class="ti-filter"></i>
+                    <select class="bs-sort-select" id="bs-sort-select">
+                        <option value="bestseller">Bán chạy nhất</option>
+                        <option value="price-asc">Giá thấp → cao</option>
+                        <option value="price-desc">Giá cao → thấp</option>
+                        <option value="name-az">Tên A → Z</option>
+                    </select>
+                </div>
             </div>
-            <div class="menu-grid" id="grid-bestseller" data-type="Food">
+
+            <div class="bs-slider-wrap">
+                <button class="bs-arrow bs-prev" id="bs-prev" aria-label="Trước" disabled>
+                    <i class="ti-angle-left"></i>
+                </button>
+                <div class="bs-track" id="bs-track"></div>
+                <button class="bs-arrow bs-next" id="bs-next" aria-label="Tiếp">
+                    <i class="ti-angle-right"></i>
+                </button>
             </div>
+            <div class="bs-dots" id="bs-dots"></div>
+
         </section>
-
-        <!-- Ưu Đãi Hôm Nay Section -->
-        <section class="menu-section promo-section" data-section="combo1" id="section-combo1">
-            <div class="menu-section-header">
-                <h2 class="menu-section-title" style="color:#ff6b00;">🎉 Ưu Đãi Hôm Nay</h2>
-                <p class="menu-section-sub">Combo siêu tiết kiệm – chỉ có hôm nay!</p>
-            </div>
-            <div class="menu-grid" id="grid-combo" data-type="Combo">
-            </div>
-        </section>
-
-        <!-- Món Phụ Section -->
-        <section class="menu-section" data-section="side" id="section-side">
-            <div class="menu-section-header">
-                <h2 class="menu-section-title">Món Khác</h2>
-                <p class="menu-section-sub">Hoàn thiện bữa ăn với những món ăn tuyệt vời</p>
-            </div>
-            <div class="menu-grid" id="grid-addon" data-type="Addon">
-            </div>
-        </section>
-
-        <!-- Đồ Uống Section -->
-        <section class="menu-section" data-section="drink" id="section-drink">
-            <div class="menu-section-header">
-                <h2 class="menu-section-title"> Đồ Uống</h2>
-                <p class="menu-section-sub">Nước uống tươi mát, giải nhiệt sau mỗi bữa gà ngon</p>
-            </div>
-            <div class="menu-grid" id="grid-drink" data-type="Drink">
-            </div>
-        </section>
-
     </main>
 
     <!-- ===== CART TOAST ===== -->
@@ -182,6 +194,38 @@
             <button class="cq-checkout-btn" id="cq-checkout-btn">
                 Hoàn tất đơn hàng
             </button>
+        </div>
+    </div>
+
+    <!-- ===== PRODUCT DETAIL MODAL ===== -->
+    <div class="pd-backdrop" id="pd-backdrop"></div>
+    <div class="pd-modal" id="pd-modal" role="dialog" aria-modal="true">
+        <button class="pd-close-btn" id="pd-close-btn" aria-label="Đóng"><i class="ti-close"></i></button>
+        <div class="pd-img-wrap" id="pd-img-wrap">
+            <img class="pd-img" id="pd-img" src="" alt="">
+            <div class="pd-img-placeholder" id="pd-img-placeholder">🍗</div>
+        </div>
+        <div class="pd-body">
+            <div class="pd-meta">
+                <span class="pd-type-badge" id="pd-type-badge"></span>
+            </div>
+            <h2 class="pd-name" id="pd-name"></h2>
+            <p class="pd-desc" id="pd-desc"></p>
+
+            <!-- Size selector (chỉ hiện khi có nhiều variant) -->
+            <div class="pd-size-section" id="pd-size-section">
+                <div class="pd-size-label">Chọn kích cỡ:</div>
+                <div class="pd-size-list" id="pd-size-list"></div>
+            </div>
+
+            <div class="pd-footer">
+                <div class="pd-price-wrap">
+                    <span class="pd-price" id="pd-price">0 đ</span>
+                </div>
+                <button class="pd-add-btn" id="pd-add-btn">
+                    <i class="ti-shopping-cart"></i> Thêm vào giỏ
+                </button>
+            </div>
         </div>
     </div>
 

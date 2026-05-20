@@ -20,9 +20,9 @@ namespace Backend.Models{
         [Required]
         public ProductType ProductType { get; set; }
         public string? Image { get; set; }
+        public string? Description { get; set; }
         public DateTime? DeletedAt { get; set; }
         public int SoldCount { get; set; } = 0;
-        [JsonIgnore]
         public virtual ICollection<ProductVarient> ProductVarient { get; set; } = new List<ProductVarient>();
         [JsonIgnore]
         public virtual ICollection<ComboDetail>? ComboDetail {get;set;} = new List<ComboDetail>();

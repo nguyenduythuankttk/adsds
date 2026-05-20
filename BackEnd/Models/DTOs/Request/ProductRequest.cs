@@ -5,10 +5,12 @@ namespace Backend.Models.DTOs.Request{
         public string ProductName { get; set; } = null!;
         public ProductType ProductType { get; set; }
         public string? Image { get; set; }
+        public string? Description { get; set; }
     }
     public class ProductUpdateRequest{
         public string ProductName { get; set; } = null!;
         public string? Image { get; set; }
+        public string? Description { get; set; }
     }
     public class ProductVarientUpdateRequest {
         public decimal Price {get; set;}

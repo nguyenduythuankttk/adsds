@@ -134,7 +134,7 @@ namespace Backend.Controller
                 var featured = products
                     .Where(p => p.DeletedAt == null && p.ProductVarient.Any(v => v.IsActive))
                     .OrderByDescending(p => p.SoldCount)
-                    .Take(5)
+                    .Take(10)
                     .ToList();
                 return Ok(featured);
             }catch(Exception ex)
