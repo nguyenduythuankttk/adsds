@@ -24,6 +24,7 @@ namespace Backend.Services.Implementations{
                     ProductName = request.ProductName,
                     ProductType = request.ProductType,
                     Image = request.Image,
+                    Description = request.Description,
                 };
                 _dbContext.Product.Add(newProduct);
                 await _dbContext.SaveChangesAsync();
@@ -51,6 +52,7 @@ namespace Backend.Services.Implementations{
                 if (updateProduct != null){
                     updateProduct.ProductName = request.ProductName;
                     updateProduct.Image = request.Image;
+                    updateProduct.Description = request.Description;
                     _dbContext.Product.Update(updateProduct);
                     await _dbContext.SaveChangesAsync();
                 }
