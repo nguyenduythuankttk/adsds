@@ -13,4 +13,17 @@ namespace Backend.Models.DTOs.Request
         public decimal? QtyBeforeProcess { get; set; }
         public decimal? QtyAfterProcess { get; set; }
     }
+
+    public class RecipeBulkIngredientItem
+    {
+        public int IngredientID { get; set; }
+        public decimal QtyBeforeProcess { get; set; }
+        public decimal QtyAfterProcess { get; set; }
+    }
+
+    public class RecipeBulkCreateRequest
+    {
+        public int ProductVarientID { get; set; }
+        public List<RecipeBulkIngredientItem> Items { get; set; } = new();
+    }
 }

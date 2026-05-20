@@ -8,6 +8,7 @@ namespace Backend.Models
     {
         public Guid BillID { get; set; }
         [ForeignKey("BillID")]
+        [JsonIgnore]
         public virtual Bill Bill { get; set; } = null!;
 
         public int ProductVarientID { get; set; }

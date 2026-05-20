@@ -14,6 +14,7 @@ namespace Backend.Models{
         public Guid BillChangeID { get; set;}
         public Guid BillID{ get; set;}
         [ForeignKey("BillID")]
+        [JsonIgnore]
         public virtual Bill Bill {get; set;} = null!;
         public Guid? EmployeeID {get; set;}
         [ForeignKey("EmployeeID")]

@@ -50,10 +50,8 @@ namespace Backend.Models{
 
         public DateTime? DeletedAt { get; set; }
 
-        [JsonIgnore]
         public virtual ICollection<BillDetail> BillDetail { get; set; } = new List<BillDetail>();
 
-        [JsonIgnore]
         public virtual ICollection<BillChange> BillChange { get; set; } = new List<BillChange>();
         public Guid? DeliveryInfoID {get; set;}
         [ForeignKey("DeliveryInfoID")]

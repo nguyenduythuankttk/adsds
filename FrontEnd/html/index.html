@@ -32,7 +32,7 @@
 
             <div class="search-bar">
                 <i class="ti-search search-bar-icon"></i>
-                <input type="text" class="search-bar-input" placeholder="Tìm món ăn...">
+                <input type="text" class="search-bar-input" placeholder="Tìm món ăn..." autocomplete="off">
             </div>
 
             <!-- login button -->
@@ -101,66 +101,30 @@
         <section class="product-section">
             <h2 class="section-title">THỰC ĐƠN <span>NỔI BẬT</span></h2>
             <div class="section-divider"><span></span></div>
-            <div class="product-container">
-                <a class="product-card" href="menu.html?category=bestseller" id="prod-gathuong">
-                    <div class="product-image-wrapper">
-                        <img src="../asset/img/slider/gathuong.webdp" alt="Gà Rán Nguyên Bản">
-                        <span class="product-badge">BÁN CHẠY</span>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Gà Rán Nguyên Bản</h3>
-                        <p class="product-price">45.000 đ</p>
-                        <p class="product-desc">Da giòn rụm, thịt mọng nước, tẩm ướp theo công thức bí truyền</p>
-                        <button class="add-to-cart-btn-static"><i class="ti-shopping-cart"></i> XEM THÊM</button>
-                    </div>
-                </a>
-                <a class="product-card" href="menu.html?category=bestseller" id="prod-gasotcay">
-                    <div class="product-image-wrapper">
-                        <img src="../asset/img/slider/gasotcay.webdp" alt="Gà Sốt Cay">
-                        <span class="product-badge">HOT</span>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Gà Sốt Cay Hàn Quốc</h3>
-                        <p class="product-price">55.000 đ</p>
-                        <p class="product-desc">Sốt cay chuẩn vị Hàn, cay nồng quyến rũ, ăn là ghiền</p>
-                        <button class="add-to-cart-btn-static"><i class="ti-shopping-cart"></i> XEM THÊM</button>
-                    </div>
-                </a>
-                <a class="product-card" href="menu.html?category=garan" id="prod-canhga">
-                    <div class="product-image-wrapper">
-                        <img src="../asset/img/slider/canhga.webdp" alt="Cánh Gà Chiên Mắm">
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Cánh Gà Chiên Mắm</h3>
-                        <p class="product-price">50.000 đ</p>
-                        <p class="product-desc">Cánh gà vàng giòn, phủ lớp mắm đậm đà ngọt béo</p>
-                        <button class="add-to-cart-btn-static"><i class="ti-shopping-cart"></i> XEM THÊM</button>
-                    </div>
-                </a>
-                <a class="product-card" href="menu.html?category=side" id="prod-myy">
-                    <div class="product-image-wrapper">
-                        <img src="../asset/img/slider/MyY.webdp" alt="Mỳ Ý">
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Mỳ Ý Sốt Bò Băm</h3>
-                        <p class="product-price">49.000 đ</p>
-                        <p class="product-desc">Sợi mì vàng óng kết hợp sốt bò băm thơm ngon đậm đà</p>
-                        <button class="add-to-cart-btn-static"><i class="ti-shopping-cart"></i> XEM THÊM</button>
-                    </div>
-                </a>
-                <a class="product-card" href="menu.html?category=side" id="prod-ktc">
-                    <div class="product-image-wrapper">
-                        <img src="../asset/img/slider/KTC.webdp" alt="Khoai Tây Chiên">
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Khoai Tây Chiên</h3>
-                        <p class="product-price">35.000 đ</p>
-                        <p class="product-desc">Vàng giòn, rắc muối tinh khiết, món phụ tuyệt vời</p>
-                        <button class="add-to-cart-btn-static"><i class="ti-shopping-cart"></i> XEM THÊM</button>
-                    </div>
-                </a>
+            <!-- Search bar section -->
+            <div class="home-search-wrap">
+                <div class="home-search-filters">
+                    <input type="text" id="hs-name" placeholder="Tên món ăn..." class="hs-input">
+                    <select id="hs-type" class="hs-select">
+                        <option value="">Tất cả loại</option>
+                        <option value="Food">Món ăn</option>
+                        <option value="Drink">Đồ uống</option>
+                        <option value="Addon">Món phụ</option>
+                        <option value="Combo">Combo</option>
+                    </select>
+                    <input type="number" id="hs-min" placeholder="Giá từ (đ)" class="hs-input hs-price" min="0">
+                    <input type="number" id="hs-max" placeholder="Giá đến (đ)" class="hs-input hs-price" min="0">
+                    <button class="hs-btn" onclick="homeSearch()"><i class="ti-search"></i> Tìm kiếm</button>
+                    <button class="hs-btn hs-btn-reset" onclick="homeReset()">Xem nổi bật</button>
+                </div>
+            </div>
+            <div class="product-container" id="home-product-container">
+                <p style="color:#aaa;padding:20px">Đang tải sản phẩm...</p>
             </div>
         </section>
+
+        <!-- Mini cart toast -->
+        <div id="home-cart-toast" class="home-cart-toast" style="display:none"></div>
 
         <!-- Map-->
                     <!-- <section class="map-section">
@@ -225,16 +189,21 @@
                 <button class="modal-tab" data-tab="register">Đăng Ký</button>
             </div>
             <div class="modal-panel active" id="panel-login">
-                <div class="form-group"><label>Tên đăng nhập</label><input type="text" id="login-username" placeholder="Tên đăng nhập"></div>
-                <div class="form-group"><label>Mật khẩu</label><input type="password" id="login-password" placeholder="Nhập mật khẩu"></div>
+                <!-- Role tabs -->
+                <div class="login-role-tabs">
+                    <button class="login-role-tab active" data-role="customer">
+                        <i class="ti-user"></i> Khách hàng
+                    </button>
+                    <button class="login-role-tab" data-role="employee">
+                        <i class="ti-id-badge"></i> Nhân viên
+                    </button>
+                </div>
+                <p class="login-role-hint" id="login-role-hint">Đăng nhập với tài khoản khách hàng</p>
+                <div class="form-group"><label>Tên đăng nhập</label><input type="text" id="login-username" placeholder="Tên đăng nhập" autocomplete="username"></div>
+                <div class="form-group"><label>Mật khẩu</label><input type="password" id="login-password" placeholder="Nhập mật khẩu" autocomplete="current-password"></div>
                 <p id="login-error" class="form-error"></p>
                 <div class="form-forgot"><a href="">Quên mật khẩu?</a></div>
                 <button class="form-submit" id="btn-login">Đăng Nhập</button>
-                <div class="form-divider">— hoặc —</div>
-                <div class="form-social">
-                    <button class="social-btn">Google</button>
-                    <button class="social-btn">Facebook</button>
-                </div>
             </div>
             <div class="modal-panel" id="panel-register">
                 <div class="form-group"><label>Họ và tên</label><input type="text" id="reg-fullname" placeholder="Nguyễn Văn A"></div>
@@ -242,7 +211,7 @@
                 <div class="form-group"><label>Số điện thoại</label><input type="tel" id="reg-phone" placeholder="0947 392 552"></div>
                 <div class="form-group"><label>Email</label><input type="email" id="reg-email" placeholder="example@email.com"></div>
                 <div class="form-group"><label>Ngày sinh</label><input type="date" id="reg-birthdate"></div>
-                <div class="form-group"><label>Giới tính</label><select id="reg-gender"><option value="Male">Nam</option><option value="Female">Nữ</option><option value="Other">Khác</option></select></div>
+                <div class="form-group"><label>Giới tính</label><select id="reg-gender"><option value="Male">Nam</option><option value="Female">Nữ</option><option value="Others">Khác</option></select></div>
                 <div class="form-group"><label>Mật khẩu</label><input type="password" id="reg-password" placeholder="Tối thiểu 6 ký tự"></div>
                 <p id="register-error" class="form-error"></p>
                 <button class="form-submit" id="btn-register">Tạo Tài Khoản</button>
@@ -263,6 +232,7 @@
     </div>
     <script src="../asset/js/api.js"></script>
     <script src="../asset/js/scrip.js"></script>
+    <script src="../asset/js/home-product.js"></script>
     <script>
         const swiper = new Swiper('.swiper', {
             autoplay: { delay: 3000, disableOnInteraction: false },

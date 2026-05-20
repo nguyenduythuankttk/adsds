@@ -111,9 +111,14 @@ function renderRecipes(){
     apiGet('/recipe/get-all').then(function(r){return r.json();}).then(function(data){
         if(!data||!data.length){t.innerHTML='<tr><td colspan="5" class="tbl-empty">Chưa có công thức</td></tr>';return;}
         t.innerHTML=data.map(function(r){
-            return '<tr><td>'+(r.ingredientID||'')+'</td><td>'+(r.productVarientID||'')+'</td>'+
-                   '<td style="font-weight:700">'+(r.qtyBeforeProcess||0)+'</td>'+
-                   '<td>'+(r.qtyAfterProcess||0)+'</td>'+
+            var prodName=(r.productVarient&&r.productVarient.product)?r.productVarient.product.productName:'#'+r.productVarientID;
+            var size=(r.productVarient&&r.productVarient.size&&r.productVarient.size!=='Default')?(' ('+r.productVarient.size+')'):'';
+            var ingName=(r.ingredient)?r.ingredient.ingredientName:'#'+r.ingredientID;
+            var unit=(r.ingredient)?r.ingredient.ingredientUnit:'';
+            return '<tr><td style="font-weight:600">'+prodName+size+'</td>'+
+                   '<td>'+ingName+'</td>'+
+                   '<td style="font-weight:700">'+(r.qtyBeforeProcess||0)+' → '+(r.qtyAfterProcess||0)+'</td>'+
+                   '<td>'+unit+'</td>'+
                    '<td>'+eBtn('btn-del','ti-trash',"crudDelete('recipe','"+r.ingredientID+"/"+r.productVarientID+"')")+'</td></tr>';
         }).join('');
     }).catch(function(){t.innerHTML='<tr><td colspan="5" class="tbl-empty">Lỗi tải dữ liệu</td></tr>';});
@@ -285,10 +290,7 @@ var FORMS={
     product:'<div class="form-group"><label class="form-label">Tên sản phẩm</label><input id="f-name" class="form-control" placeholder="VD: Đùi gà rán giòn"></div>'+
             '<div class="form-group"><label class="form-label">Loại</label><select id="f-type" class="form-control"><option value="Food">Food</option><option value="Drink">Drink</option><option value="Addon">Addon</option><option value="Combo">Combo</option></select></div>'+
             '<div class="form-group"><label class="form-label">Giá (VND)</label><input id="f-price" type="number" class="form-control" placeholder="35000"></div>',
-    recipe:'<div class="form-group"><label class="form-label">ID Nguyên liệu</label><input id="f-ing" type="number" class="form-control" placeholder="1"></div>'+
-           '<div class="form-group"><label class="form-label">ID Biến thể SP</label><input id="f-pv" type="number" class="form-control" placeholder="1"></div>'+
-           '<div class="form-group"><label class="form-label">Định lượng trước chế biến</label><input id="f-qty1" type="number" class="form-control" placeholder="100"></div>'+
-           '<div class="form-group"><label class="form-label">Định lượng sau chế biến</label><input id="f-qty2" type="number" class="form-control" placeholder="80"></div>',
+    recipe:'',
     supplier:'<div class="form-group"><label class="form-label">Tên NCC</label><input id="f-name" class="form-control" placeholder="Tên nhà cung cấp"></div>'+
              '<div class="form-group"><label class="form-label">Số điện thoại</label><input id="f-phone" class="form-control" placeholder="090x xxx xxx"></div>'+
              '<div class="form-group"><label class="form-label">Email</label><input id="f-email" type="email" class="form-control" placeholder="email@ncc.vn"></div>'+
@@ -312,6 +314,7 @@ var FORMS={
 function getV(id){var e=document.getElementById(id);return e?e.value.trim():'';}
 
 function crudAdd(type){
+    if(type==='recipe'){openRecipeModal();return;}
     openModal('Thêm mới '+type, FORMS[type]||'', function(){
         var ok=false;
         if(type==='store'){
@@ -333,9 +336,6 @@ function crudAdd(type){
         } else if(type==='supplier'){
             apiPost('/supplier/create',{SupplierName:getV('f-name'),Phone:getV('f-phone'),Email:getV('f-email'),TaxCode:getV('f-tax')})
             .then(function(r){if(r.ok){showToast('Thêm NCC thành công','success');closeModal();renderSupps();}else{showToast('Thêm thất bại','error');}});
-        } else if(type==='recipe'){
-            apiPost('/recipe/add',{IngredientID:parseInt(getV('f-ing')),ProductVarientID:parseInt(getV('f-pv')),QtyBeforeProcess:parseFloat(getV('f-qty1'))||0,QtyAfterProcess:parseFloat(getV('f-qty2'))||0})
-            .then(function(r){if(r.ok){showToast('Thêm công thức thành công','success');closeModal();renderRecipes();}else{showToast('Thêm thất bại','error');}});
         } else if(type==='emp'){
             apiPost('/employee/add',{UserName:getV('f-username'),HashPassword:getV('f-pass'),FullName:getV('f-name'),BirthDate:getV('f-birth')||'2000-01-01',Phone:getV('f-phone'),Email:getV('f-email'),Gender:getV('f-gender'),Role:getV('f-role'),StoreID:parseInt(getV('f-store'))||1,BasicSalary:parseFloat(getV('f-salary'))||0})
             .then(function(r){if(r.ok){showToast('Thêm nhân viên thành công','success');closeModal();renderEmps();}else{r.json().then(function(d){showToast(d.message||'Thêm thất bại','error');});}});
@@ -394,6 +394,92 @@ Object.keys(addBtns).forEach(function(id){
     var el=document.getElementById(id);
     if(el)el.addEventListener('click',function(){crudAdd(addBtns[id]);});
 });
+
+// ===== RECIPE MODAL =====
+var RECIPE_INGREDIENTS_DATA=[];
+
+function openRecipeModal(){
+    Promise.all([
+        apiGet('/product/get-all').then(function(r){return r.ok?r.json():[];}),
+        apiGet('/ingredient/get-all').then(function(r){return r.ok?r.json():[];})
+    ]).then(function(res){
+        var prods=res[0]||[], ings=res[1]||[];
+        RECIPE_INGREDIENTS_DATA=ings;
+
+        var prodOpts='<option value="">-- Chọn sản phẩm --</option>'+prods.map(function(p){
+            return '<option value="'+p.productID+'">'+p.productName+'</option>';
+        }).join('');
+
+        var body=
+            '<div class="form-group">'+
+                '<label class="form-label">Sản phẩm</label>'+
+                '<select id="f-recipe-prod" class="form-control">'+prodOpts+'</select>'+
+            '</div>'+
+            '<div class="form-group">'+
+                '<label class="form-label">Kích cỡ / Biến thể</label>'+
+                '<select id="f-recipe-pv" class="form-control"><option value="">-- Chọn sản phẩm trước --</option></select>'+
+            '</div>'+
+            '<div class="form-group">'+
+                '<label class="form-label">Danh sách nguyên liệu</label>'+
+                '<div id="recipe-ing-list"></div>'+
+                '<button type="button" class="btn-secondary" id="btn-add-ing-row" style="margin-top:8px;padding:6px 14px;font-size:13px">+ Thêm nguyên liệu</button>'+
+            '</div>';
+
+        openModal('Thêm Công Thức', body, function(){
+            var pvId=parseInt(document.getElementById('f-recipe-pv').value)||0;
+            if(!pvId){showToast('Vui lòng chọn biến thể sản phẩm','warning');return;}
+            var rows=document.querySelectorAll('.recipe-ing-row');
+            var items=[];
+            rows.forEach(function(row){
+                var ingId=parseInt(row.querySelector('.f-ing-sel').value)||0;
+                var qty1=parseFloat(row.querySelector('.f-qty1').value)||0;
+                var qty2=parseFloat(row.querySelector('.f-qty2').value)||0;
+                if(ingId>0)items.push({IngredientID:ingId,QtyBeforeProcess:qty1,QtyAfterProcess:qty2});
+            });
+            if(!items.length){showToast('Vui lòng thêm ít nhất một nguyên liệu','warning');return;}
+            apiPost('/recipe/add-bulk',{ProductVarientID:pvId,Items:items})
+                .then(function(r){
+                    if(r.ok){showToast('Lưu công thức thành công','success');closeModal();renderRecipes();}
+                    else{r.text().then(function(t){showToast(t||'Lưu thất bại','error');});}
+                }).catch(function(){showToast('Lỗi kết nối','error');});
+        });
+
+        // Wire product → variant
+        var prodSel=document.getElementById('f-recipe-prod');
+        var pvSel=document.getElementById('f-recipe-pv');
+        if(prodSel)prodSel.addEventListener('change',function(){
+            var pid=parseInt(this.value)||0;
+            var prod=prods.find(function(p){return p.productID===pid;});
+            pvSel.innerHTML='<option value="">-- Chọn kích cỡ --</option>';
+            if(prod&&prod.productVarient&&prod.productVarient.length){
+                prod.productVarient.forEach(function(pv){
+                    var lbl=pv.size==='Default'?'Mặc định':pv.size;
+                    pvSel.innerHTML+='<option value="'+pv.productVarientID+'">'+lbl+' — '+fv(pv.price)+' đ</option>';
+                });
+            }
+        });
+
+        // Add ingredient row button
+        var ingOpts='<option value="">-- Chọn nguyên liệu --</option>'+ings.map(function(i){
+            return '<option value="'+i.ingredientID+'">'+i.ingredientName+' ('+i.ingredientUnit+')</option>';
+        }).join('');
+        var addIngBtn=document.getElementById('btn-add-ing-row');
+        var ingList=document.getElementById('recipe-ing-list');
+        function addIngRow(){
+            var row=document.createElement('div');
+            row.className='recipe-ing-row';
+            row.style.cssText='display:flex;gap:8px;align-items:center;margin-bottom:6px;';
+            row.innerHTML=
+                '<select class="form-control f-ing-sel" style="flex:2">'+ingOpts+'</select>'+
+                '<input class="form-control f-qty1" type="number" placeholder="Trước (g)" min="0" step="0.01" style="flex:1">'+
+                '<input class="form-control f-qty2" type="number" placeholder="Sau (g)" min="0" step="0.01" style="flex:1">'+
+                '<button type="button" class="btn-del" onclick="this.parentElement.remove()" style="padding:4px 8px"><i class="ti-trash"></i></button>';
+            if(ingList)ingList.appendChild(row);
+        }
+        if(addIngBtn)addIngBtn.addEventListener('click',addIngRow);
+        addIngRow();
+    }).catch(function(){showToast('Lỗi tải dữ liệu','error');});
+}
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded',function(){showSection('dashboard');});

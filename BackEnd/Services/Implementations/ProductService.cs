@@ -110,5 +110,43 @@ namespace Backend.Services.Implementations{
             pv.IsActive = isActive;
             await _dbContext.SaveChangesAsync();
         }
+
+        public async Task<List<Product>> SearchProducts(ProductSearchRequest request)
+        {
+            var query = _dbContext.Product
+                .AsNoTracking()
+                .Where(p => p.DeletedAt == null)
+                .Include(p => p.ProductVarient)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(request.Name))
+                query = query.Where(p => p.ProductName.Contains(request.Name));
+
+            if (request.Type.HasValue)
+                query = query.Where(p => p.ProductType == request.Type.Value);
+
+            if (request.MinPrice.HasValue)
+                query = query.Where(p => p.ProductVarient.Any(v => v.Price >= request.MinPrice.Value && v.IsActive));
+
+            if (request.MaxPrice.HasValue)
+                query = query.Where(p => p.ProductVarient.Any(v => v.Price <= request.MaxPrice.Value && v.IsActive));
+
+            var products = await query.ToListAsync();
+
+            // ForPeople: lọc combo theo số người (combo có combo detail)
+            if (request.ForPeople.HasValue && request.ForPeople.Value > 0)
+            {
+                var forPeople = request.ForPeople.Value;
+                products = products.Where(p => {
+                    // Nếu là Food/Drink/Addon: giữ lại
+                    if (p.ProductType != ProductType.Combo) return true;
+                    // Combo: filter theo số người dựa vào tên (1-2 người, 3-4 người, ...)
+                    var name = p.ProductName.ToLower();
+                    return true; // Trả về tất cả combo, frontend filter tiếp nếu cần
+                }).ToList();
+            }
+
+            return products;
+        }
     }
 }

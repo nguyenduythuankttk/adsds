@@ -8,6 +8,7 @@ namespace Backend.Services.Interface
         Task<List<Receipe>?> GetAllRecipes();
         Task<Receipe?> GetRecipeByID(int ingredientID, int productVarientID);
         Task AddRecipe(RecipeCreateRequest request);
+        Task AddBulkRecipes(RecipeBulkCreateRequest request);
         Task UpdateRecipe(int ingredientID, int productVarientID, RecipeUpdateRequest request);
         Task DeleteRecipe(int ingredientID, int productVarientID);
     }

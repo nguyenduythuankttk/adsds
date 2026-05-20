@@ -11,19 +11,15 @@ namespace Backend.Services.Implementations {
         }
 
         public async Task SendVerifyEmail(string email, string verifyToken) {
-            var frontendUrl = _configuration["FrontendUrl"];
-            var verifyUrl = $"{frontendUrl}/verify-email?token={verifyToken}";
-
-            var html = BuildEmailHtml(
-                heading: "Xac minh dia chi email cua ban",
-                body: "Cam on ban da dang ky tai khoan Jolibi. Vui long nhan vao nut ben duoi de xac minh dia chi email cua ban. Lien ket nay se het han sau 24 gio.",
-                buttonUrl: verifyUrl,
-                buttonText: "Xac minh Email",
+            var html = BuildOtpEmailHtml(
+                heading: "Xac minh tai khoan Chonlibi",
+                body: "Cam on ban da dang ky tai khoan. Vui long su dung ma OTP duoi day de xac minh dia chi email. Ma se het han sau 60 giay.",
+                otp: verifyToken,
                 note: "Neu ban khong tao tai khoan nay, hay bo qua email nay."
             );
 
             Console.WriteLine($"[EmailService] Sending verify email to {email}");
-            await SendEmailAsync(email, "Xac minh dia chi email cua ban", html);
+            await SendEmailAsync(email, "Ma OTP xac minh tai khoan", html);
             Console.WriteLine($"[EmailService] Verify email sent successfully to {email}");
         }
 
@@ -62,6 +58,24 @@ namespace Backend.Services.Implementations {
             await client.SendMailAsync(message);
         }
 
+        private static string BuildOtpEmailHtml(string heading, string body, string otp, string note) {
+            return
+                "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"/></head>" +
+                "<body style=\"font-family:Arial,sans-serif;background:#f4f4f4;padding:20px;\">" +
+                "<div style=\"max-width:600px;margin:auto;background:white;border-radius:8px;padding:32px;\">" +
+                "<h2 style=\"color:#d97706;\">" + heading + "</h2>" +
+                "<p>" + body + "</p>" +
+                "<div style=\"text-align:center;margin:24px 0;\">" +
+                "<span style=\"display:inline-block;background:#d97706;color:white;font-size:2rem;" +
+                "font-weight:bold;letter-spacing:8px;padding:16px 32px;border-radius:8px;\">" +
+                otp + "</span>" +
+                "</div>" +
+                "<p style=\"color:#666;font-size:14px;\">" + note + "</p>" +
+                "<hr style=\"border:none;border-top:1px solid #eee;margin:24px 0;\"/>" +
+                "<p style=\"color:#999;font-size:12px;\">&copy; 2025 Chonlibi. Tat ca quyen duoc bao luu.</p>" +
+                "</div></body></html>";
+        }
+
         private static string BuildEmailHtml(
             string heading, string body,
             string buttonUrl, string buttonText, string note) {
@@ -76,7 +90,7 @@ namespace Backend.Services.Implementations {
                 buttonText + "</a></p>" +
                 "<p style=\"color:#666;font-size:14px;\">" + note + "</p>" +
                 "<hr style=\"border:none;border-top:1px solid #eee;margin:24px 0;\"/>" +
-                "<p style=\"color:#999;font-size:12px;\">&copy; 2025 Jolibi. Tat ca quyen duoc bao luu.</p>" +
+                "<p style=\"color:#999;font-size:12px;\">&copy; 2025 Chonlibi. Tat ca quyen duoc bao luu.</p>" +
                 "</div></body></html>";
         }
     }

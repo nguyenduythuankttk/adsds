@@ -36,6 +36,23 @@ document.querySelectorAll('.modal-tab').forEach(function (tab) {
     });
 });
 
+// ── Role tabs trong panel đăng nhập ──────────────────
+var _loginRole = 'customer';
+var roleHints = {
+    customer: 'Đăng nhập với tài khoản khách hàng',
+    employee: 'Đăng nhập với tài khoản nhân viên'
+};
+document.querySelectorAll('.login-role-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+        document.querySelectorAll('.login-role-tab').forEach(function (t) { t.classList.remove('active'); });
+        tab.classList.add('active');
+        _loginRole = tab.dataset.role;
+        var hint = document.getElementById('login-role-hint');
+        if (hint) hint.textContent = roleHints[_loginRole] || '';
+        document.getElementById('login-error').textContent = '';
+    });
+});
+
 // ── Đăng nhập ────────────────────────────────────────
 document.getElementById('btn-login').addEventListener('click', function () {
     var username = document.getElementById('login-username').value.trim();
@@ -45,34 +62,24 @@ document.getElementById('btn-login').addEventListener('click', function () {
 
     if (!username || !password) { errEl.textContent = 'Vui lòng nhập tên đăng nhập và mật khẩu.'; return; }
 
-    var body = { UserName: username, HashPassword: password };
+    var body     = { UserName: username, HashPassword: password };
+    var endpoint = _loginRole === 'employee' ? '/auth/employee_login' : '/auth/customer_login';
 
-    // Thử đăng nhập khách hàng trước
-    apiPost('/auth/customer_login', body)
+    apiPost(endpoint, body, true)
         .then(function (res) {
-            if (res.ok) return res.json().then(function (d) { return { ok: true, data: d.data, type: 'user' }; });
-            // Nếu thất bại, thử đăng nhập nhân viên
-            return apiPost('/auth/employee_login', body)
-                .then(function (res2) {
-                    if (res2.ok) return res2.json().then(function (d) { return { ok: true, data: d.data, type: 'employee' }; });
-                    return res2.json().then(function (d) { return { ok: false, msg: d.message || 'Sai tên đăng nhập hoặc mật khẩu.' }; });
-                });
+            return res.json().then(function (d) { return { ok: res.ok, data: d.data, msg: d.message }; });
         })
         .then(function (result) {
-            if (!result.ok) { errEl.textContent = result.msg; return; }
-            if (result.type === 'user') {
-                luuThongTinKhachHang(result.data);
-                document.getElementById('login-modal').classList.remove('active');
-                updateHeaderAfterLogin(result.data.fullName || result.data.FullName || '');
-            } else {
+            if (!result.ok) { errEl.textContent = result.msg || 'Sai tên đăng nhập hoặc mật khẩu.'; return; }
+            if (_loginRole === 'employee') {
                 luuThongTinNhanVien(result.data);
                 document.getElementById('login-modal').classList.remove('active');
                 var role = localStorage.getItem('role');
-                if (role === 'admin') {
-                    window.location.href = 'admin.html';
-                } else {
-                    window.location.href = 'employee.html';
-                }
+                window.location.href = role === 'admin' ? 'admin.html' : 'employee.html';
+            } else {
+                luuThongTinKhachHang(result.data);
+                document.getElementById('login-modal').classList.remove('active');
+                updateHeaderAfterLogin(result.data.fullName || result.data.FullName || '');
             }
         })
         .catch(function () { errEl.textContent = 'Lỗi kết nối máy chủ.'; });

@@ -146,6 +146,7 @@ namespace Backend.Services.Implementations{
                 bill.BillChange.Add(billChange);
                 _dbcontext.Bill.Add(bill);
                 await _dbcontext.SaveChangesAsync();
+                await IncreaseSoldCount(bill.BillDetail.ToList());
                 await ConsumeIngredients(bill.BillID, bill.BillDetail.ToList(), request.EmployeID.Value, request.StoreID);
                 await tx.CommitAsync();
             } catch (Exception e)
@@ -240,12 +241,38 @@ namespace Backend.Services.Implementations{
                 _dbcontext.DeliveryInfo.Add(delivery);
 
                 await _dbcontext.SaveChangesAsync();
+                await IncreaseSoldCount(bill.BillDetail.ToList());
                 await ConsumeIngredients(bill.BillID, bill.BillDetail.ToList(), request.EmployeID.Value, request.StoreID);
                 await tx.CommitAsync();
             } catch (Exception e) {
                 await tx.RollbackAsync();
                 throw new Exception("Error in BillService.CreateDeliveryBill: " + e.Message);
             }
+        }
+
+        private async Task IncreaseSoldCount(List<BillDetail> billDetails)
+        {
+            var pvIds = billDetails.Select(d => d.ProductVarientID).Distinct().ToList();
+            var productIDs = await _dbcontext.ProductVarient
+                .Where(pv => pvIds.Contains(pv.ProductVarientID))
+                .Select(pv => new { pv.ProductVarientID, pv.ProductID })
+                .ToListAsync();
+
+            var pvToProduct = productIDs.ToDictionary(x => x.ProductVarientID, x => x.ProductID);
+            var soldByProduct = new Dictionary<int, int>();
+            foreach (var d in billDetails)
+            {
+                if (!pvToProduct.TryGetValue(d.ProductVarientID, out var pid)) continue;
+                soldByProduct[pid] = soldByProduct.GetValueOrDefault(pid) + (int)d.Quantity;
+            }
+
+            var products = await _dbcontext.Product
+                .Where(p => soldByProduct.Keys.Contains(p.ProductID))
+                .ToListAsync();
+            foreach (var p in products)
+                p.SoldCount += soldByProduct.GetValueOrDefault(p.ProductID);
+
+            await _dbcontext.SaveChangesAsync();
         }
 
         private async Task ConsumeIngredients(Guid billID, List<BillDetail> billDetails, Guid employeeID, int storeID)

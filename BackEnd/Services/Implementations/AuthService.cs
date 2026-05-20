@@ -148,11 +148,8 @@ namespace Backend.Services.Implementations{
             if (record == null)
                 throw new InvalidOperationException("OTP không hợp lệ.");
             Console.WriteLine($"[VerifyEmail] User found: UserName={record.UserName}, IsVerified={record.IsVerified} (before verify)");
-            if (record.VerifiedExp < DateTime.UtcNow.AddHours(7)) {
-                _dbContext.User.Remove(record);
-                await _dbContext.SaveChangesAsync();
-                throw new InvalidOperationException("OTP đã hết hạn. Vui lòng đăng ký lại.");
-            }
+            if (record.VerifiedExp < DateTime.UtcNow.AddHours(7))
+                throw new InvalidOperationException("OTP đã hết hạn. Vui lòng nhấn gửi lại mã.");
             record.VerifiedExp = null;
             record.EmailVerified = null;
             record.IsVerified = true;
@@ -203,6 +200,10 @@ namespace Backend.Services.Implementations{
 
             if (usr == null || !BCrypt.Net.BCrypt.Verify(request.HashPassword, usr.HashPassword))
                 throw new InvalidOperationException("Sai tên đăng nhập hoặc mật khẩu");
+
+            // Discriminator check: block Employee accounts from using customer login
+            if (usr is Employee)
+                throw new InvalidOperationException("Tài khoản nhân viên. Vui lòng đăng nhập bằng tab Nhân viên.");
 
             Console.WriteLine($"[UserLogin] User found: UserName={usr.UserName}, IsVerified={usr.IsVerified}");
             if (!usr.IsVerified)

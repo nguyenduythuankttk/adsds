@@ -421,3 +421,243 @@ body {
 }
 .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
 .empty-state p { font-size: 14px; }
+
+/* nút chi tiết đơn hàng */
+.order-detail-btn {
+    background: none;
+    border: 1.5px solid rgb(220,77,11);
+    color: rgb(220,77,11);
+    border-radius: 8px;
+    padding: 5px 13px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: Arial, Helvetica, sans-serif;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+}
+.order-detail-btn:hover { background: rgb(220,77,11); color: #fff; }
+
+/* ===== BILL MODAL ===== */
+.bill-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    overflow-y: auto;
+}
+.bill-box {
+    background: #fff;
+    border-radius: 18px;
+    width: 100%;
+    max-width: 580px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+}
+.bill-box-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, rgb(220,77,11), #e8450a);
+    flex-shrink: 0;
+}
+.bill-box-id {
+    color: #fff;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 1px;
+}
+.bill-box-date { color: rgba(255,255,255,0.8); font-size: 12px; margin-top: 4px; }
+.bill-close-btn {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: #fff;
+    font-size: 16px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+.bill-close-btn:hover { background: rgba(255,255,255,0.35); }
+
+.bill-box-body {
+    padding: 20px 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+.bill-section-lbl {
+    font-size: 13px;
+    font-weight: 800;
+    color: #444;
+    margin: 0 0 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* bill table */
+.bill-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+.bill-table thead th {
+    background: #f8f4f2;
+    padding: 8px 10px;
+    font-weight: 700;
+    color: #555;
+    text-align: left;
+    font-size: 12px;
+}
+.bill-table tbody td {
+    padding: 9px 10px;
+    border-bottom: 1px solid #f5f0ed;
+    color: #333;
+    vertical-align: middle;
+}
+.bill-table tbody tr:last-child td { border-bottom: none; }
+
+/* bill totals */
+.bill-totals-block {
+    border: 1.5px solid #f0e8e2;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+}
+.bill-tot-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: #555;
+    padding: 5px 0;
+}
+.bill-tot-final {
+    border-top: 1.5px solid #f0e8e2;
+    margin-top: 6px;
+    padding-top: 10px;
+    font-size: 15px;
+    font-weight: 800;
+    color: rgb(220,77,11);
+}
+
+/* bill meta */
+.bill-meta-block {
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.bill-meta-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+}
+.bill-meta-lbl { color: #999; }
+.bill-meta-val { font-weight: 700; color: #333; }
+
+/* status timeline */
+.bill-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding-left: 8px;
+}
+.bill-tl-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding-bottom: 16px;
+    position: relative;
+}
+.bill-tl-step::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 16px;
+    bottom: 0;
+    width: 2px;
+    background: #f0e0d8;
+}
+.bill-tl-last::before { display: none; }
+.bill-tl-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 3px solid #ddd;
+    background: #fff;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.bill-tl-last .bill-tl-dot {
+    border-color: rgb(220,77,11);
+    background: rgb(220,77,11);
+}
+.bill-tl-body { display: flex; flex-direction: column; gap: 2px; }
+.bill-tl-label { font-size: 13px; font-weight: 700; color: #333; }
+.bill-tl-last .bill-tl-label { color: rgb(220,77,11); }
+.bill-tl-time { font-size: 11px; color: #aaa; }
+
+/* ===== TICKET CARD UPDATES ===== */
+.tk-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+.tk-discount {
+    font-size: 22px;
+    font-weight: 900;
+    color: rgb(220,77,11);
+    margin-bottom: 10px;
+}
+.ticket-card.used .tk-discount { color: #bbb; }
+.tk-dates {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: #777;
+    margin-bottom: 6px;
+}
+.tk-dates b { color: #444; }
+.tk-used-time {
+    font-size: 11px;
+    color: #e74c3c;
+    margin-bottom: 6px;
+}
+.tk-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+}
+.tk-badge-active  { background: #e8f5e9; color: #2e7d32; }
+.tk-badge-expired { background: #fff3e0; color: #e65100; }
+.tk-badge-used    { background: #eee;    color: #999; }
+
+/* ===== CHANGE PASSWORD ===== */
+.pw-error-msg {
+    color: #e74c3c;
+    font-size: 13px;
+    margin: 8px 0 0;
+    min-height: 18px;
+}
+.pw-success-msg {
+    color: #2e7d32;
+    font-size: 13px;
+    margin: 8px 0 0;
+    min-height: 18px;
+    font-weight: 600;
+}
