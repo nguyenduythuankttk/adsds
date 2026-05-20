@@ -27,7 +27,7 @@ function apiFetch(method, path, body, noAuthRedirect) {
     return fetch(API_BASE + path, opts).then(function (res) {
         if (res.status === 401 && !noAuthRedirect) {
             clearAuth();
-            window.location.href = 'index.html';
+            window.location.href = '/html/index.html';
         }
         return res;
     });

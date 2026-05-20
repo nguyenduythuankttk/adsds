@@ -445,7 +445,7 @@
             badge.id = 'menu-user-badge';
             badge.className = 'menu-user-avatar-badge';
             badge.title = 'Tài khoản của bạn';
-            badge.onclick = function () { window.location.href = 'user.html'; };
+            badge.onclick = function () { window.location.href = '/html/user.html'; };
             var header = document.getElementById('header');
             if (header) header.appendChild(badge);
         }
@@ -715,7 +715,7 @@
             .catch(function (err) {
                 if (err.message === 'no_address') {
                     alert('Bạn chưa có địa chỉ giao hàng. Vui lòng thêm địa chỉ trong trang tài khoản.');
-                    window.location.href = 'user.html';
+                    window.location.href = '/html/user.html';
                 } else {
                     alert('Đặt hàng thất bại. Vui lòng thử lại.\n' + err.message);
                 }

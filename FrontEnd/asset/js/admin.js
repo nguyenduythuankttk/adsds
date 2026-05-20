@@ -1,14 +1,14 @@
 // Auth Guard
 (function(){
     var r=localStorage.getItem('role');
-    if(r!=='admin'){alert('No access!');window.location.href='./index.html';return;}
-    if(isTokenExpired()){clearAuth();window.location.href='./index.html';return;}
+    if(r!=='admin'){alert('No access!');window.location.href='/html/index.html';return;}
+    if(isTokenExpired()){clearAuth();window.location.href='/html/index.html';return;}
     var u=document.getElementById('adm-username');
     if(u)u.textContent=localStorage.getItem('fullName')||'Admin';
 })();
 var lb=document.getElementById('btn-logout');
 if(lb)lb.addEventListener('click',function(){
-    apiPost('/auth/logout').catch(function(){}).finally(function(){clearAuth();window.location.href='./index.html';});
+    apiPost('/auth/logout').catch(function(){}).finally(function(){clearAuth();window.location.href='/html/index.html';});
 });
 setInterval(function(){var c=document.getElementById('adm-clock');if(c)c.textContent=new Date().toLocaleString('vi-VN');},1000);
 

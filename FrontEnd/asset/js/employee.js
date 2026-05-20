@@ -4,12 +4,12 @@
     var name = localStorage.getItem('fullName');
     if (!role || role !== 'employee') {
         alert('Vui lòng đăng nhập với tài khoản nhân viên!');
-        window.location.href = 'index.html';
+        window.location.href = '/html/index.html';
         return;
     }
     if (isTokenExpired()) {
         clearAuth();
-        window.location.href = 'index.html';
+        window.location.href = '/html/index.html';
         return;
     }
     var el = document.getElementById('header-name');
@@ -19,10 +19,10 @@
 function logout() {
     apiPost('/auth/logout').then(function () {
         clearAuth();
-        window.location.href = 'index.html';
+        window.location.href = '/html/index.html';
     }).catch(function () {
         clearAuth();
-        window.location.href = 'index.html';
+        window.location.href = '/html/index.html';
     });
 }
 

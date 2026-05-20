@@ -2,12 +2,12 @@
     var role = localStorage.getItem('role');
     if (!role || role !== 'user') {
         alert('Vui lòng đăng nhập để tiếp tục!');
-        window.location.href = 'index.html';
+        window.location.href = '/html/index.html';
         return;
     }
     if (isTokenExpired()) {
         clearAuth();
-        window.location.href = 'index.html';
+        window.location.href = '/html/index.html';
         return;
     }
     var name    = localStorage.getItem('fullName') || '';
@@ -35,10 +35,10 @@
             e.preventDefault();
             apiPost('/auth/logout').then(function () {
                 clearAuth();
-                window.location.href = 'index.html';
+                window.location.href = '/html/index.html';
             }).catch(function () {
                 clearAuth();
-                window.location.href = 'index.html';
+                window.location.href = '/html/index.html';
             });
         });
     }
