@@ -19,24 +19,24 @@ function isTokenExpired() {
     }
 }
 
-function apiFetch(method, path, body) {
+function apiFetch(method, path, body, noAuthRedirect) {
     var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
     var token = getToken();
     if (token) opts.headers['Authorization'] = 'Bearer ' + token;
     if (body !== undefined) opts.body = JSON.stringify(body);
     return fetch(API_BASE + path, opts).then(function (res) {
-        if (res.status === 401) {
+        if (res.status === 401 && !noAuthRedirect) {
             clearAuth();
-            window.location.href = '/html/index.html';
+            window.location.href = 'index.html';
         }
         return res;
     });
 }
 
-function apiGet(path)         { return apiFetch('GET',    path); }
-function apiPost(path, body)  { return apiFetch('POST',   path, body); }
-function apiPut(path, body)   { return apiFetch('PUT',    path, body); }
-function apiDelete(path)      { return apiFetch('DELETE', path); }
+function apiGet(path)                      { return apiFetch('GET',    path); }
+function apiPost(path, body, noAuth)       { return apiFetch('POST',   path, body, noAuth); }
+function apiPut(path, body)                { return apiFetch('PUT',    path, body); }
+function apiDelete(path)                   { return apiFetch('DELETE', path); }
 
 function luuThongTinNhanVien(data) {
     setToken(data.acessToken || data.AcessToken);

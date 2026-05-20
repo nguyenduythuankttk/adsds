@@ -240,6 +240,93 @@ a.product-card {
     background: linear-gradient(135deg, #e6b800, #cc9900);
     transform: scale(1.02);
 }
+.product-sold-count {
+    font-size: 11px;
+    color: #999;
+    margin-bottom: 6px;
+}
+
+/* ── Home search filters ── */
+.home-search-wrap {
+    max-width: 1200px;
+    margin: 0 auto 32px;
+    padding: 0 20px;
+}
+.home-search-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    background: #fff8f4;
+    border: 1px solid #ffe0cc;
+    border-radius: 12px;
+    padding: 16px 20px;
+}
+.hs-input {
+    flex: 1 1 160px;
+    padding: 9px 14px;
+    border: 1px solid #e8d5c8;
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+    background: #fff;
+    transition: border-color 0.2s;
+}
+.hs-input:focus { border-color: rgb(220, 77, 11); }
+.hs-select {
+    flex: 1 1 140px;
+    padding: 9px 14px;
+    border: 1px solid #e8d5c8;
+    border-radius: 8px;
+    font-size: 13px;
+    background: #fff;
+    cursor: pointer;
+    outline: none;
+}
+.hs-price { flex: 1 1 120px; }
+.hs-btn {
+    padding: 9px 18px;
+    border: none;
+    border-radius: 8px;
+    background: rgb(220, 77, 11);
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.hs-btn:hover { background: #b85500; transform: scale(1.03); }
+.hs-btn-reset {
+    background: #888;
+}
+.hs-btn-reset:hover { background: #555; }
+
+/* ── Home cart toast ── */
+.home-cart-toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #222;
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    z-index: 9999;
+    pointer-events: none;
+    white-space: nowrap;
+}
+.home-cart-toast.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
 #nav {
     display: inline-block;
 }
@@ -530,6 +617,44 @@ a.product-card {
     transition: background-color 0.2s;
 }
 .form-submit:hover { background-color: #c0390a; }
+
+/* ── Login role tabs (Khách hàng / Nhân viên) ── */
+.login-role-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 4px;
+    background: #f5f5f5;
+    border-radius: 10px;
+    padding: 4px;
+}
+.login-role-tab {
+    flex: 1;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #888;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: Arial, Helvetica, sans-serif;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.2s, color 0.2s;
+}
+.login-role-tab.active {
+    background: #fff;
+    color: rgb(220, 77, 11);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+}
+.login-role-hint {
+    text-align: center;
+    font-size: 12px;
+    color: #aaa;
+    margin: 4px 0 14px;
+}
 
 .form-divider {
     text-align: center;

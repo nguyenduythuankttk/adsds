@@ -117,10 +117,188 @@ UPDATE Address SET SupplierID = 5 WHERE AddressID = 'add00001-0000-0000-0000-000
 
 
 -- ================================================================
--- 4. USER — được seed tự động bởi DatabaseSeeder.cs khi app khởi động
---    Mật khẩu plain text "password" sẽ được BCrypt hash bởi chương trình.
---    Không cần INSERT thủ công tại đây.
+-- 4. USER & EMPLOYEE (TPH — cùng bảng User, phân biệt bởi Discriminator)
+--
+-- Mật khẩu plain text: password
+-- BCrypt hash (cost=12) — mỗi tài khoản dùng hash riêng:
+--
+-- Khách hàng:
+--   nguyen_van_a  → $2b$12$WVx3p/PF3Fe32uVArzV4/.JuHgdMp4FB27pSlAfJYKR8nK9tqbmya
+--   tran_thi_b    → $2b$12$ZbSyN/SGPZdMtRDv0Nr3VutA8/hH1RjySI5fSfAx6/WKoYZ143OOy
+--   le_van_c      → $2b$12$mBgoUQpuNLWuFpKSqw/eOONP0EQwiy2vYeKuuc/EPedaJo982EA8e
+--   pham_thi_d    → $2b$12$98GK8NJc1G6o5FHsqcbGV.W9ty4b6YNNO2/y9Q5YMSU/5dJNZ7ViG
+--   hoang_van_e   → $2b$12$cmA/UzpK1tbCOW67vFcwrOLRD0GvheMTwGSjHKbSArrwVcSAq.n7.
+--
+-- Nhân viên:
+--   manager_q5    → $2b$12$R/hwPw7aU/LMt0Za2mZ3jOCYFvwiRvS8nTcMdSTyMfZwi9dGG8FmG
+--   dining_q5     → $2b$12$MmAXRX5pOgGRCIGKspy0duSlkfqxZMC6/MwjQMkaVp5nzrjYZ24n2
+--   kitchen_q5    → $2b$12$.sKB0WdBMUx2F8bj9ASLB.yIQiqxuVzDi3M6rTpP9Tt52AFtGrg4a
+--   manager_q1    → $2b$12$1El2ariZYFYPOZsObK5NjedwDpNuybzvT.9cLxhybk0aZHpgA29Zq
+--   dining_q1     → $2b$12$LVxo4yOxGoE4RUj1.CJxXusHoye5GuMwlUseMVcQHc.eB5qA8GG8C
+--   kitchen_q1    → $2b$12$1Sc3YEVJTsu1diSjghxbIuHPWKfON6f99lCkTRnELinHaTIUOiR1S
+--   manager_q3    → $2b$12$WWy8eoX3GwhqisCHqc7cIO91i9tlgm5sxpTRkLgxoYcylT5OSdJFu
+--   dining_q3     → $2b$12$DkhwRbmV7E2J7Eh2ZMZ08uA/AGNWKKPguDHQvXn5sn7jep3/YfyCm
+--   kitchen_q3    → $2b$12$UWsBNRa/Tm0PAVTH2nqzueuqnRikeyKksqXKSA1NLSTAnbA172dgK
+--   manager_bt    → $2b$12$aokjLlKyJIPXJNM.kYRpK.q5hovCXgjKrcAWPUy0JxCWESGYy8uae
+--   dining_bt     → $2b$12$uDujwlXISobco6VnDxnoV.5lgEcytEGW0Rnz6xrzUBz7xk/4oULAS
+--   kitchen_bt    → $2b$12$xJLdxFyaWkPAF205SxmyZ.neKgSnjdUu3uNu7IhriOmyVDVVF./hu
+--   manager_gv    → $2b$12$vP0tV6EMXaDT78iFVgrhnOtSetl1kveTK7WLnCYEJcIwszBB0cFdy
+--   dining_gv     → $2b$12$F/3HHWMvf5fzdUngpGdCheC9n5mmzHTyx8qVCueOujf5dFB35XtHa
+--   kitchen_gv    → $2b$12$bgjozuV9L7NCTcnZ6c9XQeI.6bAJsbqgg9wwpee6hA7gLBCDhyKiW
 -- ================================================================
+
+-- ── 4a. KHÁCH HÀNG (Discriminator = 'User') ─────────────────────
+INSERT INTO `User` (
+  UserID, UserName, HashPassword, BirthDate, CreateAt,
+  Email, Phone, FullName, Gender, Discriminator,
+  IsVerified, Role, StoreID, BasicSalary, DeletedAt, DeleteAt
+) VALUES
+  ('cafe0001-0000-0000-0000-000000000001', 'nguyen_van_a',
+   '$2b$12$WVx3p/PF3Fe32uVArzV4/.JuHgdMp4FB27pSlAfJYKR8nK9tqbmya',
+   '1995-03-15', '2026-01-01 00:00:00',
+   'van.a@gmail.com', '0901000001', 'Nguyễn Văn A', 'Male', 'User',
+   1, NULL, NULL, NULL, NULL, NULL),
+
+  ('cafe0001-0000-0000-0000-000000000002', 'tran_thi_b',
+   '$2b$12$ZbSyN/SGPZdMtRDv0Nr3VutA8/hH1RjySI5fSfAx6/WKoYZ143OOy',
+   '1998-07-22', '2026-01-02 00:00:00',
+   'thi.b@gmail.com', '0901000002', 'Trần Thị B', 'Female', 'User',
+   1, NULL, NULL, NULL, NULL, NULL),
+
+  ('cafe0001-0000-0000-0000-000000000003', 'le_van_c',
+   '$2b$12$mBgoUQpuNLWuFpKSqw/eOONP0EQwiy2vYeKuuc/EPedaJo982EA8e',
+   '1993-11-10', '2026-01-03 00:00:00',
+   'van.c@gmail.com', '0901000003', 'Lê Văn C', 'Male', 'User',
+   1, NULL, NULL, NULL, NULL, NULL),
+
+  ('cafe0001-0000-0000-0000-000000000004', 'pham_thi_d',
+   '$2b$12$98GK8NJc1G6o5FHsqcbGV.W9ty4b6YNNO2/y9Q5YMSU/5dJNZ7ViG',
+   '2000-05-28', '2026-01-04 00:00:00',
+   'thi.d@gmail.com', '0901000004', 'Phạm Thị D', 'Female', 'User',
+   1, NULL, NULL, NULL, NULL, NULL),
+
+  ('cafe0001-0000-0000-0000-000000000005', 'hoang_van_e',
+   '$2b$12$cmA/UzpK1tbCOW67vFcwrOLRD0GvheMTwGSjHKbSArrwVcSAq.n7.',
+   '1990-09-05', '2026-01-05 00:00:00',
+   'van.e@gmail.com', '0901000005', 'Hoàng Văn E', 'Male', 'User',
+   1, NULL, NULL, NULL, NULL, NULL);
+
+-- Gán UserID ngược lại vào Address cho khách hàng
+UPDATE Address SET UserID = 'cafe0001-0000-0000-0000-000000000001' WHERE AddressID = 'add00001-0000-0000-0000-000000000021';
+UPDATE Address SET UserID = 'cafe0001-0000-0000-0000-000000000002' WHERE AddressID = 'add00001-0000-0000-0000-000000000022';
+UPDATE Address SET UserID = 'cafe0001-0000-0000-0000-000000000003' WHERE AddressID = 'add00001-0000-0000-0000-000000000023';
+UPDATE Address SET UserID = 'cafe0001-0000-0000-0000-000000000004' WHERE AddressID = 'add00001-0000-0000-0000-000000000024';
+UPDATE Address SET UserID = 'cafe0001-0000-0000-0000-000000000005' WHERE AddressID = 'add00001-0000-0000-0000-000000000025';
+
+-- ── 4b. NHÂN VIÊN (Discriminator = 'Employee') ──────────────────
+-- Store 1 — Quận 5
+INSERT INTO `User` (
+  UserID, UserName, HashPassword, BirthDate, CreateAt,
+  Email, Phone, FullName, Gender, Discriminator,
+  IsVerified, Role, StoreID, BasicSalary, DeletedAt, DeleteAt
+) VALUES
+  ('e0010001-0000-0000-0000-000000000001', 'manager_q5',
+   '$2b$12$R/hwPw7aU/LMt0Za2mZ3jOCYFvwiRvS8nTcMdSTyMfZwi9dGG8FmG',
+   '1988-04-12', '2026-01-10 00:00:00',
+   'manager.q5@jolibee.vn', '0911000001', 'Quản Lý Quận 5', 'Male', 'Employee',
+   1, 'Manager', 1, 15000000, NULL, NULL),
+
+  ('e0010001-0000-0000-0000-000000000002', 'dining_q5',
+   '$2b$12$MmAXRX5pOgGRCIGKspy0duSlkfqxZMC6/MwjQMkaVp5nzrjYZ24n2',
+   '1999-06-20', '2026-01-10 00:00:00',
+   'dining.q5@jolibee.vn', '0911000002', 'Nhân Viên Phục Vụ Q5', 'Female', 'Employee',
+   1, 'Dining', 1, 8000000, NULL, NULL),
+
+  ('e0010001-0000-0000-0000-000000000003', 'kitchen_q5',
+   '$2b$12$.sKB0WdBMUx2F8bj9ASLB.yIQiqxuVzDi3M6rTpP9Tt52AFtGrg4a',
+   '1997-02-14', '2026-01-10 00:00:00',
+   'kitchen.q5@jolibee.vn', '0911000003', 'Nhân Viên Bếp Q5', 'Male', 'Employee',
+   1, 'Kitchen', 1, 9000000, NULL, NULL),
+
+-- Store 2 — Quận 1
+  ('e0020001-0000-0000-0000-000000000001', 'manager_q1',
+   '$2b$12$1El2ariZYFYPOZsObK5NjedwDpNuybzvT.9cLxhybk0aZHpgA29Zq',
+   '1985-08-30', '2026-01-11 00:00:00',
+   'manager.q1@jolibee.vn', '0911000004', 'Quản Lý Quận 1', 'Male', 'Employee',
+   1, 'Manager', 2, 15000000, NULL, NULL),
+
+  ('e0020001-0000-0000-0000-000000000002', 'dining_q1',
+   '$2b$12$LVxo4yOxGoE4RUj1.CJxXusHoye5GuMwlUseMVcQHc.eB5qA8GG8C',
+   '2001-03-18', '2026-01-11 00:00:00',
+   'dining.q1@jolibee.vn', '0911000005', 'Nhân Viên Phục Vụ Q1', 'Female', 'Employee',
+   1, 'Dining', 2, 8000000, NULL, NULL),
+
+  ('e0020001-0000-0000-0000-000000000003', 'kitchen_q1',
+   '$2b$12$1Sc3YEVJTsu1diSjghxbIuHPWKfON6f99lCkTRnELinHaTIUOiR1S',
+   '1996-11-25', '2026-01-11 00:00:00',
+   'kitchen.q1@jolibee.vn', '0911000006', 'Nhân Viên Bếp Q1', 'Male', 'Employee',
+   1, 'Kitchen', 2, 9000000, NULL, NULL),
+
+-- Store 3 — Quận 3
+  ('e0030001-0000-0000-0000-000000000001', 'manager_q3',
+   '$2b$12$WWy8eoX3GwhqisCHqc7cIO91i9tlgm5sxpTRkLgxoYcylT5OSdJFu',
+   '1987-01-07', '2026-01-12 00:00:00',
+   'manager.q3@jolibee.vn', '0911000007', 'Quản Lý Quận 3', 'Female', 'Employee',
+   1, 'Manager', 3, 15000000, NULL, NULL),
+
+  ('e0030001-0000-0000-0000-000000000002', 'dining_q3',
+   '$2b$12$DkhwRbmV7E2J7Eh2ZMZ08uA/AGNWKKPguDHQvXn5sn7jep3/YfyCm',
+   '2000-09-15', '2026-01-12 00:00:00',
+   'dining.q3@jolibee.vn', '0911000008', 'Nhân Viên Phục Vụ Q3', 'Male', 'Employee',
+   1, 'Dining', 3, 8000000, NULL, NULL),
+
+  ('e0030001-0000-0000-0000-000000000003', 'kitchen_q3',
+   '$2b$12$UWsBNRa/Tm0PAVTH2nqzueuqnRikeyKksqXKSA1NLSTAnbA172dgK',
+   '1994-05-03', '2026-01-12 00:00:00',
+   'kitchen.q3@jolibee.vn', '0911000009', 'Nhân Viên Bếp Q3', 'Female', 'Employee',
+   1, 'Kitchen', 3, 9000000, NULL, NULL),
+
+-- Store 4 — Bình Thạnh
+  ('e0040001-0000-0000-0000-000000000001', 'manager_bt',
+   '$2b$12$aokjLlKyJIPXJNM.kYRpK.q5hovCXgjKrcAWPUy0JxCWESGYy8uae',
+   '1986-12-22', '2026-01-13 00:00:00',
+   'manager.bt@jolibee.vn', '0911000010', 'Quản Lý Bình Thạnh', 'Male', 'Employee',
+   1, 'Manager', 4, 15000000, NULL, NULL),
+
+  ('e0040001-0000-0000-0000-000000000002', 'dining_bt',
+   '$2b$12$uDujwlXISobco6VnDxnoV.5lgEcytEGW0Rnz6xrzUBz7xk/4oULAS',
+   '1998-07-09', '2026-01-13 00:00:00',
+   'dining.bt@jolibee.vn', '0911000011', 'Nhân Viên Phục Vụ BT', 'Female', 'Employee',
+   1, 'Dining', 4, 8000000, NULL, NULL),
+
+  ('e0040001-0000-0000-0000-000000000003', 'kitchen_bt',
+   '$2b$12$xJLdxFyaWkPAF205SxmyZ.neKgSnjdUu3uNu7IhriOmyVDVVF./hu',
+   '1995-04-17', '2026-01-13 00:00:00',
+   'kitchen.bt@jolibee.vn', '0911000012', 'Nhân Viên Bếp BT', 'Male', 'Employee',
+   1, 'Kitchen', 4, 9000000, NULL, NULL),
+
+-- Store 5 — Gò Vấp
+  ('e0050001-0000-0000-0000-000000000001', 'manager_gv',
+   '$2b$12$vP0tV6EMXaDT78iFVgrhnOtSetl1kveTK7WLnCYEJcIwszBB0cFdy',
+   '1989-10-01', '2026-01-14 00:00:00',
+   'manager.gv@jolibee.vn', '0911000013', 'Quản Lý Gò Vấp', 'Male', 'Employee',
+   1, 'Manager', 5, 15000000, NULL, NULL),
+
+  ('e0050001-0000-0000-0000-000000000002', 'dining_gv',
+   '$2b$12$F/3HHWMvf5fzdUngpGdCheC9n5mmzHTyx8qVCueOujf5dFB35XtHa',
+   '2002-02-28', '2026-01-14 00:00:00',
+   'dining.gv@jolibee.vn', '0911000014', 'Nhân Viên Phục Vụ GV', 'Female', 'Employee',
+   1, 'Dining', 5, 8000000, NULL, NULL),
+
+  ('e0050001-0000-0000-0000-000000000003', 'kitchen_gv',
+   '$2b$12$bgjozuV9L7NCTcnZ6c9XQeI.6bAJsbqgg9wwpee6hA7gLBCDhyKiW',
+   '1993-08-11', '2026-01-14 00:00:00',
+   'kitchen.gv@jolibee.vn', '0911000015', 'Nhân Viên Bếp GV', 'Male', 'Employee',
+   1, 'Kitchen', 5, 9000000, NULL, NULL);
+
+-- TicketUser: gán mỗi ticket cho 1 khách hàng
+INSERT INTO TicketUser (TicketID, UserID)
+VALUES
+  ('c1c00001-0000-0000-0000-000000000001', 'cafe0001-0000-0000-0000-000000000001'),
+  ('c1c00001-0000-0000-0000-000000000002', 'cafe0001-0000-0000-0000-000000000002'),
+  ('c1c00001-0000-0000-0000-000000000003', 'cafe0001-0000-0000-0000-000000000003'),
+  ('c1c00001-0000-0000-0000-000000000004', 'cafe0001-0000-0000-0000-000000000004'),
+  ('c1c00001-0000-0000-0000-000000000005', 'cafe0001-0000-0000-0000-000000000005');
 
 
 
@@ -488,25 +666,25 @@ INSERT INTO InventoryBatch (
   BatchType
 ) VALUES
 -- Warehouse 1 (Store 1): bánh phở, thịt bò, cà phê rang
-('ba100001-0000-0000-0000-000000000001', 1, '2026-05-09 11:00:00', '2026-11-09', '2026-04-01', 4950, 4700, 'Available',  50, NULL, 'BT-PHO-20260509',  NULL, 1, '6ec00001-0000-0000-0000-000000000001', '6ec00001-0000-0000-0000-000000000001', 1, 0),
-('ba100001-0000-0000-0000-000000000002', 1, '2026-05-09 11:00:00', '2026-07-09', '2026-04-20', 3000, 2850, 'Available', 200, NULL, 'BT-BO-20260509',   NULL, 2, '6ec00001-0000-0000-0000-000000000001', '6ec00001-0000-0000-0000-000000000001', 2, 0),
-('ba100001-0000-0000-0000-000000000003', 1, '2026-05-09 11:00:00', '2026-10-09', '2026-03-15', 1980, 1900, 'Available', 150, NULL, 'BT-CF-20260509',   NULL, 3, '6ec00001-0000-0000-0000-000000000001', '6ec00001-0000-0000-0000-000000000001', 3, 0),
+('ba100001-0000-0000-0000-000000000001', 1, '2026-05-09 11:00:00', '2026-11-09', '2026-04-01', 4950, 4700, 'Available',  50, NULL, 'BT-PHO-20260509',  NULL, 1, '6ec00001-0000-0000-0000-000000000001', '6ec00001-0000-0000-0000-000000000001', 1, 'Import'),
+('ba100001-0000-0000-0000-000000000002', 1, '2026-05-09 11:00:00', '2026-07-09', '2026-04-20', 3000, 2850, 'Available', 200, NULL, 'BT-BO-20260509',   NULL, 2, '6ec00001-0000-0000-0000-000000000001', '6ec00001-0000-0000-0000-000000000001', 2, 'Import'),
+('ba100001-0000-0000-0000-000000000003', 1, '2026-05-09 11:00:00', '2026-10-09', '2026-03-15', 1980, 1900, 'Available', 150, NULL, 'BT-CF-20260509',   NULL, 3, '6ec00001-0000-0000-0000-000000000001', '6ec00001-0000-0000-0000-000000000001', 3, 'Import'),
 -- Warehouse 2 (Store 2): trà xanh, sữa tươi, bánh mì
-('ba200001-0000-0000-0000-000000000001', 2, '2026-05-09 11:30:00', '2026-12-09', '2026-04-01', 2000, 1900, 'Available',  100, NULL, 'BT-TRA-20260509', NULL, 4, '6ec00001-0000-0000-0000-000000000002', '6ec00001-0000-0000-0000-000000000002', 4, 0),
-('ba200001-0000-0000-0000-000000000002', 2, '2026-05-09 11:30:00', '2026-06-09', '2026-05-01',   10,    8, 'Available', 30000, NULL, 'BT-SUA-20260509', NULL, 5, '6ec00001-0000-0000-0000-000000000002', '6ec00001-0000-0000-0000-000000000002', 5, 0),
-('ba200001-0000-0000-0000-000000000003', 2, '2026-05-09 11:30:00', '2026-08-09', '2026-04-10',   98,   90, 'Available',  3000, NULL, 'BT-BM-20260509',  NULL, 6, '6ec00001-0000-0000-0000-000000000002', '6ec00001-0000-0000-0000-000000000002', 6, 0),
+('ba200001-0000-0000-0000-000000000001', 2, '2026-05-09 11:30:00', '2026-12-09', '2026-04-01', 2000, 1900, 'Available',  100, NULL, 'BT-TRA-20260509', NULL, 4, '6ec00001-0000-0000-0000-000000000002', '6ec00001-0000-0000-0000-000000000002', 4, 'Import'),
+('ba200001-0000-0000-0000-000000000002', 2, '2026-05-09 11:30:00', '2026-06-09', '2026-05-01',   10,    8, 'Available', 30000, NULL, 'BT-SUA-20260509', NULL, 5, '6ec00001-0000-0000-0000-000000000002', '6ec00001-0000-0000-0000-000000000002', 5, 'Import'),
+('ba200001-0000-0000-0000-000000000003', 2, '2026-05-09 11:30:00', '2026-08-09', '2026-04-10',   98,   90, 'Available',  3000, NULL, 'BT-BM-20260509',  NULL, 6, '6ec00001-0000-0000-0000-000000000002', '6ec00001-0000-0000-0000-000000000002', 6, 'Import'),
 -- Warehouse 3 (Store 3): thịt heo, gà nguyên con, cam tươi
-('ba300001-0000-0000-0000-000000000001', 3, '2026-05-09 12:00:00', '2026-07-09', '2026-04-25', 1950, 1800, 'Available',  120, NULL, 'BT-HEO-20260509', NULL, 7, '6ec00001-0000-0000-0000-000000000003', '6ec00001-0000-0000-0000-000000000003', 7, 0),
-('ba300001-0000-0000-0000-000000000002', 3, '2026-05-09 12:00:00', '2026-06-09', '2026-05-05',    5,    4, 'Available', 80000, NULL, 'BT-GA-20260509',  NULL, 8, '6ec00001-0000-0000-0000-000000000003', '6ec00001-0000-0000-0000-000000000003', 8, 0),
-('ba300001-0000-0000-0000-000000000003', 3, '2026-05-09 12:00:00', '2026-06-09', '2026-05-07',   99,   85, 'Available',  5000, NULL, 'BT-CAM-20260509', NULL, 9, '6ec00001-0000-0000-0000-000000000003', '6ec00001-0000-0000-0000-000000000003', 9, 0),
+('ba300001-0000-0000-0000-000000000001', 3, '2026-05-09 12:00:00', '2026-07-09', '2026-04-25', 1950, 1800, 'Available',  120, NULL, 'BT-HEO-20260509', NULL, 7, '6ec00001-0000-0000-0000-000000000003', '6ec00001-0000-0000-0000-000000000003', 7, 'Import'),
+('ba300001-0000-0000-0000-000000000002', 3, '2026-05-09 12:00:00', '2026-06-09', '2026-05-05',    5,    4, 'Available', 80000, NULL, 'BT-GA-20260509',  NULL, 8, '6ec00001-0000-0000-0000-000000000003', '6ec00001-0000-0000-0000-000000000003', 8, 'Import'),
+('ba300001-0000-0000-0000-000000000003', 3, '2026-05-09 12:00:00', '2026-06-09', '2026-05-07',   99,   85, 'Available',  5000, NULL, 'BT-CAM-20260509', NULL, 9, '6ec00001-0000-0000-0000-000000000003', '6ec00001-0000-0000-0000-000000000003', 9, 'Import'),
 -- Warehouse 4 (Store 4): bánh phở, sữa tươi, đường
-('ba400001-0000-0000-0000-000000000001', 4, '2026-05-09 12:30:00', '2026-11-09', '2026-04-01', 3000, 2900, 'Available',    50, NULL, 'BT-PHO2-20260509', NULL,  1, '6ec00001-0000-0000-0000-000000000004', '6ec00001-0000-0000-0000-000000000004',  1, 0),
-('ba400001-0000-0000-0000-000000000002', 4, '2026-05-09 12:30:00', '2026-06-09', '2026-05-01',    5,    4, 'Available', 30000, NULL, 'BT-SUA2-20260509', NULL,  5, '6ec00001-0000-0000-0000-000000000004', '6ec00001-0000-0000-0000-000000000004',  5, 0),
-('ba400001-0000-0000-0000-000000000003', 4, '2026-05-09 12:30:00', '2027-05-09', '2026-03-01',   10,    9, 'Available', 20000, NULL, 'BT-DUO-20260509',  NULL, 10, '6ec00001-0000-0000-0000-000000000004', '6ec00001-0000-0000-0000-000000000004', 10, 0),
+('ba400001-0000-0000-0000-000000000001', 4, '2026-05-09 12:30:00', '2026-11-09', '2026-04-01', 3000, 2900, 'Available',    50, NULL, 'BT-PHO2-20260509', NULL,  1, '6ec00001-0000-0000-0000-000000000004', '6ec00001-0000-0000-0000-000000000004',  1, 'Import'),
+('ba400001-0000-0000-0000-000000000002', 4, '2026-05-09 12:30:00', '2026-06-09', '2026-05-01',    5,    4, 'Available', 30000, NULL, 'BT-SUA2-20260509', NULL,  5, '6ec00001-0000-0000-0000-000000000004', '6ec00001-0000-0000-0000-000000000004',  5, 'Import'),
+('ba400001-0000-0000-0000-000000000003', 4, '2026-05-09 12:30:00', '2027-05-09', '2026-03-01',   10,    9, 'Available', 20000, NULL, 'BT-DUO-20260509',  NULL, 10, '6ec00001-0000-0000-0000-000000000004', '6ec00001-0000-0000-0000-000000000004', 10, 'Import'),
 -- Warehouse 5 (Store 5): thịt bò, bánh mì, đường
-('ba500001-0000-0000-0000-000000000001', 5, '2026-05-09 13:00:00', '2026-07-09', '2026-04-20', 1980, 1850, 'Available',  200, NULL, 'BT-BO2-20260509',  NULL,  2, '6ec00001-0000-0000-0000-000000000005', '6ec00001-0000-0000-0000-000000000005',  2, 0),
-('ba500001-0000-0000-0000-000000000002', 5, '2026-05-09 13:00:00', '2026-08-09', '2026-04-10',   50,   45, 'Available', 3000, NULL, 'BT-BM2-20260509',  NULL,  6, '6ec00001-0000-0000-0000-000000000005', '6ec00001-0000-0000-0000-000000000005',  6, 0),
-('ba500001-0000-0000-0000-000000000003', 5, '2026-05-09 13:00:00', '2027-05-09', '2026-03-01',   10,    9, 'Available', 20000, NULL, 'BT-DUO2-20260509', NULL, 10, '6ec00001-0000-0000-0000-000000000005', '6ec00001-0000-0000-0000-000000000005', 10, 0);
+('ba500001-0000-0000-0000-000000000001', 5, '2026-05-09 13:00:00', '2026-07-09', '2026-04-20', 1980, 1850, 'Available',  200, NULL, 'BT-BO2-20260509',  NULL,  2, '6ec00001-0000-0000-0000-000000000005', '6ec00001-0000-0000-0000-000000000005',  2, 'Import'),
+('ba500001-0000-0000-0000-000000000002', 5, '2026-05-09 13:00:00', '2026-08-09', '2026-04-10',   50,   45, 'Available', 3000, NULL, 'BT-BM2-20260509',  NULL,  6, '6ec00001-0000-0000-0000-000000000005', '6ec00001-0000-0000-0000-000000000005',  6, 'Import'),
+('ba500001-0000-0000-0000-000000000003', 5, '2026-05-09 13:00:00', '2027-05-09', '2026-03-01',   10,    9, 'Available', 20000, NULL, 'BT-DUO2-20260509', NULL, 10, '6ec00001-0000-0000-0000-000000000005', '6ec00001-0000-0000-0000-000000000005', 10, 'Import');
 
 
 -- ================================================================

@@ -18,4 +18,11 @@ namespace Backend.Models.DTOs.Request{
         public ProductSize Size {get; set;} = ProductSize.Default;
         public decimal Price {get; set;}
     }
+    public class ProductSearchRequest {
+        public string? Name { get; set; }
+        public ProductType? Type { get; set; }
+        public decimal? MinPrice { get; set; }
+        public decimal? MaxPrice { get; set; }
+        public int? ForPeople { get; set; }
+    }
 }

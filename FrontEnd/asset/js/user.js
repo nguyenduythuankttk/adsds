@@ -49,11 +49,12 @@ function loadSection(section) {
     if (!main) return;
     main.innerHTML = '<p style="padding:20px;color:var(--muted)">Đang tải...</p>';
     switch (section) {
-        case 'profile': renderProfile(main); break;
-        case 'orders':  renderOrders(main);  break;
-        case 'address': renderAddress(main); break;
-        case 'ticket':  renderTicket(main);  break;
-        default:        renderProfile(main);
+        case 'profile':  renderProfile(main);   break;
+        case 'orders':   renderOrders(main);    break;
+        case 'address':  renderAddress(main);   break;
+        case 'ticket':   renderTicket(main);    break;
+        case 'password': renderPassword(main);  break;
+        default:         renderProfile(main);
     }
 }
 
@@ -75,7 +76,7 @@ function renderProfile(main) {
             '<option value="">-- Chọn --</option>' +
             '<option value="Male"'   + (gender === 'Male'   ? ' selected' : '') + '>Nam</option>' +
             '<option value="Female"' + (gender === 'Female' ? ' selected' : '') + '>Nữ</option>' +
-            '<option value="Other"'  + (gender === 'Other'  ? ' selected' : '') + '>Khác</option>' +
+            '<option value="Others"'  + (gender === 'Others'  ? ' selected' : '') + '>Khác</option>' +
             '</select></div>' +
             '</div>' +
             '<div class="up-field-row">' +
@@ -114,6 +115,8 @@ function saveProfile() {
 }
 
 // 2. LỊCH SỬ ĐƠN HÀNG
+var _statusViMap = { Create: 'Đã tạo', UnPaid: 'Chờ thanh toán', Paid: 'Đã thanh toán', Delete: 'Đã hủy' };
+
 function renderOrders(main) {
     apiGet('/bill/my-bills').then(function (r) { return r.json(); }).then(function (d) {
         var orders = Array.isArray(d) ? d : (d.data || []);
@@ -124,26 +127,38 @@ function renderOrders(main) {
                 '<div class="section-card-body"><p style="color:var(--muted)">Chưa có đơn hàng nào.</p></div></div>';
             return;
         }
-        var rows = orders.map(function (o) {
-            var status = o.BillStatus || o.Status || o.status || '';
-            var statusClass = (status === 'Delivered' || status === 'Done' || status === 'Completed')
-                            ? 'badge-success'
-                            : (status === 'Pending' || status === 'Processing' ? 'badge-warning' : 'badge-danger');
-            var items = (o.BillDetails || []).map(function (bd) {
-                return (bd.ProductName || '') + ' ×' + (bd.Qty || bd.Quantity || 1);
+        window._userOrders = orders;
+        var rows = orders.map(function (o, idx) {
+            var changes  = o.billChange || o.BillChange || [];
+            var latest   = changes.length ? changes[0] : {};
+            var status   = latest.status || latest.Status || '';
+            var statusVi = _statusViMap[status] || status;
+            var statusClass = (status === 'Paid') ? 'badge-success'
+                : (status === 'Create' || status === 'UnPaid') ? 'badge-warning' : 'badge-danger';
+
+            var createChange = changes.slice().reverse().find(function (c) { return (c.status || c.Status) === 'Create'; }) || {};
+            var date = (createChange.changeAt || createChange.ChangeAt || '').slice(0, 10);
+
+            var details = o.billDetail || o.BillDetail || [];
+            var items = details.map(function (bd) {
+                var pv   = bd.productVarient || bd.ProductVarient || {};
+                var prod = pv.product || pv.Product || {};
+                return (prod.productName || prod.ProductName || 'Sản phẩm') + ' ×' + (bd.quantity || bd.Quantity || 1);
             }).join(', ');
-            var date  = (o.CreatedAt || o.Date || '').slice(0, 10);
-            var total = o.TotalPrice || o.Total || 0;
+
+            var total  = o.total || o.Total || 0;
+            var billId = o.billID || o.BillID || '';
             return '<div class="order-row">' +
                 '<div class="order-icon">🍗</div>' +
                 '<div class="order-info">' +
-                '<div class="order-id">#' + (o.BillID || o.ID || '') + '</div>' +
-                '<div class="order-items">' + (items || 'Xem chi tiết') + '</div>' +
-                '<div class="order-date">' + date + '</div>' +
+                '<div class="order-id">#' + billId.slice(0, 8).toUpperCase() + '</div>' +
+                '<div class="order-items">' + (items || '—') + '</div>' +
+                '<div class="order-date">' + (date || '—') + '</div>' +
                 '</div>' +
                 '<div class="order-right">' +
-                '<span class="order-total">' + total.toLocaleString('vi-VN') + 'đ</span>' +
-                '<span class="order-badge ' + statusClass + '">' + status + '</span>' +
+                '<span class="order-total">' + Number(total).toLocaleString('vi-VN') + 'đ</span>' +
+                '<span class="order-badge ' + statusClass + '">' + statusVi + '</span>' +
+                '<button class="order-detail-btn" onclick="showBillModal(' + idx + ')">Chi tiết</button>' +
                 '</div></div>';
         }).join('');
         main.innerHTML =
@@ -153,6 +168,101 @@ function renderOrders(main) {
     }).catch(function () {
         main.innerHTML = '<p style="padding:20px;color:var(--muted)">Lỗi tải lịch sử đơn hàng.</p>';
     });
+}
+
+function showBillModal(idx) {
+    var o = (window._userOrders || [])[idx];
+    if (!o) return;
+
+    var billId        = o.billID || o.BillID || '';
+    var total         = Number(o.total || o.Total || 0);
+    var vat           = Number(o.vat || o.VAT || 0.1);
+    var moneyReceived = Number(o.moneyReceived || o.MoneyReceived || 0);
+    var moneyGiveBack = Number(o.moneyGiveBack || o.MoneyGiveBack || 0);
+    var note          = o.note || o.Note || '';
+    var payMethod     = o.paymentMethods || o.PaymentMethods || '';
+    var payDisplay    = payMethod === 'Cash' ? 'Tiền mặt' : payMethod === 'Card' ? 'Thẻ / Chuyển khoản' : payMethod;
+    var subtotal      = vat > 0 ? total / (1 + vat) : total;
+    var vatAmt        = total - subtotal;
+
+    // Items table
+    var details  = o.billDetail || o.BillDetail || [];
+    var itemRows = details.map(function (bd) {
+        var pv    = bd.productVarient || bd.ProductVarient || {};
+        var prod  = pv.product || pv.Product || {};
+        var name  = prod.productName || prod.ProductName || 'Sản phẩm';
+        var size  = pv.size || pv.Size || 'Default';
+        var qty   = Number(bd.quantity || bd.Quantity || 1);
+        var price = Number(bd.price || bd.Price || 0);
+        var line  = Number(bd.inlineTotal || bd.InlineTotal || qty * price);
+        return '<tr>' +
+            '<td>' + name + '</td>' +
+            '<td style="text-align:center">' + (size === 'Default' ? '—' : size) + '</td>' +
+            '<td style="text-align:center">' + qty + '</td>' +
+            '<td style="text-align:right">' + price.toLocaleString('vi-VN') + 'đ</td>' +
+            '<td style="text-align:right"><b>' + line.toLocaleString('vi-VN') + 'đ</b></td>' +
+            '</tr>';
+    }).join('');
+    var itemsHtml = itemRows
+        ? '<table class="bill-table"><thead><tr><th>Sản phẩm</th><th>Size</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead><tbody>' + itemRows + '</tbody></table>'
+        : '<p style="color:#aaa;font-size:13px;margin:0">Không có thông tin sản phẩm.</p>';
+
+    // Status timeline (oldest → newest)
+    var changes = (o.billChange || o.BillChange || []).slice().reverse();
+    var createdAt = changes.length ? (changes[0].changeAt || changes[0].ChangeAt || '').replace('T', ' ').slice(0, 16) : '—';
+    var timelineHtml = changes.map(function (bc, i) {
+        var st   = bc.status || bc.Status || '';
+        var time = (bc.changeAt || bc.ChangeAt || '').replace('T', ' ').slice(0, 16);
+        var isLast = i === changes.length - 1;
+        return '<div class="bill-tl-step' + (isLast ? ' bill-tl-last' : '') + '">' +
+            '<div class="bill-tl-dot"></div>' +
+            '<div class="bill-tl-body">' +
+            '<span class="bill-tl-label">' + (_statusViMap[st] || st) + '</span>' +
+            '<span class="bill-tl-time">' + time + '</span>' +
+            '</div></div>';
+    }).join('');
+
+    var html =
+        '<div class="bill-overlay" onclick="if(event.target===this)closeBillModal()">' +
+        '<div class="bill-box">' +
+        '<div class="bill-box-header">' +
+        '<div>' +
+        '<div class="bill-box-id">HOÁ ĐƠN #' + billId.slice(0, 8).toUpperCase() + '</div>' +
+        '<div class="bill-box-date">' + createdAt + '</div>' +
+        '</div>' +
+        '<button class="bill-close-btn" onclick="closeBillModal()">✕</button>' +
+        '</div>' +
+        '<div class="bill-box-body">' +
+
+        '<div class="bill-section-lbl">🛒 Sản phẩm</div>' +
+        itemsHtml +
+
+        '<div class="bill-totals-block">' +
+        '<div class="bill-tot-row"><span>Tạm tính</span><span>' + subtotal.toLocaleString('vi-VN') + 'đ</span></div>' +
+        '<div class="bill-tot-row"><span>VAT (10%)</span><span>' + vatAmt.toLocaleString('vi-VN') + 'đ</span></div>' +
+        '<div class="bill-tot-row bill-tot-final"><span>Tổng cộng</span><span>' + total.toLocaleString('vi-VN') + 'đ</span></div>' +
+        (moneyReceived > 0 ? '<div class="bill-tot-row"><span>Tiền nhận</span><span>' + moneyReceived.toLocaleString('vi-VN') + 'đ</span></div>' : '') +
+        (moneyGiveBack > 0 ? '<div class="bill-tot-row"><span>Tiền thối</span><span>' + moneyGiveBack.toLocaleString('vi-VN') + 'đ</span></div>' : '') +
+        '</div>' +
+
+        '<div class="bill-meta-block">' +
+        '<div class="bill-meta-row"><span class="bill-meta-lbl">Thanh toán</span><span class="bill-meta-val">' + payDisplay + '</span></div>' +
+        (note ? '<div class="bill-meta-row"><span class="bill-meta-lbl">Ghi chú</span><span class="bill-meta-val">' + note + '</span></div>' : '') +
+        '</div>' +
+
+        (timelineHtml ? '<div class="bill-section-lbl" style="margin-top:20px">📋 Trạng thái đơn hàng</div><div class="bill-timeline">' + timelineHtml + '</div>' : '') +
+
+        '</div></div></div>';
+
+    var el = document.createElement('div');
+    el.innerHTML = html;
+    document.body.appendChild(el.firstChild);
+    document.body.style.overflow = 'hidden';
+}
+
+function closeBillModal() {
+    var overlay = document.querySelector('.bill-overlay');
+    if (overlay) { overlay.remove(); document.body.style.overflow = ''; }
 }
 
 // 3. ĐỊA CHỈ GIAO HÀNG
@@ -270,22 +380,43 @@ function renderTicket(main) {
                 '<div class="section-card-body"><p style="color:var(--muted)">Chưa có mã giảm giá nào.</p></div></div>';
             return;
         }
+        var today = new Date().toISOString().slice(0, 10);
         var cards = tickets.map(function (t) {
-            var code    = t.TicketCode || t.Code || String(t.TicketID || '');
-            var disc    = t.DiscountAmount || t.DiscountPercent || 0;
-            var discStr = t.DiscountPercent ? (t.DiscountPercent + '%') : disc.toLocaleString('vi-VN') + 'đ';
-            var desc    = t.Description || ('Giảm ' + discStr);
-            var endDate = (t.EndDate || t.ExpiryDate || '').slice(0, 10);
-            var used    = t.IsUsed || t.used || false;
-            return '<div class="ticket-card' + (used ? ' used' : '') + '">' +
+            var ticketId  = String(t.ticketID || t.TicketID || '');
+            var code      = ticketId.replace(/-/g, '').slice(0, 8).toUpperCase();
+            var discount  = Number(t.discount || t.Discount || 0);
+            var discPct   = Math.round(discount * 100);
+            var startDate = (t.startDate || t.StartDate || '').slice(0, 10);
+            var endDate   = (t.endDate   || t.EndDate   || '').slice(0, 10);
+            var usedAt    = t.usedAt || t.UsedAt || null;
+
+            var isUsed    = !!usedAt;
+            var isExpired = !isUsed && !!endDate && endDate < today;
+            var isActive  = !isUsed && !isExpired;
+
+            var badgeCls  = isUsed ? 'tk-badge-used' : isExpired ? 'tk-badge-expired' : 'tk-badge-active';
+            var badgeTxt  = isUsed ? 'Đã dùng' : isExpired ? 'Hết hạn' : 'Hiệu lực';
+
+            var usedLine  = usedAt
+                ? '<div class="tk-used-time">Dùng lúc: ' + String(usedAt).replace('T', ' ').slice(0, 16) + '</div>'
+                : '';
+            var actionBtn = isActive
+                ? '<button class="up-btn up-btn-sm" onclick="copyCode(\'' + ticketId + '\')">Sao chép mã</button>'
+                : '';
+
+            return '<div class="ticket-card' + (!isActive ? ' used' : '') + '">' +
+                '<div class="tk-top-row">' +
                 '<span class="ticket-code">' + code + '</span>' +
-                '<p class="ticket-desc">' + desc + '</p>' +
-                '<div class="ticket-footer">' +
-                '<span class="ticket-date">HSD: ' + (endDate || '—') + '</span>' +
-                (used
-                    ? '<span class="ticket-used-badge">Đã dùng</span>'
-                    : '<button class="up-btn up-btn-sm" onclick="copyCode(\'' + code + '\')">Sao chép</button>') +
-                '</div></div>';
+                '<span class="tk-badge ' + badgeCls + '">' + badgeTxt + '</span>' +
+                '</div>' +
+                '<div class="tk-discount">Giảm ' + discPct + '%</div>' +
+                '<div class="tk-dates">' +
+                '<span>Bắt đầu: <b>' + (startDate || '—') + '</b></span>' +
+                '<span>HSD: <b>' + (endDate || '—') + '</b></span>' +
+                '</div>' +
+                usedLine +
+                '<div class="ticket-footer">' + actionBtn + '</div>' +
+                '</div>';
         }).join('');
         main.innerHTML =
             '<div class="section-card">' +
@@ -296,8 +427,58 @@ function renderTicket(main) {
     });
 }
 
-function copyCode(code) {
-    navigator.clipboard.writeText(code).then(function () {
-        alert('Đã sao chép mã: ' + code);
+function copyCode(ticketId) {
+    navigator.clipboard.writeText(ticketId).then(function () {
+        alert('Đã sao chép mã: ' + ticketId);
     });
+}
+
+// 5. ĐỔI MẬT KHẨU
+function renderPassword(main) {
+    main.innerHTML =
+        '<div class="section-card">' +
+        '<div class="section-card-header"><h2 class="section-card-title">🔒 Đổi mật khẩu</h2></div>' +
+        '<div class="section-card-body">' +
+        '<div class="up-field"><label>Mật khẩu hiện tại</label>' +
+        '<input type="password" id="pw-current" placeholder="Nhập mật khẩu hiện tại" autocomplete="current-password"></div>' +
+        '<div class="up-field"><label>Mật khẩu mới</label>' +
+        '<input type="password" id="pw-new" placeholder="Tối thiểu 6 ký tự" autocomplete="new-password"></div>' +
+        '<div class="up-field"><label>Xác nhận mật khẩu mới</label>' +
+        '<input type="password" id="pw-confirm" placeholder="Nhập lại mật khẩu mới" autocomplete="new-password"></div>' +
+        '<p id="pw-error" class="pw-error-msg"></p>' +
+        '<p id="pw-success" class="pw-success-msg"></p>' +
+        '<button class="up-btn" onclick="savePassword()">Cập nhật mật khẩu</button>' +
+        '</div></div>';
+}
+
+function savePassword() {
+    var current = document.getElementById('pw-current').value;
+    var newPw   = document.getElementById('pw-new').value;
+    var confirm = document.getElementById('pw-confirm').value;
+    var errEl   = document.getElementById('pw-error');
+    var okEl    = document.getElementById('pw-success');
+    errEl.textContent = '';
+    okEl.textContent  = '';
+
+    if (!current || !newPw || !confirm) { errEl.textContent = 'Vui lòng điền đầy đủ các trường.'; return; }
+    if (newPw.length < 6) { errEl.textContent = 'Mật khẩu mới phải có ít nhất 6 ký tự.'; return; }
+    if (newPw !== confirm) { errEl.textContent = 'Mật khẩu xác nhận không khớp.'; return; }
+
+    apiPut('/auth/change-password', { currentPass: current, newPass: newPw })
+        .then(function (r) {
+            return r.text().then(function (t) { return { ok: r.ok, text: t }; });
+        })
+        .then(function (res) {
+            if (res.ok) {
+                okEl.textContent = 'Đổi mật khẩu thành công!';
+                document.getElementById('pw-current').value = '';
+                document.getElementById('pw-new').value = '';
+                document.getElementById('pw-confirm').value = '';
+            } else {
+                var msg = res.text;
+                try { msg = JSON.parse(res.text).message || msg; } catch (e) {}
+                errEl.textContent = msg || 'Đổi mật khẩu thất bại.';
+            }
+        })
+        .catch(function () { errEl.textContent = 'Lỗi kết nối máy chủ.'; });
 }
