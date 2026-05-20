@@ -1224,6 +1224,19 @@ body {
 }
 
 /* =====================================================
+   CATEGORY SECTIONS (vertical scroll layout)
+   ===================================================== */
+.menu-cat-section {
+    margin-bottom: 56px;
+    scroll-margin-top: 115px;
+}
+
+.cat-section-icon {
+    font-size: 22px;
+    line-height: 1;
+}
+
+/* =====================================================
    FILTER VISIBILITY (class-based, no inline style conflict)
    ===================================================== */
 .card-hidden    { display: none !important; }

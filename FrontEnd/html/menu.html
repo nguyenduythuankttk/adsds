@@ -73,33 +73,48 @@
 
     <!-- ===== MAIN CONTENT ===== -->
     <main class="menu-main" id="menu-main">
-        <section class="bs-section">
 
-            <!-- Toolbar: sort -->
-            <div class="bs-toolbar">
-                <div class="bs-sort-wrap">
-                    <i class="ti-filter"></i>
-                    <select class="bs-sort-select" id="bs-sort-select">
-                        <option value="bestseller">Bán chạy nhất</option>
-                        <option value="price-asc">Giá thấp → cao</option>
-                        <option value="price-desc">Giá cao → thấp</option>
-                        <option value="name-az">Tên A → Z</option>
-                    </select>
-                </div>
+        <!-- Toolbar: sort -->
+        <div class="bs-toolbar">
+            <div class="bs-sort-wrap">
+                <i class="ti-filter"></i>
+                <select class="bs-sort-select" id="bs-sort-select">
+                    <option value="bestseller">Bán chạy nhất</option>
+                    <option value="price-asc">Giá thấp → cao</option>
+                    <option value="price-desc">Giá cao → thấp</option>
+                    <option value="name-az">Tên A → Z</option>
+                </select>
             </div>
+        </div>
 
-            <div class="bs-slider-wrap">
-                <button class="bs-arrow bs-prev" id="bs-prev" aria-label="Trước" disabled>
-                    <i class="ti-angle-left"></i>
-                </button>
-                <div class="bs-track" id="bs-track"></div>
-                <button class="bs-arrow bs-next" id="bs-next" aria-label="Tiếp">
-                    <i class="ti-angle-right"></i>
-                </button>
+        <section class="menu-cat-section" id="section-food" data-category="food">
+            <div class="menu-section-header">
+                <h2 class="menu-section-title"><span class="cat-section-icon">🍗</span> Món Chính</h2>
             </div>
-            <div class="bs-dots" id="bs-dots"></div>
-
+            <div class="menu-grid" id="grid-food"></div>
         </section>
+
+        <section class="menu-cat-section" id="section-combo" data-category="combo">
+            <div class="menu-section-header">
+                <h2 class="menu-section-title"><span class="cat-section-icon">🎁</span> Combo</h2>
+            </div>
+            <div class="menu-grid" id="grid-combo"></div>
+        </section>
+
+        <section class="menu-cat-section" id="section-addon" data-category="addon">
+            <div class="menu-section-header">
+                <h2 class="menu-section-title"><span class="cat-section-icon">🥗</span> Món Phụ</h2>
+            </div>
+            <div class="menu-grid" id="grid-addon"></div>
+        </section>
+
+        <section class="menu-cat-section" id="section-drink" data-category="drink">
+            <div class="menu-section-header">
+                <h2 class="menu-section-title"><span class="cat-section-icon">🥤</span> Thức Uống</h2>
+            </div>
+            <div class="menu-grid" id="grid-drink"></div>
+        </section>
+
     </main>
 
     <!-- ===== CART TOAST ===== -->
