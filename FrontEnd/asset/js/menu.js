@@ -14,6 +14,8 @@
     var pdSizeList  = document.getElementById('pd-size-list');
     var pdPrice     = document.getElementById('pd-price');
     var pdAddBtn    = document.getElementById('pd-add-btn');
+    var pdPeople     = document.getElementById('pd-people');
+    var pdPeopleText = document.getElementById('pd-people-text');
 
     // section grids (vertical scroll layout)
     var gridAll   = document.getElementById('grid-all');
@@ -153,6 +155,10 @@
         });
     }
 
+    // ── URL param: ?category=combo1|combo2|combo3|combo4 ─────────────────────
+    var COMBO_PEOPLE_MAP = { combo1: 1, combo2: 2, combo3: 3, combo4: 4 };
+    var initCombo = COMBO_PEOPLE_MAP[(new URLSearchParams(window.location.search)).get('category')] || 0;
+
     // ── Filter state ─────────────────────────────────────────────────────────
     var filterState = {
         types:     { food: true, combo: true, addon: true, drink: true },
@@ -189,9 +195,10 @@
         if (!filterState.forPeople) return products;
         var n = filterState.forPeople;
         return products.filter(function (p) {
-            if (p.forPeople == null) return false;
-            if (n >= 5) return p.forPeople >= 5;
-            return p.forPeople === n;
+            return (p.productVarient || []).some(function (v) {
+                if (v.forPeople == null) return false;
+                return n >= 5 ? v.forPeople >= 5 : v.forPeople === n;
+            });
         });
     }
 
@@ -376,6 +383,17 @@
             applyFilterAndSort();
 
             initScrollSpy();
+
+            if (initCombo) {
+                setActiveTab('combo');
+                setTimeout(function () {
+                    var section = document.getElementById('section-combo');
+                    if (section) {
+                        var top = section.getBoundingClientRect().top + window.scrollY - 115;
+                        window.scrollTo({ top: top, behavior: 'smooth' });
+                    }
+                }, 80);
+            }
         })
         .catch(function () {
             TYPE_KEYS.forEach(function (key) {
@@ -436,6 +454,18 @@
 
     var TYPE_LABEL_VN = { Food: 'Đồ Ăn', Combo: 'Combo', Addon: 'Món Phụ', Drink: 'Đồ Uống' };
     var SIZE_LABEL    = { Default: 'Tiêu chuẩn', S: 'Nhỏ (S)', M: 'Vừa (M)', L: 'Lớn (L)', XL: 'Cỡ XL' };
+    var PEOPLE_LABEL  = { 1: '1 người', 2: '2 người (cặp đôi)', 3: '3 người (hội bạn)', 4: '4 người (gia đình)' };
+
+    function renderPdPeople(variant) {
+        if (!pdPeople || !pdPeopleText) return;
+        var n = variant && variant.forPeople;
+        if (n) {
+            pdPeopleText.textContent = 'Phù hợp cho ' + (PEOPLE_LABEL[n] || n + ' người');
+            pdPeople.style.display = '';
+        } else {
+            pdPeople.style.display = 'none';
+        }
+    }
 
     function openProductDetail(product) {
         pdCurrentProduct = product;
@@ -463,9 +493,15 @@
         });
         if (!variants.length) variants = product.productVarient || [];
 
-        // Sắp xếp theo giá tăng dần, chọn mặc định giá thấp nhất
+        // Sắp xếp theo giá tăng dần
         variants.sort(function (a, b) { return a.price - b.price; });
-        pdSelectedVariant = variants[0];
+
+        // Nếu đang lọc theo số người, ưu tiên variant khớp forPeople; fallback về giá thấp nhất
+        var targetPeople = filterState.forPeople || initCombo;
+        var matched = targetPeople
+            ? variants.find(function (v) { return v.forPeople === targetPeople; })
+            : null;
+        pdSelectedVariant = matched || variants[0];
 
         if (variants.length > 1) {
             pdSizeSection.classList.add('visible');
@@ -473,14 +509,19 @@
             variants.forEach(function (v) {
                 var btn = document.createElement('button');
                 btn.className = 'pd-size-btn' + (v === pdSelectedVariant ? ' selected' : '');
+                var peopleHtml = v.forPeople
+                    ? '<span class="pd-size-people"><i class="ti-user"></i> ' + v.forPeople + ' người</span>'
+                    : '';
                 btn.innerHTML =
                     '<span class="pd-size-name">' + (SIZE_LABEL[v.size] || v.size) + '</span>' +
+                    peopleHtml +
                     '<span class="pd-size-price">' + formatPrice(v.price) + '</span>';
                 btn.addEventListener('click', function () {
                     pdSelectedVariant = v;
                     pdSizeList.querySelectorAll('.pd-size-btn').forEach(function (b) { b.classList.remove('selected'); });
                     btn.classList.add('selected');
                     pdPrice.textContent = formatPrice(v.price);
+                    renderPdPeople(v);
                 });
                 pdSizeList.appendChild(btn);
             });
@@ -489,6 +530,7 @@
         }
 
         pdPrice.textContent = formatPrice(pdSelectedVariant.price);
+        renderPdPeople(pdSelectedVariant);
 
         // Add-to-cart button
         pdAddBtn.onclick = function () {
@@ -1072,23 +1114,58 @@
     function openCart()  { cartSidebar.classList.add('open');    cartOverlay.classList.add('active');    document.body.style.overflow = 'hidden'; renderCart(); }
     function closeCart() { cartSidebar.classList.remove('open'); cartOverlay.classList.remove('active'); document.body.style.overflow = ''; }
 
-    cartFab.addEventListener('click', function () { renderCQModal(); openCQModal(); });
+    // ── Empty-cart popup ─────────────────────────────────────────────────────
+    var emptyCartOverlay  = document.getElementById('empty-cart-overlay');
+    var emptyCartPopup    = document.getElementById('empty-cart-popup');
+    var emptyCartCloseBtn = document.getElementById('empty-cart-close-btn');
+
+    function openEmptyCartPopup() {
+        emptyCartOverlay.classList.add('active');
+        emptyCartPopup.classList.add('open');
+    }
+    function closeEmptyCartPopup() {
+        emptyCartOverlay.classList.remove('active');
+        emptyCartPopup.classList.remove('open');
+    }
+    emptyCartCloseBtn.addEventListener('click', closeEmptyCartPopup);
+    emptyCartOverlay.addEventListener('click', closeEmptyCartPopup);
+
+    cartFab.addEventListener('click', function () {
+        if (cart.length === 0) { openEmptyCartPopup(); return; }
+        renderCQModal(); openCQModal();
+    });
     cartCloseBtn.addEventListener('click', closeCart);
     cartOverlay.addEventListener('click', closeCart);
 
     cartOrderBtn.addEventListener('click', function () {
-        if (cart.length === 0) return;
+        if (cart.length === 0) { openEmptyCartPopup(); return; }
         closeCart();
         renderCQModal();
         openCQModal();
     });
 
     // ── Category tabs ────────────────────────────────────────────────────────
+    function resetFilterState() {
+        filterState = { types: { food: true, combo: true, addon: true, drink: true }, minPrice: 0, maxPrice: Infinity, forPeople: 0 };
+        document.querySelectorAll('input[name="bs-type"]').forEach(function (cb) { cb.checked = true; });
+        var allPeople = document.querySelector('input[name="bs-people"][value="0"]');
+        if (allPeople) allPeople.checked = true;
+        if (bsRangeMin) bsRangeMin.value = 0;
+        if (bsRangeMax) bsRangeMax.value = PRICE_MAX;
+        updateSliderFill();
+        if (bsFilterPanel) { bsFilterPanel.classList.remove('open'); bsFilterBtn.setAttribute('aria-expanded', 'false'); }
+        updateFilterBadge();
+    }
+
     catTabs.forEach(function (tab) {
         tab.addEventListener('click', function () {
             var category = this.dataset.category;
             if (searchInput) searchInput.value = '';
             setActiveTab(category);
+            restoreNormalView();
+
+            resetFilterState();
+            if (allProducts.length) applyFilterAndSort();
 
             if (category === 'all') {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1162,6 +1239,19 @@
     }
 
     // ── Init ─────────────────────────────────────────────────────────────────
+    if (initCombo) {
+        // Chỉ filter theo type Combo (không filter forPeople vì data có thể chưa set)
+        filterState.types = { food: false, combo: true, addon: false, drink: false };
+        document.querySelectorAll('input[name="bs-type"]').forEach(function (cb) {
+            cb.checked = (cb.value === 'combo');
+        });
+        // Highlight chip số người để gợi ý, nhưng không apply vào filterState
+        var initPeopleRadio = document.querySelector('input[name="bs-people"][value="' + initCombo + '"]');
+        if (initPeopleRadio) initPeopleRadio.checked = true;
+        var allPeopleRadio = document.querySelector('input[name="bs-people"][value="0"]');
+        if (allPeopleRadio) allPeopleRadio.checked = false;
+    }
+
     loadCart();
     updateCartBadge();
     renderCart();

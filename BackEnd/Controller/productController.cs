@@ -132,7 +132,7 @@ namespace Backend.Controller
             {
                 var products = await _productService.SearchProducts(new ProductSearchRequest());
                 var featured = products
-                    .Where(p => p.DeletedAt == null && p.ProductVarient.Any(v => v.IsActive))
+                    .Where(p => p.DeletedAt == null && p.ProductVarient.Any())
                     .OrderByDescending(p => p.SoldCount)
                     .Take(10)
                     .ToList();
