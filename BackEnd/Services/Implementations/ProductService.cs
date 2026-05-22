@@ -25,6 +25,7 @@ namespace Backend.Services.Implementations{
                     ProductType = request.ProductType,
                     Image = request.Image,
                     Description = request.Description,
+                    ForPeople = request.ForPeople,
                 };
                 _dbContext.Product.Add(newProduct);
                 await _dbContext.SaveChangesAsync();
@@ -53,6 +54,7 @@ namespace Backend.Services.Implementations{
                     updateProduct.ProductName = request.ProductName;
                     updateProduct.Image = request.Image;
                     updateProduct.Description = request.Description;
+                    updateProduct.ForPeople = request.ForPeople;
                     _dbContext.Product.Update(updateProduct);
                     await _dbContext.SaveChangesAsync();
                 }
@@ -135,18 +137,10 @@ namespace Backend.Services.Implementations{
 
             var products = await query.ToListAsync();
 
-            // ForPeople: lọc combo theo số người (combo có combo detail)
             if (request.ForPeople.HasValue && request.ForPeople.Value > 0)
-            {
-                var forPeople = request.ForPeople.Value;
-                products = products.Where(p => {
-                    // Nếu là Food/Drink/Addon: giữ lại
-                    if (p.ProductType != ProductType.Combo) return true;
-                    // Combo: filter theo số người dựa vào tên (1-2 người, 3-4 người, ...)
-                    var name = p.ProductName.ToLower();
-                    return true; // Trả về tất cả combo, frontend filter tiếp nếu cần
-                }).ToList();
-            }
+                products = products
+                    .Where(p => p.ForPeople.HasValue && p.ForPeople.Value <= request.ForPeople.Value)
+                    .ToList();
 
             return products;
         }

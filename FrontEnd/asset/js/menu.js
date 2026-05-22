@@ -16,6 +16,7 @@
     var pdAddBtn    = document.getElementById('pd-add-btn');
 
     // section grids (vertical scroll layout)
+    var gridAll   = document.getElementById('grid-all');
     var gridFood  = document.getElementById('grid-food');
     var gridCombo = document.getElementById('grid-combo');
     var gridAddon = document.getElementById('grid-addon');
@@ -35,34 +36,54 @@
     var catTabs       = document.querySelectorAll('.cat-tab');
     var sortSelect    = document.getElementById('bs-sort-select');
 
-    var cqBackdrop    = document.getElementById('cq-backdrop');
-    var cqModal       = document.getElementById('cq-modal');
-    var cqCloseBtn    = document.getElementById('cq-close-btn');
-    var cqItemsWrap   = document.getElementById('cq-items-wrap');
-    var cqItemCount   = document.getElementById('cq-item-count');
-    var cqSubtotal    = document.getElementById('cq-subtotal');
-    var cqShipping    = document.getElementById('cq-shipping');
-    var cqGrandTotal  = document.getElementById('cq-grand-total');
-    var cqCheckoutBtn = document.getElementById('cq-checkout-btn');
-    var cqUpsellPrev  = document.getElementById('cq-upsell-prev');
-    var cqUpsellNext  = document.getElementById('cq-upsell-next');
-    var cqUpsellImg   = document.getElementById('cq-upsell-img');
-    var cqUpsellName  = document.getElementById('cq-upsell-name');
-    var cqUpsellPrice = document.getElementById('cq-upsell-price');
-    var cqUpsellAdd   = document.getElementById('cq-upsell-add');
+    var cqBackdrop      = document.getElementById('cq-backdrop');
+    var cqModal         = document.getElementById('cq-modal');
+    var cqCloseBtn      = document.getElementById('cq-close-btn');
+    var cqItemsWrap     = document.getElementById('cq-items-wrap');
+    var cqItemCount     = document.getElementById('cq-item-count');
+    var cqSubtotal      = document.getElementById('cq-subtotal');
+    var cqShipping      = document.getElementById('cq-shipping');
+    var cqGrandTotal    = document.getElementById('cq-grand-total');
+    var cqCheckoutBtn   = document.getElementById('cq-checkout-btn');
+    var cqUpsellPrev    = document.getElementById('cq-upsell-prev');
+    var cqUpsellNext    = document.getElementById('cq-upsell-next');
+    var cqUpsellImg     = document.getElementById('cq-upsell-img');
+    var cqUpsellName    = document.getElementById('cq-upsell-name');
+    var cqUpsellPrice   = document.getElementById('cq-upsell-price');
+    var cqUpsellAdd     = document.getElementById('cq-upsell-add');
+    var cqAddrSelected  = document.getElementById('cq-addr-selected');
+    var cqAddrExpandBtn = document.getElementById('cq-addr-expand-btn');
+    var cqAddrArrow     = document.getElementById('cq-addr-arrow');
+    var cqAddrList      = document.getElementById('cq-addr-list');
 
     // ── State ────────────────────────────────────────────────────────────────
     // cart item: { varientId, name, price, qty }
     var cart              = [];
     var pendingItem       = null;
-    var allProducts       = [];   // tất cả sản phẩm gộp lại (dùng cho product detail modal)
+    var allProducts       = [];
     var allProductsByType = { food: [], combo: [], addon: [], drink: [] };
-    var upsellItems = [];
-    var upsellIdx   = 0;
+    var upsellItems       = [];
+    var upsellIdx         = 0;
+    var allAddresses      = [];
+    var selectedAddress   = null;
+    var addrDropdownOpen  = false;
+
+    var CART_KEY = 'chonlibi_cart';
 
     // ── Helpers ──────────────────────────────────────────────────────────────
     function formatPrice(num) { return num.toLocaleString('vi-VN') + ' đ'; }
     function isLoggedIn()     { return !!localStorage.getItem('fullName'); }
+
+    function saveCart() {
+        try { localStorage.setItem(CART_KEY, JSON.stringify(cart)); } catch (e) {}
+    }
+
+    function loadCart() {
+        try {
+            var raw = localStorage.getItem(CART_KEY);
+            if (raw) { var parsed = JSON.parse(raw); if (Array.isArray(parsed)) cart = parsed; }
+        } catch (e) {}
+    }
 
     // ── Load & render Best Seller ─────────────────────────────────────────────
     var SIZE_SHORT = { Default: 'Mặc định', S: 'S', M: 'M', L: 'L', XL: 'XL' };
@@ -132,23 +153,89 @@
         });
     }
 
+    // ── Filter state ─────────────────────────────────────────────────────────
+    var filterState = {
+        types:     { food: true, combo: true, addon: true, drink: true },
+        minPrice:  0,
+        maxPrice:  Infinity,
+        forPeople: 0
+    };
+
+    function activeFilterCount() {
+        var typeOff   = Object.values(filterState.types).filter(function (v) { return !v; }).length;
+        var priceOn   = (filterState.minPrice > 0 || filterState.maxPrice < Infinity) ? 1 : 0;
+        var peopleOn  = filterState.forPeople > 0 ? 1 : 0;
+        return typeOff + priceOn + peopleOn;
+    }
+
+    function updateFilterBadge() {
+        var badge = document.getElementById('bs-filter-badge');
+        var btn   = document.getElementById('bs-filter-btn');
+        var n = activeFilterCount();
+        if (!badge) return;
+        if (n > 0) { badge.textContent = n; badge.classList.add('visible'); if (btn) btn.classList.add('active'); }
+        else        { badge.textContent = '';  badge.classList.remove('visible'); if (btn) btn.classList.remove('active'); }
+    }
+
+    function applyPriceFilter(products) {
+        return products.filter(function (p) {
+            var minV = activeVariants(p)[0];
+            if (!minV) return false;
+            return minV.price >= filterState.minPrice && minV.price <= filterState.maxPrice;
+        });
+    }
+
+    function applyPeopleFilter(products) {
+        if (!filterState.forPeople) return products;
+        var n = filterState.forPeople;
+        return products.filter(function (p) {
+            if (p.forPeople == null) return false;
+            if (n >= 5) return p.forPeople >= 5;
+            return p.forPeople === n;
+        });
+    }
+
+    function applyAllFilters(products) {
+        return applyPeopleFilter(applyPriceFilter(products));
+    }
+
+    function applyFilterAndSort() {
+        var sortKey = sortSelect ? sortSelect.value : 'bestseller';
+
+        // "Bán chạy" section — tổng hợp từ các loại còn bật
+        var visibleAll = [];
+        TYPE_KEYS.forEach(function (key) {
+            if (filterState.types[key]) visibleAll = visibleAll.concat(allProductsByType[key]);
+        });
+        visibleAll.sort(function (a, b) { return (b.soldCount || 0) - (a.soldCount || 0); });
+        renderSection(applyAllFilters(visibleAll).slice(0, 10), gridAll);
+
+        // Các section theo loại
+        TYPE_KEYS.forEach(function (key) {
+            var section = document.getElementById('section-' + key);
+            var grid    = document.getElementById('grid-' + key);
+            if (!section) return;
+            if (!filterState.types[key]) {
+                section.style.display = 'none';
+            } else {
+                section.style.display = '';
+                renderSection(applySort(applyAllFilters(allProductsByType[key]), sortKey), grid);
+            }
+        });
+
+        updateFilterBadge();
+    }
+
     // ── Sort ─────────────────────────────────────────────────────────────────
     function applySort(products, sortKey) {
         var list = products.slice();
         if (sortKey === 'price-asc') {
-            list.sort(function (a, b) {
-                return activeVariants(a)[0].price - activeVariants(b)[0].price;
-            });
+            list.sort(function (a, b) { return activeVariants(a)[0].price - activeVariants(b)[0].price; });
         } else if (sortKey === 'price-desc') {
-            list.sort(function (a, b) {
-                return activeVariants(b)[0].price - activeVariants(a)[0].price;
-            });
+            list.sort(function (a, b) { return activeVariants(b)[0].price - activeVariants(a)[0].price; });
         } else if (sortKey === 'name-az') {
-            list.sort(function (a, b) {
-                return a.productName.localeCompare(b.productName, 'vi');
-            });
+            list.sort(function (a, b) { return a.productName.localeCompare(b.productName, 'vi'); });
         } else {
-            // bestseller — giữ thứ tự SoldCount từ API
             list.sort(function (a, b) { return (b.soldCount || 0) - (a.soldCount || 0); });
         }
         return list;
@@ -156,11 +243,97 @@
 
     if (sortSelect) {
         sortSelect.addEventListener('change', function () {
-            var sortKey = this.value;
-            Object.keys(allProductsByType).forEach(function (key) {
-                var grid = document.getElementById('grid-' + key);
-                renderSection(applySort(allProductsByType[key], sortKey), grid);
+            if (allProducts.length) applyFilterAndSort();
+        });
+    }
+
+    // ── Filter panel UI ──────────────────────────────────────────────────────
+    var PRICE_MAX = 1000000;
+
+    var bsFilterBtn      = document.getElementById('bs-filter-btn');
+    var bsFilterPanel    = document.getElementById('bs-filter-panel');
+    var bsFilterApplyBtn = document.getElementById('bs-filter-apply-btn');
+    var bsFilterResetBtn = document.getElementById('bs-filter-reset-btn');
+    var bsRangeMin       = document.getElementById('bs-price-min');
+    var bsRangeMax       = document.getElementById('bs-price-max');
+    var bsSliderFill     = document.getElementById('bs-slider-fill');
+    var bsLabelMin       = document.getElementById('bs-label-min');
+    var bsLabelMax       = document.getElementById('bs-label-max');
+
+    function updateSliderFill() {
+        if (!bsRangeMin || !bsSliderFill) return;
+        var lo = parseInt(bsRangeMin.value, 10);
+        var hi = parseInt(bsRangeMax.value, 10);
+        var pctLo = (lo / PRICE_MAX) * 100;
+        var pctHi = (hi / PRICE_MAX) * 100;
+        bsSliderFill.style.left  = pctLo + '%';
+        bsSliderFill.style.width = (pctHi - pctLo) + '%';
+        if (bsLabelMin) bsLabelMin.textContent = lo.toLocaleString('vi-VN') + ' đ';
+        if (bsLabelMax) bsLabelMax.textContent = (hi >= PRICE_MAX ? PRICE_MAX.toLocaleString('vi-VN') + '+ đ' : hi.toLocaleString('vi-VN') + ' đ');
+    }
+
+    function onRangeChange(changedEl) {
+        var lo = parseInt(bsRangeMin.value, 10);
+        var hi = parseInt(bsRangeMax.value, 10);
+        if (lo > hi) {
+            if (changedEl === bsRangeMin) {
+                bsRangeMin.value = hi;
+            } else {
+                bsRangeMax.value = lo;
+            }
+        }
+        // z-index: khi cả hai về 0, thumb min nằm trên để có thể kéo phải
+        bsRangeMin.style.zIndex = (parseInt(bsRangeMin.value, 10) === PRICE_MAX) ? 2 : 1;
+        updateSliderFill();
+    }
+
+    if (bsRangeMin) {
+        bsRangeMin.addEventListener('input', function () { onRangeChange(bsRangeMin); });
+    }
+    if (bsRangeMax) {
+        bsRangeMax.addEventListener('input', function () { onRangeChange(bsRangeMax); });
+    }
+
+    updateSliderFill();
+
+    if (bsFilterBtn) {
+        bsFilterBtn.addEventListener('click', function () {
+            var open = bsFilterPanel.classList.toggle('open');
+            bsFilterBtn.setAttribute('aria-expanded', open);
+            bsFilterPanel.setAttribute('aria-hidden', !open);
+        });
+    }
+
+    if (bsFilterApplyBtn) {
+        bsFilterApplyBtn.addEventListener('click', function () {
+            document.querySelectorAll('input[name="bs-type"]').forEach(function (cb) {
+                filterState.types[cb.value] = cb.checked;
             });
+            var lo = parseInt(bsRangeMin.value, 10);
+            var hi = parseInt(bsRangeMax.value, 10);
+            filterState.minPrice = lo;
+            filterState.maxPrice = (hi >= PRICE_MAX) ? Infinity : hi;
+            var peopleRadio = document.querySelector('input[name="bs-people"]:checked');
+            filterState.forPeople = peopleRadio ? parseInt(peopleRadio.value, 10) : 0;
+            if (allProducts.length) applyFilterAndSort();
+            bsFilterPanel.classList.remove('open');
+            bsFilterBtn.setAttribute('aria-expanded', 'false');
+        });
+    }
+
+    if (bsFilterResetBtn) {
+        bsFilterResetBtn.addEventListener('click', function () {
+            document.querySelectorAll('input[name="bs-type"]').forEach(function (cb) { cb.checked = true; });
+            var allPeople = document.querySelector('input[name="bs-people"][value="0"]');
+            if (allPeople) allPeople.checked = true;
+            if (bsRangeMin) bsRangeMin.value = 0;
+            if (bsRangeMax) bsRangeMax.value = PRICE_MAX;
+            updateSliderFill();
+            filterState = { types: { food: true, combo: true, addon: true, drink: true }, minPrice: 0, maxPrice: Infinity, forPeople: 0 };
+            if (allProducts.length) applyFilterAndSort();
+            bsFilterPanel.classList.remove('open');
+            bsFilterBtn.setAttribute('aria-expanded', 'false');
+            updateFilterBadge();
         });
     }
 
@@ -200,10 +373,7 @@
             upsellIdx = 0;
             renderUpsell();
 
-            var sortKey = sortSelect ? sortSelect.value : 'bestseller';
-            TYPE_KEYS.forEach(function (key) {
-                renderSection(applySort(allProductsByType[key], sortKey), document.getElementById('grid-' + key));
-            });
+            applyFilterAndSort();
 
             initScrollSpy();
         })
@@ -235,10 +405,6 @@
         }, { rootMargin: '-110px 0px -60% 0px', threshold: 0 });
 
         sections.forEach(function (s) { observer.observe(s); });
-
-        window.addEventListener('scroll', function () {
-            if (window.scrollY < 80) setActiveTab('all');
-        }, { passive: true });
     }
 
     // ── Upsell ───────────────────────────────────────────────────────────────
@@ -555,11 +721,10 @@
             return;
         }
         var existing = cart.find(function (i) { return i.varientId === varientId; });
-        if (existing) {
-            existing.qty++;
-        } else {
+        if (existing) { existing.qty++; } else {
             cart.push({ varientId: varientId, name: name, price: price, qty: 1 });
         }
+        saveCart();
         updateCartBadge();
         renderCart();
         showToast();
@@ -575,6 +740,7 @@
             cart[idx].qty--;
             if (cart[idx].qty <= 0) cart.splice(idx, 1);
         }
+        saveCart();
         updateCartBadge();
         renderCart();
     });
@@ -617,6 +783,200 @@
         setTimeout(function () { btn.style.transform = ''; }, 300);
     });
 
+    // ── Address Picker ───────────────────────────────────────────────────────
+    function formatAddress(a) {
+        var parts = [];
+        if (a.houseNumber) parts.push('Số ' + a.houseNumber);
+        if (a.street)  parts.push(a.street);
+        if (a.ward)    parts.push(a.ward);
+        if (a.district) parts.push(a.district);
+        if (a.province) parts.push(a.province);
+        return parts.join(', ');
+    }
+
+    function renderAddrSelected() {
+        if (!cqAddrSelected) return;
+        if (!allAddresses.length) {
+            cqAddrSelected.innerHTML =
+                '<span class="cq-addr-none">Bạn chưa có địa chỉ giao hàng. ' +
+                '<a id="cq-addr-add-link" style="cursor:pointer">Thêm ngay</a></span>';
+            var addLink = document.getElementById('cq-addr-add-link');
+            if (addLink) addLink.addEventListener('click', openAddrPopup);
+            if (cqAddrExpandBtn) cqAddrExpandBtn.style.display = 'none';
+            return;
+        }
+        var a = selectedAddress;
+        cqAddrSelected.innerHTML =
+            '<div class="cq-addr-name">Địa chỉ ' + (a.isDefault ? 'mặc định' : 'đã chọn') + '</div>' +
+            '<div class="cq-addr-text">' + formatAddress(a) + '</div>';
+
+        var others = allAddresses.filter(function (x) { return x.addressID !== a.addressID; });
+        if (cqAddrExpandBtn) {
+            cqAddrExpandBtn.style.display = others.length ? 'flex' : 'none';
+        }
+    }
+
+    function renderAddrList() {
+        if (!cqAddrList) return;
+        var others = allAddresses.filter(function (x) {
+            return x.addressID !== (selectedAddress && selectedAddress.addressID);
+        });
+        cqAddrList.innerHTML = '';
+        others.forEach(function (a) {
+            var item = document.createElement('div');
+            item.className = 'cq-addr-item';
+            item.innerHTML =
+                '<div class="cq-addr-item-text">' + formatAddress(a) + '</div>' +
+                '<button class="cq-addr-set-default" data-id="' + a.addressID + '">Mặc định</button>';
+
+            item.querySelector('.cq-addr-item-text').addEventListener('click', function () {
+                selectedAddress = a;
+                addrDropdownOpen = false;
+                cqAddrList.classList.remove('open');
+                if (cqAddrArrow) cqAddrArrow.classList.remove('open');
+                renderAddrSelected();
+                renderAddrList();
+            });
+
+            item.querySelector('.cq-addr-set-default').addEventListener('click', function (e) {
+                e.stopPropagation();
+                var btn = this;
+                btn.disabled = true;
+                btn.textContent = '...';
+                apiPut('/address/set-default/' + a.addressID)
+                    .then(function (res) {
+                        if (!res.ok) throw new Error();
+                        allAddresses.forEach(function (x) { x.isDefault = (x.addressID === a.addressID); });
+                        selectedAddress = a;
+                        addrDropdownOpen = false;
+                        cqAddrList.classList.remove('open');
+                        if (cqAddrArrow) cqAddrArrow.classList.remove('open');
+                        renderAddrSelected();
+                        renderAddrList();
+                    })
+                    .catch(function () {
+                        btn.disabled = false;
+                        btn.textContent = 'Mặc định';
+                        alert('Không thể đặt địa chỉ mặc định. Vui lòng thử lại.');
+                    });
+            });
+
+            cqAddrList.appendChild(item);
+        });
+    }
+
+    function loadAddresses() {
+        if (!cqAddrSelected) return;
+        cqAddrSelected.innerHTML = '<span class="cq-addr-loading">Đang tải địa chỉ...</span>';
+        if (cqAddrExpandBtn) cqAddrExpandBtn.style.display = 'none';
+        allAddresses = [];
+        selectedAddress = null;
+
+        if (!isLoggedIn()) {
+            cqAddrSelected.innerHTML =
+                '<span class="cq-addr-none">Vui lòng đăng nhập để chọn địa chỉ giao hàng.</span>';
+            return;
+        }
+
+        apiGet('/address/my-addresses')
+            .then(function (res) { return res.ok ? res.json() : []; })
+            .then(function (data) {
+                allAddresses = Array.isArray(data) ? data : [];
+                var def = allAddresses.find(function (a) { return a.isDefault; });
+                selectedAddress = def || allAddresses[0] || null;
+                addrDropdownOpen = false;
+                if (cqAddrList) cqAddrList.classList.remove('open');
+                if (cqAddrArrow) cqAddrArrow.classList.remove('open');
+                renderAddrSelected();
+                renderAddrList();
+            })
+            .catch(function () {
+                cqAddrSelected.innerHTML =
+                    '<span class="cq-addr-none">Không thể tải địa chỉ. Vui lòng thử lại.</span>';
+            });
+    }
+
+    if (cqAddrExpandBtn) {
+        cqAddrExpandBtn.addEventListener('click', function () {
+            addrDropdownOpen = !addrDropdownOpen;
+            if (addrDropdownOpen) {
+                cqAddrList.classList.add('open');
+                if (cqAddrArrow) cqAddrArrow.classList.add('open');
+            } else {
+                cqAddrList.classList.remove('open');
+                if (cqAddrArrow) cqAddrArrow.classList.remove('open');
+            }
+        });
+    }
+
+    // ── Add Address Popup ────────────────────────────────────────────────────
+    var addrPopupOverlay = document.getElementById('addr-popup-overlay');
+    var addrPopup        = document.getElementById('addr-popup');
+    var addrPopupClose   = document.getElementById('addr-popup-close');
+    var addrCancelBtn    = document.getElementById('addr-cancel-btn');
+    var addrSubmitBtn    = document.getElementById('addr-submit-btn');
+    var addrFormError    = document.getElementById('addr-form-error');
+
+    function openAddrPopup() {
+        ['addr-house-number','addr-street','addr-ward','addr-district','addr-province']
+            .forEach(function (id) { var el = document.getElementById(id); if (el) el.value = ''; });
+        if (addrFormError) addrFormError.textContent = '';
+        addrPopupOverlay.classList.add('active');
+        addrPopup.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        var first = document.getElementById('addr-street');
+        if (first) setTimeout(function () { first.focus(); }, 250);
+    }
+
+    function closeAddrPopup() {
+        addrPopupOverlay.classList.remove('active');
+        addrPopup.classList.remove('open');
+        document.body.style.overflow = 'hidden'; // CQ modal vẫn mở
+    }
+
+    if (addrPopupClose)   addrPopupClose.addEventListener('click', closeAddrPopup);
+    if (addrCancelBtn)    addrCancelBtn.addEventListener('click', closeAddrPopup);
+    if (addrPopupOverlay) addrPopupOverlay.addEventListener('click', closeAddrPopup);
+
+    var cqAddrAddBtn = document.getElementById('cq-addr-add-btn');
+    if (cqAddrAddBtn) cqAddrAddBtn.addEventListener('click', openAddrPopup);
+
+    if (addrSubmitBtn) {
+        addrSubmitBtn.addEventListener('click', function () {
+            var houseNum = document.getElementById('addr-house-number').value.trim();
+            var street   = document.getElementById('addr-street').value.trim();
+            var ward     = document.getElementById('addr-ward').value.trim();
+            var district = document.getElementById('addr-district').value.trim();
+            var province = document.getElementById('addr-province').value.trim();
+
+            if (!street || !ward || !district || !province) {
+                addrFormError.textContent = 'Vui lòng điền đầy đủ các trường bắt buộc.';
+                return;
+            }
+
+            addrFormError.textContent = '';
+            addrSubmitBtn.disabled = true;
+            addrSubmitBtn.innerHTML = '<i class="ti-reload"></i> Đang lưu...';
+
+            var body = { Street: street, Ward: ward, District: district, Province: province, Country: 'Viet Nam' };
+            if (houseNum) body.HouseNumber = parseInt(houseNum, 10);
+
+            apiPost('/address/add', body)
+                .then(function (res) {
+                    if (!res.ok) return res.text().then(function (t) { throw new Error(t || 'Lỗi khi thêm địa chỉ.'); });
+                    closeAddrPopup();
+                    loadAddresses();
+                })
+                .catch(function (err) {
+                    addrFormError.textContent = err.message || 'Không thể thêm địa chỉ. Vui lòng thử lại.';
+                })
+                .finally(function () {
+                    addrSubmitBtn.disabled = false;
+                    addrSubmitBtn.innerHTML = '<i class="ti-check"></i> Lưu địa chỉ';
+                });
+        });
+    }
+
     // ── CQ Modal ─────────────────────────────────────────────────────────────
     function renderCQModal() {
         cqItemsWrap.innerHTML = '';
@@ -645,14 +1005,27 @@
         var idx = parseInt(btn.dataset.idx, 10);
         if (btn.dataset.action === 'plus')  { cart[idx].qty++; }
         else { cart[idx].qty--; if (cart[idx].qty <= 0) cart.splice(idx, 1); }
+        saveCart();
         updateCartBadge();
         renderCart();
         renderCQModal();
         if (cart.length === 0) closeCQModal();
     });
 
-    function openCQModal()  { cqModal.classList.add('open');    cqBackdrop.classList.add('active');    document.body.style.overflow = 'hidden'; }
-    function closeCQModal() { cqModal.classList.remove('open'); cqBackdrop.classList.remove('active'); document.body.style.overflow = ''; }
+    function openCQModal()  {
+        cqModal.classList.add('open');
+        cqBackdrop.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        loadAddresses();
+    }
+    function closeCQModal() {
+        cqModal.classList.remove('open');
+        cqBackdrop.classList.remove('active');
+        document.body.style.overflow = '';
+        addrDropdownOpen = false;
+        if (cqAddrList)  cqAddrList.classList.remove('open');
+        if (cqAddrArrow) cqAddrArrow.classList.remove('open');
+    }
 
     cqCloseBtn.addEventListener('click', closeCQModal);
     cqBackdrop.addEventListener('click', closeCQModal);
@@ -662,45 +1035,37 @@
         if (cart.length === 0) return;
         if (!isLoggedIn()) { openAuthModal(null); return; }
 
-        var userId = localStorage.getItem('userId');
+        if (!selectedAddress) {
+            alert('Bạn chưa có địa chỉ giao hàng. Vui lòng thêm địa chỉ trong trang tài khoản.');
+            window.location.href = '/html/user.html';
+            return;
+        }
+
+        var userId   = localStorage.getItem('userId');
         var products = cart.map(function (i) { return { ProductVarientID: i.varientId, qty: i.qty }; });
         var total    = cart.reduce(function (s, i) { return s + i.price * i.qty; }, 0);
 
-        // Lấy địa chỉ mặc định của user
-        apiGet('/address/my-addresses')
-            .then(function (res) {
-                if (!res.ok) throw new Error('no_address');
-                return res.json();
-            })
-            .then(function (addresses) {
-                if (!addresses || addresses.length === 0) throw new Error('no_address');
-                var def = addresses.find(function (a) { return a.isDefault; }) || addresses[0];
-                return apiPost('/bill/create-delivery', {
-                    UserID:          userId,
-                    StoreID:         1,
-                    AddressID:       def.addressID,
-                    PaymentMethods:  'Cash',
-                    MoneyReceived:   total,
-                    MoneyGiveBack:   0,
-                    products:        products
-                });
-            })
-            .then(function (res) {
-                if (!res.ok) return res.text().then(function (t) { throw new Error(t); });
-                closeCQModal();
-                alert('Đặt hàng thành công!\nCảm ơn bạn đã tin tưởng Chônlibi!');
-                cart.length = 0;
-                updateCartBadge();
-                renderCart();
-            })
-            .catch(function (err) {
-                if (err.message === 'no_address') {
-                    alert('Bạn chưa có địa chỉ giao hàng. Vui lòng thêm địa chỉ trong trang tài khoản.');
-                    window.location.href = '/html/user.html';
-                } else {
-                    alert('Đặt hàng thất bại. Vui lòng thử lại.\n' + err.message);
-                }
-            });
+        apiPost('/bill/create-delivery', {
+            UserID:         userId,
+            StoreID:        1,
+            AddressID:      selectedAddress.addressID,
+            PaymentMethods: 'Cash',
+            MoneyReceived:  total,
+            MoneyGiveBack:  0,
+            products:       products
+        })
+        .then(function (res) {
+            if (!res.ok) return res.text().then(function (t) { throw new Error(t); });
+            closeCQModal();
+            alert('Đặt hàng thành công!\nCảm ơn bạn đã tin tưởng Chônlibi!');
+            cart.length = 0;
+            saveCart();
+            updateCartBadge();
+            renderCart();
+        })
+        .catch(function (err) {
+            alert('Đặt hàng thất bại. Vui lòng thử lại.\n' + err.message);
+        });
     });
 
     // ── Cart sidebar ─────────────────────────────────────────────────────────
@@ -739,21 +1104,66 @@
 
     // ── Search ──────────────────────────────────────────────────────────────
     var searchDebounce;
+    var sectionSearch = document.getElementById('section-search');
+    var gridSearch    = document.getElementById('grid-search');
+
+    function showSearchResults(products) {
+        // Ẩn tất cả section bình thường, hiện section search
+        document.querySelectorAll('.menu-cat-section:not(#section-search)').forEach(function (s) {
+            s.style.display = 'none';
+        });
+        sectionSearch.style.display = '';
+
+        if (!products.length) {
+            gridSearch.innerHTML = '<p class="bs-empty">Không tìm thấy món nào phù hợp.</p>';
+            return;
+        }
+        renderSection(products, gridSearch);
+    }
+
+    function restoreNormalView() {
+        sectionSearch.style.display = 'none';
+        document.querySelectorAll('.menu-cat-section:not(#section-search)').forEach(function (s) {
+            s.style.display = '';
+        });
+    }
+
     if (searchInput) {
         searchInput.addEventListener('input', function () {
             clearTimeout(searchDebounce);
+            var q = searchInput.value.trim();
+            if (!q) { restoreNormalView(); return; }
+
             searchDebounce = setTimeout(function () {
-                var q = searchInput.value.trim().toLowerCase();
-                document.querySelectorAll('.menu-cat-section .menu-card').forEach(function (card) {
-                    var name  = (card.dataset.name || '').toLowerCase();
-                    var match = !q || name.includes(q);
-                    card.classList.toggle('card-hidden', !match);
+                gridSearch.innerHTML = '<p class="bs-loading"><span class="bs-spinner"></span> Đang tìm...</p>';
+                sectionSearch.style.display = '';
+                document.querySelectorAll('.menu-cat-section:not(#section-search)').forEach(function (s) {
+                    s.style.display = 'none';
                 });
-            }, 200);
+
+                apiPost('/product/search', { Name: q })
+                    .then(function (res) { return res.ok ? res.json() : []; })
+                    .then(function (data) {
+                        var results = Array.isArray(data) ? data : [];
+                        // Lọc chỉ sản phẩm có variant
+                        results = results.filter(function (p) { return p.productVarient && p.productVarient.length; });
+                        showSearchResults(results);
+                    })
+                    .catch(function () {
+                        // Fallback: lọc client-side từ allProducts
+                        var ql = q.toLowerCase();
+                        var results = allProducts.filter(function (p) {
+                            return (p.productName || '').toLowerCase().includes(ql);
+                        });
+                        showSearchResults(results);
+                    });
+            }, 300);
         });
     }
 
     // ── Init ─────────────────────────────────────────────────────────────────
+    loadCart();
+    updateCartBadge();
     renderCart();
     loadAllProducts();
 
