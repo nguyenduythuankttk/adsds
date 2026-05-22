@@ -25,7 +25,6 @@ namespace Backend.Services.Implementations{
                     ProductType = request.ProductType,
                     Image = request.Image,
                     Description = request.Description,
-                    ForPeople = request.ForPeople,
                 };
                 _dbContext.Product.Add(newProduct);
                 await _dbContext.SaveChangesAsync();
@@ -38,7 +37,8 @@ namespace Backend.Services.Implementations{
                 var newProductVarient = new ProductVarient {
                     ProductID = request.ProductID,
                     Price = request.Price,
-                    Size = request.Size
+                    Size = request.Size,
+                    ForPeople = request.ForPeople,
                 };
                 _dbContext.ProductVarient.Add(newProductVarient);
                 await _dbContext.SaveChangesAsync();
@@ -54,7 +54,6 @@ namespace Backend.Services.Implementations{
                     updateProduct.ProductName = request.ProductName;
                     updateProduct.Image = request.Image;
                     updateProduct.Description = request.Description;
-                    updateProduct.ForPeople = request.ForPeople;
                     _dbContext.Product.Update(updateProduct);
                     await _dbContext.SaveChangesAsync();
                 }
@@ -68,6 +67,7 @@ namespace Backend.Services.Implementations{
                                     .FirstOrDefaultAsync (p => p.ProductID == productID && p.Size == size);
                 if (updatePV != null){
                     updatePV.Price = request.Price;
+                    if (request.ForPeople.HasValue) updatePV.ForPeople = request.ForPeople;
                     _dbContext.ProductVarient.Update(updatePV);
                     await _dbContext.SaveChangesAsync();
                 }
@@ -138,9 +138,14 @@ namespace Backend.Services.Implementations{
             var products = await query.ToListAsync();
 
             if (request.ForPeople.HasValue && request.ForPeople.Value > 0)
+            {
+                var n = request.ForPeople.Value;
                 products = products
-                    .Where(p => p.ForPeople.HasValue && p.ForPeople.Value <= request.ForPeople.Value)
+                    .Where(p => p.ProductVarient.Any(v =>
+                        v.ForPeople.HasValue &&
+                        (n >= 5 ? v.ForPeople.Value >= 5 : v.ForPeople.Value == n)))
                     .ToList();
+            }
 
             return products;
         }

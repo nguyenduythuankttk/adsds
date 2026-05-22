@@ -315,6 +315,12 @@
                 <div class="pd-size-list" id="pd-size-list"></div>
             </div>
 
+            <!-- Số người (chỉ hiện khi variant có forPeople) -->
+            <div class="pd-people" id="pd-people" style="display:none">
+                <i class="ti-user"></i>
+                <span id="pd-people-text"></span>
+            </div>
+
             <div class="pd-footer">
                 <div class="pd-price-wrap">
                     <span class="pd-price" id="pd-price">0 đ</span>
@@ -405,6 +411,15 @@
             </div>
         </div>
         <div class="footer-bottom">Copyright © 2025 <span>Chônlibi</span>. All rights reserved.</div>
+    </div>
+
+    <!-- ===== EMPTY CART POPUP ===== -->
+    <div class="empty-cart-overlay" id="empty-cart-overlay"></div>
+    <div class="empty-cart-popup" id="empty-cart-popup" role="alertdialog" aria-modal="true" aria-label="Giỏ hàng trống">
+        <div class="empty-cart-icon">🛒</div>
+        <h3 class="empty-cart-title">Giỏ hàng đang trống!</h3>
+        <p class="empty-cart-msg">Bạn chưa chọn món nào. Hãy thêm món vào giỏ hàng trước khi đặt hàng nhé!</p>
+        <button class="empty-cart-close-btn" id="empty-cart-close-btn">Chọn món ngay 🍗</button>
     </div>
 
     <!-- ===== ADD ADDRESS POPUP ===== -->

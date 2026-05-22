@@ -1426,6 +1426,34 @@ body {
     font-weight: 700;
     color: rgb(220,77,11);
 }
+.pd-size-people {
+    font-size: 11px;
+    font-weight: 600;
+    color: #888;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+.pd-size-people .ti-user { font-size: 10px; }
+
+/* Số người phù hợp */
+.pd-people {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: #fff8f2;
+    border: 1.5px solid #ffd6b8;
+    border-radius: 10px;
+    padding: 8px 14px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    font-weight: 700;
+    color: rgb(180,60,0);
+}
+.pd-people .ti-user {
+    font-size: 15px;
+    color: rgb(220,77,11);
+}
 
 /* Footer */
 .pd-footer {
@@ -2173,6 +2201,76 @@ body {
 }
 
 /* ── Add Address Popup ── */
+/* ── Empty-cart popup ─────────────────────────────────────────── */
+.empty-cart-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1500;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+    backdrop-filter: blur(3px);
+}
+.empty-cart-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+}
+.empty-cart-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -48%) scale(0.95);
+    background: #fff;
+    border-radius: 20px;
+    padding: 40px 32px 32px;
+    width: min(90vw, 360px);
+    text-align: center;
+    z-index: 1501;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.empty-cart-popup.open {
+    opacity: 1;
+    pointer-events: all;
+    transform: translate(-50%, -50%) scale(1);
+}
+.empty-cart-icon {
+    font-size: 56px;
+    line-height: 1;
+    margin-bottom: 16px;
+}
+.empty-cart-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin: 0 0 10px;
+}
+.empty-cart-msg {
+    font-size: 0.92rem;
+    color: #666;
+    line-height: 1.55;
+    margin: 0 0 24px;
+}
+.empty-cart-close-btn {
+    display: inline-block;
+    background: #e8472a;
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 28px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+}
+.empty-cart-close-btn:hover {
+    background: #c73820;
+    transform: scale(1.03);
+}
+
 .addr-popup-overlay {
     position: fixed;
     inset: 0;
