@@ -32,10 +32,10 @@ namespace Backend.Models{
         [ForeignKey("BatchID")]
         public virtual InventoryBatch Batch { get; set; }
 
-        public Guid EmployeeID { get; set; }
+        public Guid? EmployeeID { get; set; }
 
         [ForeignKey("EmployeeID")]
-        public virtual Employee Employee { get; set; } = null!;
+        public virtual Employee? Employee { get; set; }
         [Required]
         public decimal QtyChange { get; set; }
         [Required]

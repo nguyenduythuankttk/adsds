@@ -159,8 +159,6 @@ namespace Backend.Services.Implementations{
         {
             if (request.products == null || request.products.Count == 0)
                 throw new Exception("Bill must have at least one product.");
-            if (request.EmployeID == null)
-                throw new Exception("EmployeeID is required.");
 
             var storeExists = await _dbcontext.Store
                 .AnyAsync(s => s.StoreID == request.StoreID && s.DeletedAt == null);
@@ -242,7 +240,7 @@ namespace Backend.Services.Implementations{
 
                 await _dbcontext.SaveChangesAsync();
                 await IncreaseSoldCount(bill.BillDetail.ToList());
-                await ConsumeIngredients(bill.BillID, bill.BillDetail.ToList(), request.EmployeID.Value, request.StoreID);
+                await ConsumeIngredients(bill.BillID, bill.BillDetail.ToList(), request.EmployeID, request.StoreID);
                 await tx.CommitAsync();
             } catch (Exception e) {
                 await tx.RollbackAsync();
@@ -275,7 +273,7 @@ namespace Backend.Services.Implementations{
             await _dbcontext.SaveChangesAsync();
         }
 
-        private async Task ConsumeIngredients(Guid billID, List<BillDetail> billDetails, Guid employeeID, int storeID)
+        private async Task ConsumeIngredients(Guid billID, List<BillDetail> billDetails, Guid? employeeID, int storeID)
         {
             var productVarientIDs = billDetails.Select(d => d.ProductVarientID).ToList();
             var recipes = await _dbcontext.Receipe

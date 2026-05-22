@@ -74,10 +74,10 @@
     <!-- ===== MAIN CONTENT ===== -->
     <main class="menu-main" id="menu-main">
 
-        <!-- Toolbar: sort -->
+        <!-- Toolbar: sort + filter -->
         <div class="bs-toolbar">
             <div class="bs-sort-wrap">
-                <i class="ti-filter"></i>
+                <i class="ti-arrows-vertical"></i>
                 <select class="bs-sort-select" id="bs-sort-select">
                     <option value="bestseller">Bán chạy nhất</option>
                     <option value="price-asc">Giá thấp → cao</option>
@@ -85,30 +85,95 @@
                     <option value="name-az">Tên A → Z</option>
                 </select>
             </div>
+            <button class="bs-filter-btn" id="bs-filter-btn" aria-expanded="false">
+                <i class="ti-filter"></i>
+                <span>Lọc</span>
+                <span class="bs-filter-badge" id="bs-filter-badge"></span>
+            </button>
         </div>
 
-        <section class="menu-cat-section" id="section-food" data-category="food">
+        <!-- Filter panel (thu gọn mặc định) -->
+        <div class="bs-filter-panel" id="bs-filter-panel" aria-hidden="true">
+            <div class="bs-filter-inner">
+                <div class="bs-filter-group">
+                    <div class="bs-filter-group-label">Loại sản phẩm</div>
+                    <div class="bs-type-chips">
+                        <label class="bs-type-chip"><input type="checkbox" name="bs-type" value="food" checked><span>🍗 Món Chính</span></label>
+                        <label class="bs-type-chip"><input type="checkbox" name="bs-type" value="combo" checked><span>🎁 Combo</span></label>
+                        <label class="bs-type-chip"><input type="checkbox" name="bs-type" value="addon" checked><span>🥗 Món Phụ</span></label>
+                        <label class="bs-type-chip"><input type="checkbox" name="bs-type" value="drink" checked><span>🥤 Thức Uống</span></label>
+                    </div>
+                </div>
+                <div class="bs-filter-group">
+                    <div class="bs-filter-group-label">
+                        Khoảng giá
+                        <span class="bs-price-display">
+                            <span id="bs-label-min">0 đ</span> — <span id="bs-label-max">1.000.000+ đ</span>
+                        </span>
+                    </div>
+                    <div class="bs-slider-wrap">
+                        <div class="bs-slider-track">
+                            <div class="bs-slider-fill" id="bs-slider-fill"></div>
+                        </div>
+                        <input type="range" class="bs-range" id="bs-price-min" min="0" max="1000000" step="10000" value="0">
+                        <input type="range" class="bs-range" id="bs-price-max" min="0" max="1000000" step="10000" value="1000000">
+                    </div>
+                </div>
+                <div class="bs-filter-group">
+                    <div class="bs-filter-group-label">Số người</div>
+                    <div class="bs-people-chips">
+                        <label class="bs-people-chip bs-people-active" data-val="0"><input type="radio" name="bs-people" value="0" checked><span>Tất cả</span></label>
+                        <label class="bs-people-chip" data-val="1"><input type="radio" name="bs-people" value="1"><span>1 người</span></label>
+                        <label class="bs-people-chip" data-val="2"><input type="radio" name="bs-people" value="2"><span>2 người</span></label>
+                        <label class="bs-people-chip" data-val="3"><input type="radio" name="bs-people" value="3"><span>3 người</span></label>
+                        <label class="bs-people-chip" data-val="4"><input type="radio" name="bs-people" value="4"><span>4 người</span></label>
+                        <label class="bs-people-chip" data-val="5"><input type="radio" name="bs-people" value="5"><span>5+ người</span></label>
+                    </div>
+                </div>
+                <div class="bs-filter-actions">
+                    <button class="bs-filter-reset-btn" id="bs-filter-reset-btn">Đặt lại</button>
+                    <button class="bs-filter-apply-btn" id="bs-filter-apply-btn">Áp dụng</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search results section (ẩn mặc định) -->
+        <section class="menu-cat-section" id="section-search" style="display:none">
+            <div class="menu-section-header">
+                <h2 class="menu-section-title"><span class="cat-section-icon">🔍</span> Kết Quả Tìm Kiếm</h2>
+            </div>
+            <div class="menu-grid" id="grid-search"></div>
+        </section>
+
+        <section class="menu-cat-section" id="section-all" data-category="all">
+            <div class="menu-section-header">
+                <h2 class="menu-section-title"><span class="cat-section-icon">🏆</span> Bán Chạy Nhất</h2>
+            </div>
+            <div class="menu-grid" id="grid-all"></div>
+        </section>
+
+        <section class="menu-cat-section section-category" id="section-food" data-category="food">
             <div class="menu-section-header">
                 <h2 class="menu-section-title"><span class="cat-section-icon">🍗</span> Món Chính</h2>
             </div>
             <div class="menu-grid" id="grid-food"></div>
         </section>
 
-        <section class="menu-cat-section" id="section-combo" data-category="combo">
+        <section class="menu-cat-section section-category" id="section-combo" data-category="combo">
             <div class="menu-section-header">
                 <h2 class="menu-section-title"><span class="cat-section-icon">🎁</span> Combo</h2>
             </div>
             <div class="menu-grid" id="grid-combo"></div>
         </section>
 
-        <section class="menu-cat-section" id="section-addon" data-category="addon">
+        <section class="menu-cat-section section-category" id="section-addon" data-category="addon">
             <div class="menu-section-header">
                 <h2 class="menu-section-title"><span class="cat-section-icon">🥗</span> Món Phụ</h2>
             </div>
             <div class="menu-grid" id="grid-addon"></div>
         </section>
 
-        <section class="menu-cat-section" id="section-drink" data-category="drink">
+        <section class="menu-cat-section section-category" id="section-drink" data-category="drink">
             <div class="menu-section-header">
                 <h2 class="menu-section-title"><span class="cat-section-icon">🥤</span> Thức Uống</h2>
             </div>
@@ -184,6 +249,23 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Delivery Address Picker -->
+        <div class="cq-addr-section" id="cq-addr-section">
+            <div class="cq-addr-header">
+                <i class="ti-location-pin"></i>
+                <span class="cq-addr-label">Địa chỉ giao hàng</span>
+                <button class="cq-addr-add-btn" id="cq-addr-add-btn" title="Thêm địa chỉ mới"><i class="ti-plus"></i></button>
+            </div>
+            <div class="cq-addr-selected" id="cq-addr-selected">
+                <span class="cq-addr-loading">Đang tải địa chỉ...</span>
+            </div>
+            <button class="cq-addr-expand-btn" id="cq-addr-expand-btn" style="display:none">
+                <span>Địa chỉ khác</span>
+                <i class="ti-angle-down cq-addr-arrow" id="cq-addr-arrow"></i>
+            </button>
+            <div class="cq-addr-list" id="cq-addr-list"></div>
         </div>
 
         <!-- Footer -->
@@ -323,6 +405,46 @@
             </div>
         </div>
         <div class="footer-bottom">Copyright © 2025 <span>Chônlibi</span>. All rights reserved.</div>
+    </div>
+
+    <!-- ===== ADD ADDRESS POPUP ===== -->
+    <div class="addr-popup-overlay" id="addr-popup-overlay"></div>
+    <div class="addr-popup" id="addr-popup" role="dialog" aria-modal="true" aria-label="Thêm địa chỉ giao hàng">
+        <div class="addr-popup-header">
+            <h3 class="addr-popup-title"><i class="ti-location-pin"></i> Thêm địa chỉ mới</h3>
+            <button class="addr-popup-close" id="addr-popup-close" aria-label="Đóng"><i class="ti-close"></i></button>
+        </div>
+        <div class="addr-popup-body">
+            <div class="addr-form-row">
+                <div class="addr-form-group addr-form-group--small">
+                    <label class="addr-form-label">Số nhà</label>
+                    <input class="addr-form-input" type="number" id="addr-house-number" placeholder="VD: 42" min="1">
+                </div>
+                <div class="addr-form-group addr-form-group--large">
+                    <label class="addr-form-label">Đường / Phố <span class="addr-required">*</span></label>
+                    <input class="addr-form-input" type="text" id="addr-street" placeholder="VD: Nguyễn Tất Thành">
+                </div>
+            </div>
+            <div class="addr-form-group">
+                <label class="addr-form-label">Phường / Xã <span class="addr-required">*</span></label>
+                <input class="addr-form-input" type="text" id="addr-ward" placeholder="VD: Phường Hòa Minh">
+            </div>
+            <div class="addr-form-group">
+                <label class="addr-form-label">Quận / Huyện <span class="addr-required">*</span></label>
+                <input class="addr-form-input" type="text" id="addr-district" placeholder="VD: Liên Chiểu">
+            </div>
+            <div class="addr-form-group">
+                <label class="addr-form-label">Tỉnh / Thành phố <span class="addr-required">*</span></label>
+                <input class="addr-form-input" type="text" id="addr-province" placeholder="VD: Đà Nẵng">
+            </div>
+            <p class="addr-form-error" id="addr-form-error"></p>
+        </div>
+        <div class="addr-popup-footer">
+            <button class="addr-cancel-btn" id="addr-cancel-btn">Hủy</button>
+            <button class="addr-submit-btn" id="addr-submit-btn">
+                <i class="ti-check"></i> Lưu địa chỉ
+            </button>
+        </div>
     </div>
 
     <script src="/asset/js/api.js"></script>
