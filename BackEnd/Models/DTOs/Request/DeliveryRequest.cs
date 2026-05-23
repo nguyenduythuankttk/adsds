@@ -11,8 +11,10 @@ namespace Backend.Models.DTOs.Request{
     }
     public class DeliveryUpdateRequest{
         public Guid? EmployeeID { get; set; }
-        public DeliveryStatus Status { get; set; } 
+        public DeliveryStatus Status { get; set; }
         public DateTime ChangeAt { get; set; } =DateTime.UtcNow;
         public string? Note { get; set; }
+        /// <summary>Số tiền khách trả – bắt buộc khi Status = Delivered</summary>
+        public decimal? MoneyReceived { get; set; }
     }
 }

@@ -7,7 +7,8 @@ namespace Backend.Services.Interface{
         Task<EmployeeAuthReponse> EmployeeLogin (LoginRequest request);
         Task <UserAuthReponse> UserLogin (LoginRequest request);
         Task Logout (string accessToken);
-        Task ChangePassword(PasswordRequest request, Guid userID);
+        Task RequestChangePasswordOtp(PasswordRequest request, Guid userID);
+        Task ChangePasswordWithOtp(ChangePasswordWithOtpRequest request, Guid userID);
         Task VerifyEmail(string token);
         Task<bool> ResendVerificationEmail(string email);
         Task<bool> ForgotPassword(string email);

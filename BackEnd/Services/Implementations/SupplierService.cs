@@ -32,12 +32,9 @@ namespace Backend.Services.Implementations
                     Address = new AddressResponse
                     {
                         AddressID = s.Address.AddressID,
-                        HouseNumber = s.Address.HouseNumber,
-                        Street = s.Address.Street,
-                        Ward = s.Address.Ward,
+                        StreetAddress = s.Address.StreetAddress,
                         District = s.Address.District,
-                        Province = s.Address.Province,
-                        Country = s.Address.Country
+                        Province = s.Address.Province
                     }
                 })
                 .ToListAsync();
@@ -57,12 +54,9 @@ namespace Backend.Services.Implementations
                     Address = new AddressResponse
                     {
                         AddressID = s.Address.AddressID,
-                        HouseNumber = s.Address.HouseNumber,
-                        Street = s.Address.Street,
-                        Ward = s.Address.Ward,
+                        StreetAddress = s.Address.StreetAddress,
                         District = s.Address.District,
-                        Province = s.Address.Province,
-                        Country = s.Address.Country
+                        Province = s.Address.Province
                     }
                 })
                 .FirstOrDefaultAsync();

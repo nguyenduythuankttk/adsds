@@ -220,9 +220,9 @@ function updateHeaderAfterLogin(name) {
     var initial   = name.charAt(0).toUpperCase();
     var shortName = name.split(' ').pop();
 
-    // Hiện nút Giao Hàng
-    var deliveryBtn = document.getElementById('delivery-btn');
-    if (deliveryBtn) deliveryBtn.style.display = '';
+    // Hiện nút Giỏ Hàng
+    var cartFab = document.getElementById('cart-fab');
+    if (cartFab) cartFab.style.display = '';
 
     // Đổi button thành avatar + tên + nút đăng xuất
     btn.innerHTML =

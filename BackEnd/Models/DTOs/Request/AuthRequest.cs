@@ -17,6 +17,12 @@ namespace Backend.Models.DTOs.Request{
         public string newPass {get; set;}
     }
 
+    public class ChangePasswordWithOtpRequest{
+        public string currentPass {get; set;}
+        public string newPass {get; set;}
+        public string otp {get; set;}
+    }
+
     public class ForgotPasswordRequest {
         public string Email { get; set; } = null!;
     }

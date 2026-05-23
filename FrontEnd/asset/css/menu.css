@@ -1748,13 +1748,31 @@ body {
     color: #1a1a1a;
 }
 
-.cq-item-name {
+.cq-item-info {
     flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.cq-item-name {
     font-size: 13px;
     font-weight: 700;
     color: #1a1a1a;
     font-family: 'Nunito', sans-serif;
     line-height: 1.3;
+}
+
+.cq-item-variant {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgb(220, 77, 11);
+    background: #fff5f0;
+    border-radius: 4px;
+    padding: 1px 6px;
+    display: inline-block;
+    align-self: flex-start;
 }
 
 .cq-item-price {
@@ -1881,8 +1899,6 @@ body {
 .cq-addr-section {
     padding: 10px 20px 4px;
     border-top: 1.5px solid #f0ebe6;
-    flex-shrink: 0;
-    background: #fff;
 }
 
 .cq-addr-header {
@@ -2046,6 +2062,162 @@ body {
     color: #fff;
 }
 
+/* ── Store Picker ── */
+.cq-store-section {
+    padding: 10px 20px 4px;
+    border-top: 1.5px solid #f0ebe6;
+}
+.cq-store-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.cq-store-header i {
+    color: #e8472a;
+    font-size: 14px;
+}
+.cq-store-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    flex: 1;
+}
+.cq-store-selected {
+    background: #fdf6f3;
+    border: 1.5px solid #f0ebe6;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13.5px;
+    color: #1a1a1a;
+    line-height: 1.5;
+    margin-bottom: 6px;
+}
+.cq-store-loading { color: #aaa; font-size: 13px; font-style: italic; }
+.cq-store-name { font-weight: 700; font-size: 13px; color: #e8472a; margin-bottom: 2px; }
+.cq-store-addr { font-size: 13px; color: #444; }
+.cq-store-badge {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #fff;
+    background: #e8472a;
+    border-radius: 5px;
+    padding: 1px 7px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+.cq-store-expand-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 0 8px;
+    font-size: 12.5px;
+    color: #888;
+    font-weight: 600;
+    width: 100%;
+    transition: color 0.2s;
+}
+.cq-store-expand-btn:hover { color: #e8472a; }
+.cq-store-arrow { transition: transform 0.25s ease; font-size: 11px; }
+.cq-store-arrow.open { transform: rotate(180deg); }
+.cq-store-list {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 6px;
+    max-height: 180px;
+    overflow-y: auto;
+}
+.cq-store-list.open { display: flex; }
+.cq-store-item {
+    background: #fafafa;
+    border: 1.5px solid #ede9e5;
+    border-radius: 10px;
+    padding: 9px 12px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+.cq-store-item:hover { border-color: #e8472a; background: #fdf6f3; }
+.cq-store-item.active { border-color: #e8472a; background: #fdf6f3; }
+.cq-store-item-name { font-size: 13px; font-weight: 700; color: #333; }
+.cq-store-item-addr { font-size: 12px; color: #888; margin-top: 2px; }
+
+/* ── Payment Method Picker ── */
+.cq-payment-section {
+    padding: 10px 20px 4px;
+    border-top: 1.5px solid #f0ebe6;
+}
+
+.cq-payment-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.cq-payment-header i {
+    color: #e8472a;
+    font-size: 14px;
+}
+
+.cq-payment-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+}
+
+.cq-payment-options {
+    display: flex;
+    gap: 10px;
+}
+
+.cq-payment-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border: 1.5px solid #f0ebe6;
+    border-radius: 10px;
+    cursor: pointer;
+    background: #fdf6f3;
+    transition: border-color 0.2s, background 0.2s;
+    font-size: 13px;
+    color: #333;
+    user-select: none;
+}
+
+.cq-payment-option input[type="radio"] {
+    accent-color: #e8472a;
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.cq-payment-option:has(input:checked) {
+    border-color: #e8472a;
+    background: #fff5f2;
+}
+
+.cq-payment-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.cq-payment-text {
+    font-weight: 500;
+    line-height: 1.3;
+}
+
 /* ── Footer ── */
 .cq-footer {
     padding: 12px 20px 20px;
@@ -2055,7 +2227,9 @@ body {
 }
 
 .cq-price-breakdown {
-    margin-bottom: 14px;
+    padding: 10px 20px 4px;
+    border-top: 1.5px solid #f0ebe6;
+    margin-bottom: 0;
     display: flex;
     flex-direction: column;
     gap: 7px;
@@ -2073,6 +2247,13 @@ body {
     font-weight: 700;
     color: #1a1a1a;
     font-family: 'Nunito', sans-serif;
+}
+
+.cq-distance {
+    font-size: 11px;
+    font-weight: 500;
+    color: #aaa;
+    margin-left: 4px;
 }
 
 .cq-discount {

@@ -10,6 +10,72 @@ namespace Backend.Services.Implementations{
         public DeliveryService (AppDbContext dbContext){
             _dbcontext = dbContext;
         }
+
+        // ── Trừ nguyên liệu từ kho (dùng khi bếp bắt đầu chuẩn bị đơn giao) ──
+        private async Task ConsumeIngredientsForDelivery(Guid billID, Guid? employeeID, int storeID)
+        {
+            var billDetails = await _dbcontext.BillDetail
+                .Where(d => d.BillID == billID)
+                .ToListAsync();
+            if (billDetails.Count == 0) return;
+
+            var productVarientIDs = billDetails.Select(d => d.ProductVarientID).ToList();
+            var recipes = await _dbcontext.Receipe
+                .Where(r => productVarientIDs.Contains(r.ProductVarientID) && r.DeletedAt == null)
+                .ToListAsync();
+
+            var now   = DateTime.UtcNow.AddHours(7);
+            var today = DateOnly.FromDateTime(now);
+
+            foreach (var detail in billDetails)
+            {
+                var recipeItems = recipes.Where(r => r.ProductVarientID == detail.ProductVarientID).ToList();
+                foreach (var recipe in recipeItems)
+                {
+                    decimal totalToConsume = recipe.QtyAfterProcess * detail.Quantity;
+                    if (totalToConsume <= 0) continue;
+
+                    var batches = await _dbcontext.InventoryBatch
+                        .Where(b => b.IngredientID == recipe.IngredientID
+                                 && b.BatchType == BatchType.Processed
+                                 && b.Status == BatchStatus.Available
+                                 && b.QuantityOnHand > 0
+                                 && b.Exp >= today
+                                 && b.Warehouse.StoreID == storeID)
+                        .OrderBy(b => b.ImportDate)
+                        .ToListAsync();
+
+                    decimal remaining = totalToConsume;
+                    foreach (var batch in batches)
+                    {
+                        if (remaining <= 0) break;
+                        var deduct = Math.Min(remaining, batch.QuantityOnHand);
+                        batch.QuantityOnHand -= deduct;
+                        if (batch.QuantityOnHand == 0)
+                            batch.Status = BatchStatus.Depleted;
+                        batch.UpdatedAt = now;
+
+                        _dbcontext.StockMovement.Add(new StockMovement
+                        {
+                            StockMovementID = Guid.NewGuid(),
+                            BatchID         = batch.BatchID,
+                            EmployeeID      = employeeID,
+                            QtyChange       = -deduct,
+                            MovementType    = StockMovementType.Consumption,
+                            ReferenceType   = StockReferenceType.Bill,
+                            ReferenceID     = billID,
+                            TimeStamp       = now,
+                        });
+                        remaining -= deduct;
+                    }
+
+                    if (remaining > 0)
+                        throw new Exception($"Không đủ nguyên liệu – IngredientID {recipe.IngredientID}: còn thiếu {remaining}.");
+                }
+            }
+
+            await _dbcontext.SaveChangesAsync();
+        }
         public async Task<List<DeliveryInfo>?> GetAllDeliveryIn(DateTime start, DateTime end) =>
             await _dbcontext.DeliveryInfo
                 .AsNoTracking()
@@ -58,8 +124,13 @@ namespace Backend.Services.Implementations{
         public async Task UpdateDelivery(Guid deliveryID, DeliveryUpdateRequest updateRequest){
             try{
                 var delivery = await _dbcontext.DeliveryInfo
+                    .Include(d => d.Bill)
                     .FirstOrDefaultAsync(d => d.DeliveryID == deliveryID);
-                if (delivery == null) return;
+                if (delivery == null) throw new Exception("Không tìm thấy đơn giao hàng.");
+
+                var bill = delivery.Bill
+                    ?? await _dbcontext.Bill.FirstOrDefaultAsync(b => b.BillID == delivery.BillID)
+                    ?? throw new Exception("Không tìm thấy hóa đơn liên kết.");
 
                 var latestLog = await _dbcontext.DeliveryLog
                     .Where(l => l.DeliveryID == deliveryID)
@@ -72,6 +143,27 @@ namespace Backend.Services.Implementations{
                         throw new Exception($"Không thể cập nhật đơn hàng đã ở trạng thái {latestLog.Status}");
                     if ((int)updateRequest.Status <= (int)latestLog.Status)
                         throw new Exception($"Không thể chuyển trạng thái từ {latestLog.Status} sang {updateRequest.Status}");
+                }
+
+                // Bếp bắt đầu chuẩn bị → trừ nguyên liệu khỏi kho
+                if (updateRequest.Status == DeliveryStatus.Preparing)
+                {
+                    await ConsumeIngredientsForDelivery(bill.BillID, updateRequest.EmployeeID, bill.StoreID);
+                }
+
+                // Giao hàng thành công → bắt buộc cập nhật MoneyReceived & MoneyGiveBack
+                if (updateRequest.Status == DeliveryStatus.Delivered)
+                {
+                    if (updateRequest.MoneyReceived == null)
+                        throw new Exception("MoneyReceived là bắt buộc khi xác nhận giao hàng thành công.");
+
+                    var totalWithShipping = bill.Total + delivery.ShippingFee;
+                    if (updateRequest.MoneyReceived < totalWithShipping)
+                        throw new Exception($"MoneyReceived ({updateRequest.MoneyReceived}) không đủ so với tổng đơn hàng ({totalWithShipping}).");
+
+                    bill.MoneyReceived = updateRequest.MoneyReceived;
+                    bill.MoneyGiveBack = updateRequest.MoneyReceived - totalWithShipping;
+                    _dbcontext.Bill.Update(bill);
                 }
 
                 var newLog = new DeliveryLog {

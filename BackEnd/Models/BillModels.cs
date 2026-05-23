@@ -33,10 +33,8 @@ namespace Backend.Models{
         public virtual Ticket? Ticket {get; set;}
         [Required]
         public decimal Total { get; set; }
-        [Required]
-        public decimal MoneyReceived {get; set; }
-        [Required]
-        public decimal MoneyGiveBack {get; set; }
+        public decimal? MoneyReceived {get; set; }
+        public decimal? MoneyGiveBack {get; set; }
 
         public int? TableID { get; set; }
 

@@ -5,12 +5,15 @@ using Backend.Models.DTOs.Reponse;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
 namespace Backend.Services.Implementations{
     public class AddressService : IAddressService{
         private readonly AppDbContext _dbContext;
+        private readonly IGeocodingService _geocoding;
 
-        public AddressService(AppDbContext dbContext){
+        public AddressService(AppDbContext dbContext, IGeocodingService geocoding){
             _dbContext = dbContext;
+            _geocoding = geocoding;
         }
         public async Task<Address?> GetAddressByID (Guid addressID) => 
         await _dbContext.Address
@@ -40,6 +43,15 @@ namespace Backend.Services.Implementations{
                 bool hadAddress = await _dbContext.Address.AnyAsync(a => a.UserID == userID);
                 address.UserID = userID;
                 address.IsDefault = !hadAddress;
+
+                var parts = new List<string>();
+                if (!string.IsNullOrWhiteSpace(address.StreetAddress)) parts.Add(address.StreetAddress);
+                if (!string.IsNullOrWhiteSpace(address.District))      parts.Add(address.District);
+                if (!string.IsNullOrWhiteSpace(address.Province))      parts.Add(address.Province);
+                parts.Add("Việt Nam");
+                var coords = await _geocoding.GeocodeAsync(string.Join(", ", parts));
+                if (coords.HasValue) { address.Latitude = coords.Value.Lat; address.Longitude = coords.Value.Lng; }
+
                 _dbContext.Address.Add(address);
                 await _dbContext.SaveChangesAsync();
             } catch (Exception ex){
@@ -50,12 +62,9 @@ namespace Backend.Services.Implementations{
         public async Task AddAddress(AddressCreateRequest request){
             try{
                 var address = new Address{
-                    HouseNumber = request.HouseNumber,
-                    Street = request.Street,
-                    Ward = request.Ward,
-                    Province = request.Province,
-                    Country = request.Country,
-                    District = request.District
+                    StreetAddress = request.StreetAddress,
+                    District = request.District,
+                    Province = request.Province
                 };
                 _dbContext.Address.Add(address);
                 await _dbContext.SaveChangesAsync();

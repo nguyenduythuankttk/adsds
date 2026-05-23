@@ -45,9 +45,9 @@ namespace Backend.Services.Implementations{
             }
         }
 
-        public async Task<List<Bill>?> GetUserBill(Guid userID){
+        public async Task<List<BillReponse>?> GetUserBill(Guid userID){
             try {
-                return await _dbcontext.Bill
+                var bills = await _dbcontext.Bill
                     .AsNoTracking()
                     .Where(b => b.UserID == userID)
                     .Include(b => b.BillDetail)
@@ -55,7 +55,62 @@ namespace Backend.Services.Implementations{
                             .ThenInclude(pr => pr.Product)
                     .Include(b => b.BillChange.OrderByDescending(bc => bc.ChangeAt))
                     .Include(b => b.Store)
+                        .ThenInclude(s => s.Address)
+                    .Include(b => b.Address)
                     .ToListAsync();
+
+                return bills.Select(b => new BillReponse
+                {
+                    BillID = b.BillID,
+                    VAT = b.VAT,
+                    Total = b.Total,
+                    MoneyReceived = b.MoneyReceived,
+                    MoneyGiveBack = b.MoneyGiveBack,
+                    Note = b.Note,
+                    PaymentMethods = b.PaymentMethods,
+                    TableID = b.TableID,
+                    Store = new StoreResponse
+                    {
+                        StoreID = b.Store.StoreID,
+                        StoreName = b.Store.StoreName,
+                        Phone = b.Store.Phone,
+                        Email = b.Store.Email,
+                        TotalReviews = b.Store.TotalReviews,
+                        TotalPoints = b.Store.TotalPoints,
+                        SeatingCapacity = b.Store.SeatingCapacity,
+                        Address = b.Store.Address == null ? null! : new AddressResponse
+                        {
+                            AddressID = b.Store.Address.AddressID,
+                            StreetAddress = b.Store.Address.StreetAddress,
+                            District = b.Store.Address.District,
+                            Province = b.Store.Address.Province,
+                            Latitude = b.Store.Address.Latitude,
+                            Longitude = b.Store.Address.Longitude
+                        }
+                    },
+                    Address = b.Address == null ? null : new AddressResponse
+                    {
+                        AddressID = b.Address.AddressID,
+                        StreetAddress = b.Address.StreetAddress,
+                        District = b.Address.District,
+                        Province = b.Address.Province,
+                        Latitude = b.Address.Latitude,
+                        Longitude = b.Address.Longitude
+                    },
+                    Detail = b.BillDetail.Select(bd => new BillDetailReponse
+                    {
+                        ProductVarientID = bd.ProductVarientID,
+                        ProductVarient = bd.ProductVarient,
+                        Quantity = bd.Quantity,
+                        Price = bd.Price,
+                        InlineTotal = bd.InlineTotal
+                    }).ToList(),
+                    BillChange = b.BillChange.Select(bc => new BillChangeReponse
+                    {
+                        Status = bc.Status,
+                        ChangeAt = bc.ChangeAt
+                    }).ToList()
+                }).ToList();
             } catch (Exception e) {
                 throw new Exception("Lỗi khi lấy hóa đơn của người dùng: " + e.Message);
             }
@@ -155,15 +210,57 @@ namespace Backend.Services.Implementations{
                 throw new Exception("Error in BillService.CreateDineinBill: " + e.Message);
             }
         }
+        private static double HaversineKm(double lat1, double lon1, double lat2, double lon2)
+        {
+            const double R = 6371.0;
+            var dLat = (lat2 - lat1) * Math.PI / 180.0;
+            var dLon = (lon2 - lon1) * Math.PI / 180.0;
+            var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2)
+                  + Math.Cos(lat1 * Math.PI / 180.0) * Math.Cos(lat2 * Math.PI / 180.0)
+                  * Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+            return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        }
+
+        private async Task<int> ResolveNearestStoreAsync(Guid addressID, int? fallbackStoreID)
+        {
+            var address = await _dbcontext.Address
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a => a.AddressID == addressID);
+
+            if (address?.Latitude != null && address.Longitude != null)
+            {
+                var stores = await _dbcontext.Store
+                    .Where(s => s.DeletedAt == null)
+                    .Include(s => s.Address)
+                    .Where(s => s.Address != null && s.Address.Latitude != null && s.Address.Longitude != null)
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                if (stores.Count > 0)
+                {
+                    var nearest = stores
+                        .OrderBy(s => HaversineKm(
+                            address.Latitude!.Value, address.Longitude!.Value,
+                            s.Address!.Latitude!.Value, s.Address.Longitude!.Value))
+                        .First();
+                    return nearest.StoreID;
+                }
+            }
+
+            if (fallbackStoreID.HasValue)
+            {
+                var exists = await _dbcontext.Store
+                    .AnyAsync(s => s.StoreID == fallbackStoreID.Value && s.DeletedAt == null);
+                if (exists) return fallbackStoreID.Value;
+            }
+
+            throw new Exception("Không thể xác định cửa hàng xử lý đơn giao hàng: địa chỉ thiếu tọa độ và không có StoreID dự phòng.");
+        }
+
         public async Task CreateDeliveryBill(DeliveryBillCreateRequest request)
         {
             if (request.products == null || request.products.Count == 0)
                 throw new Exception("Bill must have at least one product.");
-
-            var storeExists = await _dbcontext.Store
-                .AnyAsync(s => s.StoreID == request.StoreID && s.DeletedAt == null);
-            if (!storeExists)
-                throw new Exception($"Store {request.StoreID} not found.");
 
             var userExists = await _dbcontext.User
                 .AnyAsync(u => u.UserID == request.UserID);
@@ -182,14 +279,17 @@ namespace Backend.Services.Implementations{
                     addressID = defaultAddress.AddressID;
                 }
 
+                var resolvedStoreID = await ResolveNearestStoreAsync(addressID, request.StoreID);
+
                 var bill = new Bill{
                     BillID = Guid.NewGuid(),
                     UserID = request.UserID,
-                    StoreID = request.StoreID,
+                    StoreID = resolvedStoreID,
                     PaymentMethods = request.PaymentMethods,
                     AddressID = addressID,
                     Note = request.Note,
-                    MoneyReceived = request.MoneyReceived,
+                    MoneyReceived = null,
+                    MoneyGiveBack = null
                 };
                 decimal total = 0.0m;
                 foreach (var i in request.products)
@@ -206,10 +306,18 @@ namespace Backend.Services.Implementations{
                     total += price * i.qty;
                 }
                 decimal shippingFee = 0.0m;
+                var deliveryAddress = await _dbcontext.Address.AsNoTracking().FirstOrDefaultAsync(a => a.AddressID == addressID);
+                var resolvedStore   = await _dbcontext.Store.Include(s => s.Address).AsNoTracking().FirstOrDefaultAsync(s => s.StoreID == resolvedStoreID);
+                if (deliveryAddress?.Latitude != null && deliveryAddress.Longitude != null &&
+                    resolvedStore?.Address?.Latitude != null && resolvedStore.Address.Longitude != null)
+                {
+                    double distKm = HaversineKm(
+                        deliveryAddress.Latitude!.Value, deliveryAddress.Longitude!.Value,
+                        resolvedStore.Address.Latitude!.Value, resolvedStore.Address.Longitude!.Value);
+                    decimal rate = distKm < 4 ? 15000m : distKm <= 10 ? 17000m : 21000m;
+                    shippingFee = (decimal)distKm * rate;
+                }
                 bill.Total = total * (1 + bill.VAT);
-                if (request.MoneyReceived < bill.Total + shippingFee)
-                    throw new Exception($"MoneyReceived ({request.MoneyReceived}) is less than Total ({bill.Total + shippingFee}).");
-                bill.MoneyGiveBack = request.MoneyReceived - (bill.Total + shippingFee);
 
                 var billChange = new BillChange
                 {
@@ -240,7 +348,7 @@ namespace Backend.Services.Implementations{
 
                 await _dbcontext.SaveChangesAsync();
                 await IncreaseSoldCount(bill.BillDetail.ToList());
-                await ConsumeIngredients(bill.BillID, bill.BillDetail.ToList(), request.EmployeID, request.StoreID);
+                // Không trừ nguyên liệu ở đây – sẽ trừ khi bếp bắt đầu chuẩn bị (Preparing)
                 await tx.CommitAsync();
             } catch (Exception e) {
                 await tx.RollbackAsync();

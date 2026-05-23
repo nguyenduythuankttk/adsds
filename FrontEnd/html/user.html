@@ -8,17 +8,22 @@
     <link rel="stylesheet" href="/asset/css/style.css">
     <link rel="stylesheet" href="/asset/css/user.css">
     <link rel="stylesheet" href="/asset/themify-icons/themify-icons.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
     <!-- HEADER -->
-     <div id="header">
+    <div id="header">
         <ul id="nav">
             <li><a href="/html/index.html">Home</a></li>
-            <li><a href="">Promotion</a></li>
             <li><a href="/html/menu.html">Menu</a></li>
+            <li><a href="#" id="nav-store-btn">Store <i class="ti-angle-down nav-arrow-down"></i></a></li>
         </ul>
-        <a href="" class="delivery-btn"><i class="ti-truck"></i> Giao Hàng</a>
+        <button class="delivery-btn delivery-cart-btn" id="cart-fab" aria-label="Xem giỏ hàng">
+            <i class="ti-shopping-cart"></i> Giỏ Hàng
+            <span class="cart-count" id="cart-count">0</span>
+        </button>
         <div class="search-bar">
             <i class="ti-search search-bar-icon"></i>
             <input type="text" class="search-bar-input" placeholder="Tìm món ăn..." autocomplete="off">
@@ -28,6 +33,27 @@
             <span id="header-avatar-name">Tài khoản</span>
         </button>
     </div>
+
+    <!-- STORE PANEL -->
+    <div id="store-panel" class="store-panel">
+        <div class="store-panel-inner">
+            <div class="store-panel-header">
+                <h3>Hệ Thống Cửa Hàng Chônlibi</h3>
+                <button id="store-panel-close" class="store-panel-close">✕</button>
+            </div>
+            <div id="store-map"></div>
+            <div class="store-map-actions">
+                <button id="find-nearest-btn" onclick="findNearestStore()">
+                    <i class="ti-location-pin"></i> Tìm cửa hàng gần tôi nhất
+                </button>
+                <p id="nearest-store-label"></p>
+            </div>
+            <div id="store-list" class="store-list">
+                <p style="color:#aaa;text-align:center;padding:20px">Đang tải...</p>
+            </div>
+        </div>
+    </div>
+    <div id="store-panel-backdrop" class="store-panel-backdrop"></div>
 
     <!-- MAIN LAYOUT -->
     <div class="user-page-wrapper">
@@ -72,6 +98,7 @@
     </div>
 
     <script src="/asset/js/api.js"></script>
+    <script src="/asset/js/store.js"></script>
     <script src="/asset/js/user.js"></script>
 </body>
 </html>
