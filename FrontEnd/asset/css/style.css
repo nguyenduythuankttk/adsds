@@ -496,6 +496,70 @@ a.product-card {
 }
 .store-card-info i { color: rgb(220,77,11); margin-top: 2px; flex-shrink: 0; }
 
+#store-map {
+    width: 100%;
+    height: 300px;
+    border-radius: 10px;
+    margin: 0 0 12px 0;
+    display: block;
+}
+.store-map-actions {
+    padding: 0 16px 10px;
+}
+#find-nearest-btn {
+    width: 100%;
+    padding: 10px 16px;
+    background: rgb(220,77,11);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+#find-nearest-btn:hover { background: #b33d00; }
+#find-nearest-btn:disabled { background: #ccc; cursor: not-allowed; }
+#nearest-store-label {
+    display: none;
+    margin: 8px 0 0;
+    color: #1a7c3e;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+}
+.store-directions-btn {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 5px 12px;
+    background: rgb(220,77,11);
+    color: #fff;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+.store-directions-btn:hover { background: #b33d00; }
+.store-card-nearest {
+    border: 2px solid rgb(220,77,11);
+    box-shadow: 0 0 12px rgba(220,77,11,0.25);
+}
+.store-nearest-badge {
+    display: inline-block;
+    margin-bottom: 6px;
+    padding: 2px 10px;
+    background: rgb(220,77,11);
+    color: #fff;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
 /* ── Giao hàng button ── */
 .delivery-btn {
     float: right;

@@ -50,12 +50,9 @@ namespace Backend.Services.Implementations
                         Address = new AddressResponse
                         {
                             AddressID = e.Store.Address.AddressID,
-                            HouseNumber = e.Store.Address.HouseNumber,
-                            Street = e.Store.Address.Street,
-                            Ward = e.Store.Address.Ward,
+                            StreetAddress = e.Store.Address.StreetAddress,
                             District = e.Store.Address.District,
-                            Province = e.Store.Address.Province,
-                            Country = e.Store.Address.Country
+                            Province = e.Store.Address.Province
                         }
                     }
                 })
@@ -91,12 +88,9 @@ namespace Backend.Services.Implementations
                         Address = new AddressResponse
                         {
                             AddressID = e.Store.Address.AddressID,
-                            HouseNumber = e.Store.Address.HouseNumber,
-                            Street = e.Store.Address.Street,
-                            Ward = e.Store.Address.Ward,
+                            StreetAddress = e.Store.Address.StreetAddress,
                             District = e.Store.Address.District,
-                            Province = e.Store.Address.Province,
-                            Country = e.Store.Address.Country
+                            Province = e.Store.Address.Province
                         }
                     }
                 })
@@ -132,12 +126,9 @@ namespace Backend.Services.Implementations
                         Address = new AddressResponse
                         {
                             AddressID = e.Store.Address.AddressID,
-                            HouseNumber = e.Store.Address.HouseNumber,
-                            Street = e.Store.Address.Street,
-                            Ward = e.Store.Address.Ward,
+                            StreetAddress = e.Store.Address.StreetAddress,
                             District = e.Store.Address.District,
-                            Province = e.Store.Address.Province,
-                            Country = e.Store.Address.Country
+                            Province = e.Store.Address.Province
                         }
                     }
                 })

@@ -21,6 +21,11 @@ DotNetEnv.Env.TraversePath().Load();
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
+builder.Services.AddHttpClient("Nominatim", c => {
+    c.DefaultRequestHeaders.Add("User-Agent", "ChonLibiApp/1.0 (contact@chonlibi.vn)");
+    c.Timeout = TimeSpan.FromSeconds(5);
+});
+builder.Services.AddScoped<Backend.Services.Interface.IGeocodingService, Backend.Services.Implementations.GeocodingService>();
 builder.Services.AddControllers()
     .AddJsonOptions(options => {
         options.JsonSerializerOptions.Converters.Add(new Backend.Converters.DateOnlyJsonConverter());

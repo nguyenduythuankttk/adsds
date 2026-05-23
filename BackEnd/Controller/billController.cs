@@ -35,7 +35,7 @@ namespace Backend.Controller {
                     ?? User.FindFirst("user_id")?.Value;
                 if (string.IsNullOrWhiteSpace(userID)) return Unauthorized();
                 var bills = await _billService.GetUserBill(Guid.Parse(userID));
-                return Ok(bills ?? new List<Bill>());
+                return Ok(bills ?? new List<Backend.Models.DTOs.Reponse.BillReponse>());
             } catch (Exception e) {
                 return StatusCode(500, $"Error in billController.GetMyBills: {e.Message}");
             }

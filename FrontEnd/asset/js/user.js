@@ -13,10 +13,36 @@
     var name    = localStorage.getItem('fullName') || '';
     var initial = name.charAt(0).toUpperCase();
 
+    // Sidebar
     var sidebarAvatar = document.getElementById('sidebar-avatar');
     var sidebarName   = document.getElementById('sidebar-name');
     if (sidebarAvatar) sidebarAvatar.textContent = initial;
     if (sidebarName)   sidebarName.textContent   = name;
+
+    // Header avatar
+    var headerInitial = document.getElementById('header-avatar-initial');
+    var headerName    = document.getElementById('header-avatar-name');
+    var shortName     = name.split(' ').pop();
+    if (headerInitial) headerInitial.textContent = initial;
+    if (headerName)    headerName.textContent    = shortName;
+
+    // Cart-fab: đọc số lượng từ localStorage rồi hiện badge
+    (function () {
+        var CART_KEY = 'chonlibi_cart';
+        var cartFab  = document.getElementById('cart-fab');
+        var countEl  = document.getElementById('cart-count');
+        try {
+            var cart  = JSON.parse(localStorage.getItem(CART_KEY) || '[]');
+            var total = cart.reduce(function (s, i) { return s + (i.qty || 0); }, 0);
+            if (countEl) {
+                countEl.textContent = total;
+                total > 0 ? countEl.classList.add('visible') : countEl.classList.remove('visible');
+            }
+        } catch (e) {}
+        if (cartFab) cartFab.addEventListener('click', function () {
+            window.location.href = '/html/menu.html';
+        });
+    })();
 
     loadSection('profile');
 
@@ -139,7 +165,7 @@ function renderOrders(main) {
             var createChange = changes.slice().reverse().find(function (c) { return (c.status || c.Status) === 'Create'; }) || {};
             var date = (createChange.changeAt || createChange.ChangeAt || '').slice(0, 10);
 
-            var details = o.billDetail || o.BillDetail || [];
+            var details = o.detail || o.Detail || o.billDetail || o.BillDetail || [];
             var items = details.map(function (bd) {
                 var pv   = bd.productVarient || bd.ProductVarient || {};
                 var prod = pv.product || pv.Product || {};
@@ -170,6 +196,15 @@ function renderOrders(main) {
     });
 }
 
+function formatAddressText(a) {
+    if (!a) return null;
+    var parts = [];
+    if (a.streetAddress) parts.push(a.streetAddress);
+    if (a.district) parts.push(a.district);
+    if (a.province) parts.push(a.province);
+    return parts.join(', ') || null;
+}
+
 function showBillModal(idx) {
     var o = (window._userOrders || [])[idx];
     if (!o) return;
@@ -184,9 +219,17 @@ function showBillModal(idx) {
     var payDisplay    = payMethod === 'Cash' ? 'Tiền mặt' : payMethod === 'Card' ? 'Thẻ / Chuyển khoản' : payMethod;
     var subtotal      = vat > 0 ? total / (1 + vat) : total;
     var vatAmt        = total - subtotal;
+    var tableID       = o.tableID || o.TableID || null;
+
+    var store         = o.store || o.Store || null;
+    var storeName     = store ? (store.storeName || store.StoreName || '') : '';
+    var storeAddr     = store ? formatAddressText(store.address || store.Address) : null;
+
+    var deliveryAddr  = o.address || o.Address || null;
+    var deliveryText  = formatAddressText(deliveryAddr);
 
     // Items table
-    var details  = o.billDetail || o.BillDetail || [];
+    var details  = o.detail || o.Detail || o.billDetail || o.BillDetail || [];
     var itemRows = details.map(function (bd) {
         var pv    = bd.productVarient || bd.ProductVarient || {};
         var prod  = pv.product || pv.Product || {};
@@ -239,7 +282,7 @@ function showBillModal(idx) {
 
         '<div class="bill-totals-block">' +
         '<div class="bill-tot-row"><span>Tạm tính</span><span>' + subtotal.toLocaleString('vi-VN') + 'đ</span></div>' +
-        '<div class="bill-tot-row"><span>VAT (10%)</span><span>' + vatAmt.toLocaleString('vi-VN') + 'đ</span></div>' +
+        '<div class="bill-tot-row"><span>VAT (' + Math.round(vat * 100) + '%)</span><span>' + vatAmt.toLocaleString('vi-VN') + 'đ</span></div>' +
         '<div class="bill-tot-row bill-tot-final"><span>Tổng cộng</span><span>' + total.toLocaleString('vi-VN') + 'đ</span></div>' +
         (moneyReceived > 0 ? '<div class="bill-tot-row"><span>Tiền nhận</span><span>' + moneyReceived.toLocaleString('vi-VN') + 'đ</span></div>' : '') +
         (moneyGiveBack > 0 ? '<div class="bill-tot-row"><span>Tiền thối</span><span>' + moneyGiveBack.toLocaleString('vi-VN') + 'đ</span></div>' : '') +
@@ -247,6 +290,10 @@ function showBillModal(idx) {
 
         '<div class="bill-meta-block">' +
         '<div class="bill-meta-row"><span class="bill-meta-lbl">Thanh toán</span><span class="bill-meta-val">' + payDisplay + '</span></div>' +
+        (storeName ? '<div class="bill-meta-row"><span class="bill-meta-lbl">Cửa hàng</span><span class="bill-meta-val">' + storeName + '</span></div>' : '') +
+        (storeAddr ? '<div class="bill-meta-row"><span class="bill-meta-lbl">Địa chỉ CH</span><span class="bill-meta-val">' + storeAddr + '</span></div>' : '') +
+        (deliveryText ? '<div class="bill-meta-row"><span class="bill-meta-lbl">Giao đến</span><span class="bill-meta-val">' + deliveryText + '</span></div>' : '') +
+        (tableID ? '<div class="bill-meta-row"><span class="bill-meta-lbl">Bàn số</span><span class="bill-meta-val">' + tableID + '</span></div>' : '') +
         (note ? '<div class="bill-meta-row"><span class="bill-meta-lbl">Ghi chú</span><span class="bill-meta-val">' + note + '</span></div>' : '') +
         '</div>' +
 
@@ -273,17 +320,13 @@ function renderAddress(main) {
         var addrRows = addrs.map(function (a) {
             var id       = a.AddressID || a.addressID || a.ID || a.id;
             var isDef    = a.IsDefault || a.isDefault || false;
-            var houseNum = a.HouseNumber || a.houseNumber;
             var parts    = [
-                houseNum ? 'Số ' + houseNum : null,
-                a.Street   || a.street,
-                a.Ward     || a.ward,
-                a.District || a.district,
-                a.Province || a.province,
-                a.Country  || a.country
+                a.StreetAddress || a.streetAddress,
+                a.District      || a.district,
+                a.Province      || a.province
             ].filter(Boolean);
             var fullAddr = parts.join(', ');
-            var title    = a.Province || a.province || a.Street || a.street || 'Địa chỉ';
+            var title    = a.Province || a.province || a.StreetAddress || a.streetAddress || 'Địa chỉ';
             return '<div class="addr-row' + (isDef ? ' is-default' : '') + '">' +
                 '<div class="addr-left">' +
                 '<div class="addr-label-wrap">' +
@@ -305,23 +348,14 @@ function renderAddress(main) {
             '<div class="addr-list">' + (addrRows || '<p style="color:var(--muted)">Chưa có địa chỉ nào.</p>') + '</div>' +
             '<div class="add-addr-card">' +
             '<p class="add-addr-title">➕ Thêm địa chỉ mới</p>' +
+            '<div class="up-field">' +
+            '<label>SỐ NHÀ / ĐƯỜNG <span style="color:#e74c3c">*</span></label>' +
+            '<input type="text" id="addr-street-address" placeholder="VD: 42 Nguyễn Văn Linh"></div>' +
             '<div class="up-field-row">' +
-            '<div class="up-field"><label>SỐ NHÀ</label>' +
-            '<input type="number" id="addr-housenumber" placeholder="VD: 123"></div>' +
-            '<div class="up-field"><label>ĐƯỜNG <span style="color:#e74c3c">*</span></label>' +
-            '<input type="text" id="addr-street" placeholder="VD: Nguyễn Văn Linh"></div>' +
-            '</div>' +
-            '<div class="up-field-row">' +
-            '<div class="up-field"><label>PHƯỜNG/XÃ <span style="color:#e74c3c">*</span></label>' +
-            '<input type="text" id="addr-ward" placeholder="VD: Phường 1"></div>' +
             '<div class="up-field"><label>QUẬN/HUYỆN <span style="color:#e74c3c">*</span></label>' +
             '<input type="text" id="addr-district" placeholder="VD: Quận 7"></div>' +
-            '</div>' +
-            '<div class="up-field-row">' +
             '<div class="up-field"><label>TỈNH/THÀNH PHỐ <span style="color:#e74c3c">*</span></label>' +
             '<input type="text" id="addr-province" placeholder="VD: TP. Hồ Chí Minh"></div>' +
-            '<div class="up-field"><label>QUỐC GIA</label>' +
-            '<input type="text" id="addr-country" value="Viet Nam" placeholder="Viet Nam"></div>' +
             '</div>' +
             '<button class="up-btn" onclick="addAddress()">Thêm địa chỉ</button>' +
             '</div></div></div>';
@@ -338,23 +372,17 @@ function setDefault(id) {
 }
 
 function addAddress() {
-    var houseNumber = document.getElementById('addr-housenumber').value.trim();
-    var street      = document.getElementById('addr-street').value.trim();
-    var ward        = document.getElementById('addr-ward').value.trim();
-    var district    = document.getElementById('addr-district').value.trim();
-    var province    = document.getElementById('addr-province').value.trim();
-    var country     = document.getElementById('addr-country').value.trim() || 'Viet Nam';
-    if (!street || !ward || !district || !province) {
-        alert('Vui lòng điền đầy đủ: Đường, Phường/Xã, Quận/Huyện, Tỉnh/Thành phố.');
+    var streetAddress = document.getElementById('addr-street-address').value.trim();
+    var district      = document.getElementById('addr-district').value.trim();
+    var province      = document.getElementById('addr-province').value.trim();
+    if (!streetAddress || !district || !province) {
+        alert('Vui lòng điền đầy đủ: Số nhà/Đường, Quận/Huyện, Tỉnh/Thành phố.');
         return;
     }
     apiPost('/address/add', {
-        HouseNumber: houseNumber ? parseInt(houseNumber) : null,
-        Street: street,
-        Ward: ward,
+        StreetAddress: streetAddress,
         District: district,
-        Province: province,
-        Country: country
+        Province: province
     }).then(function (r) {
         if (!r.ok) throw new Error();
         loadSection('address');
@@ -447,11 +475,90 @@ function renderPassword(main) {
         '<input type="password" id="pw-confirm" placeholder="Nhập lại mật khẩu mới" autocomplete="new-password"></div>' +
         '<p id="pw-error" class="pw-error-msg"></p>' +
         '<p id="pw-success" class="pw-success-msg"></p>' +
-        '<button class="up-btn" onclick="savePassword()">Cập nhật mật khẩu</button>' +
+        '<button class="up-btn" id="pw-send-otp-btn" onclick="requestPasswordOtp()">Gửi mã xác nhận</button>' +
+        '</div></div>' +
+
+        // OTP popup overlay
+        '<div id="pw-otp-overlay" class="pw-otp-overlay" style="display:none">' +
+        '<div class="pw-otp-box">' +
+        '<button class="pw-otp-close" onclick="closePwOtpPopup()">✕</button>' +
+        '<div class="pw-otp-icon">📧</div>' +
+        '<h3 class="pw-otp-title">Nhập mã xác nhận</h3>' +
+        '<p class="pw-otp-desc">Mã OTP đã được gửi về email của bạn.<br>Mã có hiệu lực trong <span id="pw-otp-timer">1:00</span>.</p>' +
+        '<div class="pw-otp-inputs" id="pw-otp-inputs">' +
+        '<input class="pw-otp-digit" type="text" maxlength="1" inputmode="numeric" />' +
+        '<input class="pw-otp-digit" type="text" maxlength="1" inputmode="numeric" />' +
+        '<input class="pw-otp-digit" type="text" maxlength="1" inputmode="numeric" />' +
+        '<input class="pw-otp-digit" type="text" maxlength="1" inputmode="numeric" />' +
+        '<input class="pw-otp-digit" type="text" maxlength="1" inputmode="numeric" />' +
+        '<input class="pw-otp-digit" type="text" maxlength="1" inputmode="numeric" />' +
+        '</div>' +
+        '<p id="pw-otp-error" class="pw-error-msg" style="text-align:center"></p>' +
+        '<button class="up-btn" id="pw-otp-confirm-btn" onclick="confirmPasswordOtp()">Xác nhận đổi mật khẩu</button>' +
+        '<p class="pw-otp-resend">Chưa nhận được? <a href="#" onclick="resendPasswordOtp(event)">Gửi lại mã</a></p>' +
         '</div></div>';
+
+    initOtpInputs();
 }
 
-function savePassword() {
+var _pwOtpTimerInterval = null;
+
+function initOtpInputs() {
+    var digits = document.querySelectorAll('.pw-otp-digit');
+    digits.forEach(function (inp, i) {
+        inp.addEventListener('input', function () {
+            inp.value = inp.value.replace(/[^0-9]/g, '').slice(-1);
+            if (inp.value && i < digits.length - 1) digits[i + 1].focus();
+        });
+        inp.addEventListener('keydown', function (e) {
+            if (e.key === 'Backspace' && !inp.value && i > 0) digits[i - 1].focus();
+        });
+        inp.addEventListener('paste', function (e) {
+            e.preventDefault();
+            var text = (e.clipboardData || window.clipboardData).getData('text').replace(/[^0-9]/g, '');
+            digits.forEach(function (d, j) { d.value = text[j] || ''; });
+            var last = Math.min(text.length, digits.length) - 1;
+            if (last >= 0) digits[last].focus();
+        });
+    });
+}
+
+function startOtpTimer() {
+    clearInterval(_pwOtpTimerInterval);
+    var seconds = 300;
+    var timerEl = document.getElementById('pw-otp-timer');
+    _pwOtpTimerInterval = setInterval(function () {
+        seconds--;
+        if (!timerEl) { clearInterval(_pwOtpTimerInterval); return; }
+        var m = Math.floor(seconds / 60);
+        var s = seconds % 60;
+        timerEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+        if (seconds <= 0) {
+            clearInterval(_pwOtpTimerInterval);
+            timerEl.textContent = 'Hết hạn';
+            timerEl.style.color = '#e74c3c';
+        }
+    }, 1000);
+}
+
+function openPwOtpPopup() {
+    var overlay = document.getElementById('pw-otp-overlay');
+    if (overlay) { overlay.style.display = 'flex'; }
+    document.querySelectorAll('.pw-otp-digit').forEach(function (d) { d.value = ''; });
+    var first = document.querySelector('.pw-otp-digit');
+    if (first) setTimeout(function () { first.focus(); }, 100);
+    var errEl = document.getElementById('pw-otp-error');
+    if (errEl) errEl.textContent = '';
+    startOtpTimer();
+}
+
+function closePwOtpPopup() {
+    var overlay = document.getElementById('pw-otp-overlay');
+    if (overlay) overlay.style.display = 'none';
+    clearInterval(_pwOtpTimerInterval);
+}
+
+function requestPasswordOtp() {
     var current = document.getElementById('pw-current').value;
     var newPw   = document.getElementById('pw-new').value;
     var confirm = document.getElementById('pw-confirm').value;
@@ -464,21 +571,62 @@ function savePassword() {
     if (newPw.length < 6) { errEl.textContent = 'Mật khẩu mới phải có ít nhất 6 ký tự.'; return; }
     if (newPw !== confirm) { errEl.textContent = 'Mật khẩu xác nhận không khớp.'; return; }
 
-    apiPut('/auth/change-password', { currentPass: current, newPass: newPw })
+    var btn = document.getElementById('pw-send-otp-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Đang gửi...'; }
+
+    apiPost('/auth/change-password/request-otp', { currentPass: current, newPass: newPw })
         .then(function (r) {
-            return r.text().then(function (t) { return { ok: r.ok, text: t }; });
+            return r.json().then(function (d) { return { ok: r.ok, data: d }; });
         })
         .then(function (res) {
             if (res.ok) {
-                okEl.textContent = 'Đổi mật khẩu thành công!';
+                openPwOtpPopup();
+            } else {
+                errEl.textContent = (res.data && res.data.message) || 'Không thể gửi mã OTP.';
+            }
+        })
+        .catch(function () { errEl.textContent = 'Lỗi kết nối máy chủ.'; })
+        .finally(function () {
+            if (btn) { btn.disabled = false; btn.textContent = 'Gửi mã xác nhận'; }
+        });
+}
+
+function resendPasswordOtp(e) {
+    e.preventDefault();
+    requestPasswordOtp();
+}
+
+function confirmPasswordOtp() {
+    var digits = document.querySelectorAll('.pw-otp-digit');
+    var otp = Array.from(digits).map(function (d) { return d.value; }).join('');
+    var errEl = document.getElementById('pw-otp-error');
+    errEl.textContent = '';
+
+    if (otp.length < 6) { errEl.textContent = 'Vui lòng nhập đủ 6 chữ số.'; return; }
+
+    var current = document.getElementById('pw-current').value;
+    var newPw   = document.getElementById('pw-new').value;
+    var btn = document.getElementById('pw-otp-confirm-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Đang xác nhận...'; }
+
+    apiPut('/auth/change-password', { currentPass: current, newPass: newPw, otp: otp })
+        .then(function (r) {
+            return r.json().then(function (d) { return { ok: r.ok, data: d }; });
+        })
+        .then(function (res) {
+            if (res.ok) {
+                closePwOtpPopup();
+                var okEl = document.getElementById('pw-success');
+                if (okEl) okEl.textContent = 'Đổi mật khẩu thành công!';
                 document.getElementById('pw-current').value = '';
                 document.getElementById('pw-new').value = '';
                 document.getElementById('pw-confirm').value = '';
             } else {
-                var msg = res.text;
-                try { msg = JSON.parse(res.text).message || msg; } catch (e) {}
-                errEl.textContent = msg || 'Đổi mật khẩu thất bại.';
+                errEl.textContent = (res.data && res.data.message) || 'Xác nhận thất bại.';
             }
         })
-        .catch(function () { errEl.textContent = 'Lỗi kết nối máy chủ.'; });
+        .catch(function () { errEl.textContent = 'Lỗi kết nối máy chủ.'; })
+        .finally(function () {
+            if (btn) { btn.disabled = false; btn.textContent = 'Xác nhận đổi mật khẩu'; }
+        });
 }

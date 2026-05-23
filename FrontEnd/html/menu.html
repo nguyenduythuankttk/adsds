@@ -9,6 +9,8 @@
     <link rel="stylesheet" href="/asset/css/menu.css">
     <link rel="stylesheet" href="/asset/themify-icons/themify-icons.css">
     <link rel="stylesheet" href="/asset/css/menu-auth.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -19,9 +21,8 @@
     <div id="header">
         <ul id="nav">
             <li><a href="/html/index.html">Home</a></li>
-            <li><a href="">Promotion</a></li>
             <li><a href="/html/menu.html" class="nav-active">Menu</a></li>
-            <!-- <li><a href="">Booking</a></li> -->
+            <li><a href="#" id="nav-store-btn">Store <i class="ti-angle-down nav-arrow-down"></i></a></li>
         </ul>
         <button class="delivery-btn delivery-cart-btn" id="cart-fab" aria-label="Xem giỏ hàng">
             <i class="ti-shopping-cart"></i> Giỏ Hàng
@@ -31,11 +32,32 @@
             <i class="ti-search search-bar-icon"></i>
             <input type="text" class="search-bar-input" placeholder="Tìm món ăn..." id="menu-search-input" autocomplete="off">
         </div>
-        <!-- <button class="login-btn" id="openLoginBtn">
+        <button class="login-btn" id="openLoginBtn">
             <i class="ti-user"></i>
-            <span>Đăng Nhập</span>
-        </button> -->
+            <span id="login-btn-text">Đăng Nhập/Đăng Ký</span>
+        </button>
     </div>
+
+    <!-- STORE PANEL -->
+    <div id="store-panel" class="store-panel">
+        <div class="store-panel-inner">
+            <div class="store-panel-header">
+                <h3>Hệ Thống Cửa Hàng Chônlibi</h3>
+                <button id="store-panel-close" class="store-panel-close">✕</button>
+            </div>
+            <div id="store-map"></div>
+            <div class="store-map-actions">
+                <button id="find-nearest-btn" onclick="findNearestStore()">
+                    <i class="ti-location-pin"></i> Tìm cửa hàng gần tôi nhất
+                </button>
+                <p id="nearest-store-label"></p>
+            </div>
+            <div id="store-list" class="store-list">
+                <p style="color:#aaa;text-align:center;padding:20px">Đang tải...</p>
+            </div>
+        </div>
+    </div>
+    <div id="store-panel-backdrop" class="store-panel-backdrop"></div>
     <!-- ===== LOCATION BAR ===== -->
     <div class="location-bar">
         <div class="location-inner">
@@ -226,7 +248,7 @@
             </button>
         </div>
 
-        <!-- Items list -->
+        <!-- Scrollable body -->
         <div class="cq-body">
             <div class="cq-items-wrap" id="cq-items-wrap">
             </div>
@@ -249,27 +271,61 @@
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Delivery Address Picker -->
-        <div class="cq-addr-section" id="cq-addr-section">
-            <div class="cq-addr-header">
-                <i class="ti-location-pin"></i>
-                <span class="cq-addr-label">Địa chỉ giao hàng</span>
-                <button class="cq-addr-add-btn" id="cq-addr-add-btn" title="Thêm địa chỉ mới"><i class="ti-plus"></i></button>
+            <!-- Payment Method Picker -->
+            <div class="cq-payment-section" id="cq-payment-section">
+                <div class="cq-payment-header">
+                    <i class="ti-credit-card"></i>
+                    <span class="cq-payment-label">Phương thức thanh toán</span>
+                </div>
+                <div class="cq-payment-options">
+                    <label class="cq-payment-option" id="cq-payment-cash">
+                        <input type="radio" name="cq-payment" value="Cash" checked>
+                        <span class="cq-payment-icon">💵</span>
+                        <span class="cq-payment-text">Tiền mặt (COD)</span>
+                    </label>
+                    <label class="cq-payment-option" id="cq-payment-card">
+                        <input type="radio" name="cq-payment" value="Card">
+                        <span class="cq-payment-icon">💳</span>
+                        <span class="cq-payment-text">Thẻ / Chuyển khoản</span>
+                    </label>
+                </div>
             </div>
-            <div class="cq-addr-selected" id="cq-addr-selected">
-                <span class="cq-addr-loading">Đang tải địa chỉ...</span>
-            </div>
-            <button class="cq-addr-expand-btn" id="cq-addr-expand-btn" style="display:none">
-                <span>Địa chỉ khác</span>
-                <i class="ti-angle-down cq-addr-arrow" id="cq-addr-arrow"></i>
-            </button>
-            <div class="cq-addr-list" id="cq-addr-list"></div>
-        </div>
 
-        <!-- Footer -->
-        <div class="cq-footer">
+            <!-- Delivery Address Picker -->
+            <div class="cq-addr-section" id="cq-addr-section">
+                <div class="cq-addr-header">
+                    <i class="ti-location-pin"></i>
+                    <span class="cq-addr-label">Địa chỉ giao hàng</span>
+                    <button class="cq-addr-add-btn" id="cq-addr-add-btn" title="Thêm địa chỉ mới"><i class="ti-plus"></i></button>
+                </div>
+                <div class="cq-addr-selected" id="cq-addr-selected">
+                    <span class="cq-addr-loading">Đang tải địa chỉ...</span>
+                </div>
+                <button class="cq-addr-expand-btn" id="cq-addr-expand-btn" style="display:none">
+                    <span>Địa chỉ khác</span>
+                    <i class="ti-angle-down cq-addr-arrow" id="cq-addr-arrow"></i>
+                </button>
+                <div class="cq-addr-list" id="cq-addr-list"></div>
+            </div>
+
+            <!-- Store Picker -->
+            <div class="cq-store-section" id="cq-store-section">
+                <div class="cq-store-header">
+                    <i class="ti-home"></i>
+                    <span class="cq-store-label">Cửa hàng xử lý đơn</span>
+                </div>
+                <div class="cq-store-selected" id="cq-store-selected">
+                    <span class="cq-store-loading">Đang tải cửa hàng...</span>
+                </div>
+                <button class="cq-store-expand-btn" id="cq-store-expand-btn" style="display:none">
+                    <span>Cửa hàng khác</span>
+                    <i class="ti-angle-down cq-store-arrow" id="cq-store-arrow"></i>
+                </button>
+                <div class="cq-store-list" id="cq-store-list"></div>
+            </div>
+
+            <!-- Price summary -->
             <div class="cq-price-breakdown">
                 <div class="cq-price-row">
                     <span>Tổng</span>
@@ -280,14 +336,18 @@
                     <span class="cq-price-val cq-discount" id="cq-discount">-0 đ</span>
                 </div>
                 <div class="cq-price-row">
-                    <span>Phí giao hàng</span>
+                    <span>Phí giao hàng <span class="cq-distance" id="cq-distance"></span></span>
                     <span class="cq-price-val" id="cq-shipping">0 đ</span>
                 </div>
                 <div class="cq-price-row cq-total-row">
                     <span>Tổng cộng</span>
-                    <span class="cq-price-val cq-grand-total" id="cq-grand-total">0 đ</span> 
+                    <span class="cq-price-val cq-grand-total" id="cq-grand-total">0 đ</span>
                 </div>
             </div>
+        </div>
+
+        <!-- Footer: checkout button fixed at bottom -->
+        <div class="cq-footer">
             <button class="cq-checkout-btn" id="cq-checkout-btn">
                 Hoàn tất đơn hàng
             </button>
@@ -430,19 +490,9 @@
             <button class="addr-popup-close" id="addr-popup-close" aria-label="Đóng"><i class="ti-close"></i></button>
         </div>
         <div class="addr-popup-body">
-            <div class="addr-form-row">
-                <div class="addr-form-group addr-form-group--small">
-                    <label class="addr-form-label">Số nhà</label>
-                    <input class="addr-form-input" type="number" id="addr-house-number" placeholder="VD: 42" min="1">
-                </div>
-                <div class="addr-form-group addr-form-group--large">
-                    <label class="addr-form-label">Đường / Phố <span class="addr-required">*</span></label>
-                    <input class="addr-form-input" type="text" id="addr-street" placeholder="VD: Nguyễn Tất Thành">
-                </div>
-            </div>
             <div class="addr-form-group">
-                <label class="addr-form-label">Phường / Xã <span class="addr-required">*</span></label>
-                <input class="addr-form-input" type="text" id="addr-ward" placeholder="VD: Phường Hòa Minh">
+                <label class="addr-form-label">Số nhà / Đường <span class="addr-required">*</span></label>
+                <input class="addr-form-input" type="text" id="addr-street-address" placeholder="VD: 42 Nguyễn Tất Thành">
             </div>
             <div class="addr-form-group">
                 <label class="addr-form-label">Quận / Huyện <span class="addr-required">*</span></label>
@@ -463,6 +513,7 @@
     </div>
 
     <script src="/asset/js/api.js"></script>
+    <script src="/asset/js/store.js"></script>
     <script src="/asset/js/menu.js"></script>
 </body>
 </html>

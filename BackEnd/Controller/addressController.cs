@@ -54,12 +54,9 @@ namespace Backend.Controller {
                 var userID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                     ?? User.FindFirst("user_id")?.Value)!);
                 var address = new Address {
-                    HouseNumber = request.HouseNumber,
-                    Street = request.Street,
-                    Ward = request.Ward,
+                    StreetAddress = request.StreetAddress,
                     District = request.District,
-                    Province = request.Province,
-                    Country = request.Country
+                    Province = request.Province
                 };
                 await _addressService.AddUserAddress(address, userID);
                 return Ok("Thêm địa chỉ thành công");

@@ -9,22 +9,14 @@ namespace Backend.Models{
         [Key]
         public Guid AddressID { get; set; }
 
-        public int? HouseNumber { get; set; }
-
-        [Required, MaxLength(200)]
-        public string Street { get; set; } = null!;
-
-        [Required, MaxLength(200)]
-        public string Ward { get; set; } = null!;
+        [Required, MaxLength(300)]
+        public string StreetAddress { get; set; } = null!;
 
         [Required, MaxLength(200)]
         public string District { get; set; } = null!;
 
         [Required, MaxLength(200)]
         public string Province { get; set; } = null!;
-
-        [Required, MaxLength(200)]
-        public string Country { get; set; } = "Viet Nam";
         public int? StoreID{get; set;}
         [ForeignKey("StoreID")]
         [JsonIgnore]
@@ -42,6 +34,9 @@ namespace Backend.Models{
         public virtual User? User { get; set; }
 
         public bool IsDefault { get; set; } = false;
+
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
 
         [JsonIgnore]
         public virtual ICollection<DeliveryInfo> DeliveryInfos { get; set; } = new List<DeliveryInfo>();
