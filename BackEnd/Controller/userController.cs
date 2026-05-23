@@ -1,9 +1,11 @@
 using System.Linq.Expressions;
+using System.Security.Claims;
 using Backend.Models;
 using Backend.Models.DTOs;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Implementations;
 using Backend.Services.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Backend.Controller
@@ -62,9 +64,14 @@ namespace Backend.Controller
             }
         } 
 
+        [Authorize]
         [HttpPut("Update/{userID}")]
         public async Task<IActionResult> UpdateUser(Guid userID, UserUpdateRequest request)
         {
+            var tokenUserID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (tokenUserID == null || !Guid.TryParse(tokenUserID, out var parsedID) || parsedID != userID)
+                return Forbid();
+
             try
             {
                 await _userService.UpdateUser(userID, request);
@@ -74,7 +81,7 @@ namespace Backend.Controller
             {
                 return StatusCode(500, $"An error occurred in userController.UpdateUser {ex.Message}");
             }
-        } 
+        }
 
         [HttpDelete("Delete/{userID}")]
         public async Task<IActionResult> SoftDeleteUser(Guid userID)

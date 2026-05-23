@@ -39,6 +39,8 @@ public class HardDeleteService : BackgroundService {
                     del += await db.DeliveryInfo.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
                     del += await db.Shift.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
                     del += await db.User.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
+                    var unverifiedCutoff = DateTime.UtcNow.AddHours(7).AddDays(-1);
+                    del += await db.User.Where(x => !x.IsVerified && x.CreateAt < unverifiedCutoff).ExecuteDeleteAsync(token);
                     del += await db.Store.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
                     del += await db.Supplier.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
                     _Logger.LogInformation("HardDeleteService: xoá {Count} bản ghi", del);

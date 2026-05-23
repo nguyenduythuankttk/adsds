@@ -1,8 +1,9 @@
 var storeMap = null;
-var storeMarkers = [];
+var storeMarkerMap = {};
 var allStores = [];
 var userMarker = null;
 var nearestStoreId = null;
+var selectedStoreId = null;
 
 function haversineDistance(lat1, lng1, lat2, lng2) {
     var R = 6371;
@@ -31,7 +32,6 @@ function initStoreMap() {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         maxZoom: 19
     }).addTo(storeMap);
-    // Fix map size khi panel đang ẩn
     setTimeout(function () { storeMap.invalidateSize(); }, 300);
     loadStoresOnMap();
 }
@@ -48,17 +48,30 @@ var redIcon = L.icon({
     iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
 });
 
+var greenIcon = L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+});
+
 var blueIcon = L.icon({
     iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
     shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
     iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
 });
 
-function placeStoreMarker(store, isNearest) {
+function getMarkerIcon(storeId) {
+    if (storeId === selectedStoreId) return greenIcon;
+    if (storeId === nearestStoreId) return redIcon;
+    return orangeIcon;
+}
+
+function placeStoreMarker(store) {
     var addr = store.address || store.Address;
     if (!addr || addr.latitude == null || addr.longitude == null) return null;
+    var id = store.storeID || store.StoreID;
     var marker = L.marker([addr.latitude, addr.longitude], {
-        icon: isNearest ? redIcon : orangeIcon,
+        icon: getMarkerIcon(id),
         title: store.storeName || store.StoreName
     }).addTo(storeMap);
     marker.bindPopup(
@@ -72,19 +85,28 @@ function placeStoreMarker(store, isNearest) {
     return marker;
 }
 
+function refreshMarkerIcons() {
+    allStores.forEach(function (s) {
+        var id = s.storeID || s.StoreID;
+        var marker = storeMarkerMap[id];
+        if (marker) marker.setIcon(getMarkerIcon(id));
+    });
+}
+
 function loadStoresOnMap() {
     apiGet('/store/get-all')
         .then(function (r) { return r.json(); })
         .then(function (data) {
             allStores = Array.isArray(data) ? data : (data.data || []);
-            storeMarkers.forEach(function (m) { storeMap.removeLayer(m); });
-            storeMarkers = [];
+            Object.values(storeMarkerMap).forEach(function (m) { storeMap.removeLayer(m); });
+            storeMarkerMap = {};
 
             var validLatLngs = [];
             allStores.forEach(function (s) {
-                var m = placeStoreMarker(s, false);
+                var id = s.storeID || s.StoreID;
+                var m = placeStoreMarker(s);
                 if (m) {
-                    storeMarkers.push(m);
+                    storeMarkerMap[id] = m;
                     var addr = s.address || s.Address;
                     validLatLngs.push([addr.latitude, addr.longitude]);
                 }
@@ -94,7 +116,7 @@ function loadStoresOnMap() {
                 storeMap.fitBounds(validLatLngs, { padding: [30, 30] });
             }
 
-            renderStoreCards(allStores, null);
+            renderStoreCards(allStores);
         })
         .catch(function () {
             document.getElementById('store-list').innerHTML =
@@ -102,7 +124,32 @@ function loadStoresOnMap() {
         });
 }
 
-function renderStoreCards(stores, nearestId) {
+function selectStore(id) {
+    if (selectedStoreId === id) {
+        // Bỏ chọn nếu click lại
+        selectedStoreId = null;
+    } else {
+        selectedStoreId = id;
+    }
+    refreshMarkerIcons();
+    renderStoreCards(allStores);
+
+    if (selectedStoreId) {
+        var store = allStores.find(function (s) {
+            return (s.storeID || s.StoreID) === selectedStoreId;
+        });
+        if (store) {
+            var addr = store.address || store.Address;
+            if (addr && addr.latitude != null && addr.longitude != null) {
+                storeMap.flyTo([addr.latitude, addr.longitude], 16, { duration: 0.8 });
+                var marker = storeMarkerMap[selectedStoreId];
+                if (marker) setTimeout(function () { marker.openPopup(); }, 900);
+            }
+        }
+    }
+}
+
+function renderStoreCards(stores) {
     var storeList = document.getElementById('store-list');
     if (!stores || stores.length === 0) {
         storeList.innerHTML = '<p style="color:#aaa;text-align:center;padding:20px">Chưa có cửa hàng nào.</p>';
@@ -113,17 +160,33 @@ function renderStoreCards(stores, nearestId) {
         var addrText = formatAddress(addr);
         var id = s.storeID || s.StoreID;
         var hasCoords = addr && addr.latitude != null && addr.longitude != null;
-        var isNearest = id === nearestId;
-        return '<div class="store-card' + (isNearest ? ' store-card-nearest' : '') + '" id="store-card-' + id + '">' +
+        var isNearest = id === nearestStoreId;
+        var isSelected = id === selectedStoreId;
+
+        var classes = 'store-card';
+        if (isNearest) classes += ' store-card-nearest';
+        if (isSelected) classes += ' store-card-selected';
+
+        return '<div class="' + classes + '" id="store-card-' + id + '" onclick="selectStore(' + id + ')">' +
             (isNearest ? '<div class="store-nearest-badge">📍 Gần bạn nhất</div>' : '') +
+            (isSelected ? '<div class="store-selected-badge">✓ Đang chọn</div>' : '') +
             '<div class="store-card-name"><i class="ti-home"></i> ' + (s.storeName || s.StoreName) + '</div>' +
             (addrText ? '<div class="store-card-info"><i class="ti-location-pin"></i><span>' + addrText + '</span></div>' : '') +
             '<div class="store-card-info"><i class="ti-headphone-alt"></i><span>' + (s.phone || s.Phone) + '</span></div>' +
             '<div class="store-card-info"><i class="ti-email"></i><span>' + (s.email || s.Email) + '</span></div>' +
             '<div class="store-card-info"><i class="ti-agenda"></i><span>Sức chứa: ' + (s.seatingCapacity || s.SeatingCapacity) + ' người</span></div>' +
-            (hasCoords ? '<a class="store-directions-btn" href="' + getDirectionsUrl(addr.latitude, addr.longitude) + '" target="_blank">🗺️ Chỉ đường</a>' : '') +
+            (hasCoords
+                ? '<a class="store-directions-btn' + (isSelected ? ' store-directions-btn-selected' : '') + '" href="' +
+                  getDirectionsUrl(addr.latitude, addr.longitude) + '" target="_blank" onclick="event.stopPropagation()">🗺️ Chỉ đường</a>'
+                : '') +
             '</div>';
     }).join('');
+
+    // Scroll tới card được chọn
+    if (selectedStoreId) {
+        var card = document.getElementById('store-card-' + selectedStoreId);
+        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 }
 
 function findNearestStore() {
@@ -165,20 +228,15 @@ function findNearestStore() {
             }, { store: validStores[0], dist: Infinity });
 
             nearestStoreId = nearest.store.storeID || nearest.store.StoreID;
+            // Tự động chọn cửa hàng gần nhất
+            selectedStoreId = nearestStoreId;
+
+            refreshMarkerIcons();
+
             var nearestAddr = nearest.store.address || nearest.store.Address;
-
-            // Cập nhật lại markers
-            storeMarkers.forEach(function (m) { storeMap.removeLayer(m); });
-            storeMarkers = [];
-            allStores.forEach(function (s) {
-                var id = s.storeID || s.StoreID;
-                var m = placeStoreMarker(s, id === nearestStoreId);
-                if (m) storeMarkers.push(m);
-            });
-
             storeMap.setView([nearestAddr.latitude, nearestAddr.longitude], 15);
 
-            renderStoreCards(allStores, nearestStoreId);
+            renderStoreCards(allStores);
 
             var label = document.getElementById('nearest-store-label');
             label.textContent = 'Cửa hàng gần bạn nhất: ' +
@@ -186,8 +244,8 @@ function findNearestStore() {
                 ' (' + nearest.dist.toFixed(1) + ' km)';
             label.style.display = 'block';
 
-            var nearestCard = document.getElementById('store-card-' + nearestStoreId);
-            if (nearestCard) nearestCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            var marker = storeMarkerMap[nearestStoreId];
+            if (marker) setTimeout(function () { marker.openPopup(); }, 200);
 
             btn.disabled = false;
             btn.innerHTML = '<i class="ti-location-pin"></i> Tìm cửa hàng gần tôi nhất';
@@ -212,7 +270,6 @@ function findNearestStore() {
         backdrop.classList.add('open');
         if (!mapInited) {
             mapInited = true;
-            // Đợi panel hiển thị xong rồi mới init map để Leaflet tính đúng kích thước
             setTimeout(initStoreMap, 50);
         } else if (storeMap) {
             storeMap.invalidateSize();

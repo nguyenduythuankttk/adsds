@@ -19,13 +19,15 @@
 
     <!-- ===== HEADER ===== -->
     <div id="header">
+        <button id="hamburger-btn" aria-label="Mở menu" aria-expanded="false">☰</button>
+
         <ul id="nav">
             <li><a href="/html/index.html">Home</a></li>
             <li><a href="/html/menu.html" class="nav-active">Menu</a></li>
             <li><a href="#" id="nav-store-btn">Store <i class="ti-angle-down nav-arrow-down"></i></a></li>
         </ul>
         <button class="delivery-btn delivery-cart-btn" id="cart-fab" aria-label="Xem giỏ hàng">
-            <i class="ti-shopping-cart"></i> Giỏ Hàng
+            <i class="ti-shopping-cart"></i> <span class="btn-text">Giỏ Hàng</span>
             <span class="cart-count" id="cart-count">0</span>
         </button>
         <div class="search-bar">
@@ -37,6 +39,7 @@
             <span id="login-btn-text">Đăng Nhập/Đăng Ký</span>
         </button>
     </div>
+    <div id="mobile-nav-overlay"></div>
 
     <!-- STORE PANEL -->
     <div id="store-panel" class="store-panel">
@@ -515,5 +518,6 @@
     <script src="/asset/js/api.js"></script>
     <script src="/asset/js/store.js"></script>
     <script src="/asset/js/menu.js"></script>
+    <script src="/asset/js/mobile-nav.js"></script>
 </body>
 </html>

@@ -128,16 +128,16 @@ namespace Backend.Services.Implementations{
             if (user == null)
                 throw new InvalidOperationException("Email không tồn tại trong hệ thống");
 
-            var token = GenerateSecureToken();
-            user.PasswordEmail = token;
-            user.PasswordEmailExp = DateTime.UtcNow.AddHours(7).AddHours(1);
+            var otp = GenerateSecureToken();
+            user.PasswordEmail = otp;
+            user.PasswordEmailExp = DateTime.UtcNow.AddHours(7).AddMinutes(1);
             await _dbContext.SaveChangesAsync();
 
             try {
-                await _emailService.SendChangePasswordEmail(email, token);
+                await _emailService.SendChangePasswordOtpEmail(email, otp);
                 return true;
             } catch (Exception ex) {
-                Console.WriteLine($"[EmailService] SendChangePasswordEmail failed: {ex.InnerException?.Message ?? ex.Message}");
+                Console.WriteLine($"[EmailService] SendChangePasswordOtpEmail failed: {ex.InnerException?.Message ?? ex.Message}");
                 return false;
             }
         }

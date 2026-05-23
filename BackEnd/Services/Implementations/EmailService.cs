@@ -26,7 +26,7 @@ namespace Backend.Services.Implementations {
         public async Task SendChangePasswordOtpEmail(string email, string otp) {
             var html = BuildOtpEmailHtml(
                 heading: "Xac nhan doi mat khau",
-                body: "Ban vua yeu cau doi mat khau tai khoan Chonlibi. Vui long nhap ma OTP duoi day de xac nhan. Ma se het han sau 5 phut.",
+                body: "Ban vua yeu cau doi mat khau tai khoan Chonlibi. Vui long nhap ma OTP duoi day de xac nhan. Ma se het han sau 1 phut.",
                 otp: otp,
                 note: "Neu ban khong yeu cau doi mat khau, vui long bo qua email nay va kiem tra lai tai khoan cua ban."
             );

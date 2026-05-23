@@ -12,16 +12,21 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
+    <!-- Dummy inputs to absorb browser credential autofill away from the search bar -->
+    <input type="text" name="username" style="display:none" tabindex="-1" autocomplete="username">
+    <input type="password" name="password" style="display:none" tabindex="-1" autocomplete="current-password">
 
     <!-- HEADER -->
     <div id="header">
+        <button id="hamburger-btn" aria-label="Mở menu" aria-expanded="false">☰</button>
+
         <ul id="nav">
             <li><a href="/html/index.html">Home</a></li>
             <li><a href="/html/menu.html">Menu</a></li>
             <li><a href="#" id="nav-store-btn">Store <i class="ti-angle-down nav-arrow-down"></i></a></li>
         </ul>
         <button class="delivery-btn delivery-cart-btn" id="cart-fab" aria-label="Xem giỏ hàng">
-            <i class="ti-shopping-cart"></i> Giỏ Hàng
+            <i class="ti-shopping-cart"></i> <span class="btn-text">Giỏ Hàng</span>
             <span class="cart-count" id="cart-count">0</span>
         </button>
         <div class="search-bar">
@@ -30,9 +35,10 @@
         </div>
         <button class="login-btn" id="headerAvatarBtn">
             <span class="user-avatar-btn" id="header-avatar-initial">A</span>
-            <span id="header-avatar-name">Tài khoản</span>
+            <span id="header-avatar-name" class="btn-text">Tài khoản</span>
         </button>
     </div>
+    <div id="mobile-nav-overlay"></div>
 
     <!-- STORE PANEL -->
     <div id="store-panel" class="store-panel">
@@ -100,5 +106,6 @@
     <script src="/asset/js/api.js"></script>
     <script src="/asset/js/store.js"></script>
     <script src="/asset/js/user.js"></script>
+    <script src="/asset/js/mobile-nav.js"></script>
 </body>
 </html>

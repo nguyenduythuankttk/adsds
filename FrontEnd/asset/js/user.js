@@ -525,7 +525,7 @@ function initOtpInputs() {
 
 function startOtpTimer() {
     clearInterval(_pwOtpTimerInterval);
-    var seconds = 300;
+    var seconds = 60;
     var timerEl = document.getElementById('pw-otp-timer');
     _pwOtpTimerInterval = setInterval(function () {
         seconds--;
