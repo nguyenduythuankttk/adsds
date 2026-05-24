@@ -496,13 +496,24 @@ a.product-card {
     margin-bottom: 5px;
 }
 .store-card-info i { color: rgb(220,77,11); margin-top: 2px; flex-shrink: 0; }
+.store-card-distance {
+    font-weight: 600;
+    color: #e8472a;
+    background: #fff3ee;
+    border-radius: 4px;
+    padding: 2px 6px;
+    display: inline-flex;
+    width: fit-content;
+    margin-bottom: 6px;
+}
 
 #store-map {
     width: 100%;
-    height: 300px;
+    height: 360px;
     border-radius: 10px;
     margin: 0 0 12px 0;
     display: block;
+    overflow: hidden;
 }
 .store-map-actions {
     padding: 0 16px 10px;

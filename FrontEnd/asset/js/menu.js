@@ -61,6 +61,8 @@
     var cqStoreExpandBtn = document.getElementById('cq-store-expand-btn');
     var cqStoreArrow     = document.getElementById('cq-store-arrow');
     var cqStoreList      = document.getElementById('cq-store-list');
+    var cqTicketSelect   = document.getElementById('cq-ticket-select');
+    var cqTicketInfo     = document.getElementById('cq-ticket-info');
 
     // ── State ────────────────────────────────────────────────────────────────
     // cart item: { varientId, name, price, qty }
@@ -77,6 +79,7 @@
     var selectedStore     = null;
     var storeDropdownOpen = false;
     var userPickedStore   = false;
+    var selectedTicket    = null;
 
     var CART_KEY = 'chonlibi_cart';
 
@@ -119,6 +122,21 @@
         return best || allStores[0];
     }
 
+    function storeDistanceKm(store) {
+        if (!selectedAddress) return null;
+        var ua = selectedAddress.address || selectedAddress.Address || selectedAddress;
+        if (ua.latitude == null || ua.longitude == null) return null;
+        var sa = store.address || store.Address || {};
+        if (sa.latitude == null || sa.longitude == null) return null;
+        return haversineKm(ua.latitude, ua.longitude, sa.latitude, sa.longitude);
+    }
+
+    function storeDirectionsUrl(store) {
+        var sa = store.address || store.Address || {};
+        if (sa.latitude == null || sa.longitude == null) return null;
+        return 'https://www.google.com/maps/dir/?api=1&destination=' + sa.latitude + ',' + sa.longitude + '&travelmode=driving';
+    }
+
     function renderStoreSelected() {
         if (!cqStoreSelected) return;
         if (!allStores.length) {
@@ -128,10 +146,14 @@
         }
         var s = selectedStore || allStores[0];
         var isNearest = !userPickedStore;
+        var dist = storeDistanceKm(s);
+        var mapsUrl = storeDirectionsUrl(s);
         cqStoreSelected.innerHTML =
             '<div class="cq-store-name">' + (s.storeName || s.StoreName || 'Cửa hàng') +
             (isNearest ? '<span class="cq-store-badge">Gần nhất</span>' : '') + '</div>' +
-            '<div class="cq-store-addr">' + storeAddressText(s) + '</div>';
+            '<div class="cq-store-addr">' + storeAddressText(s) + '</div>' +
+            (dist !== null ? '<div class="cq-store-dist"><i class="ti-map"></i> ' + dist.toFixed(1) + ' km</div>' : '') +
+            (mapsUrl ? '<a class="cq-store-map-link" href="' + mapsUrl + '" target="_blank" onclick="event.stopPropagation()">🗺️ Chỉ đường Google Maps</a>' : '');
         var others = allStores.filter(function (x) { return (x.storeID || x.StoreID) !== (s.storeID || s.StoreID); });
         if (cqStoreExpandBtn) cqStoreExpandBtn.style.display = others.length ? 'flex' : 'none';
     }
@@ -140,13 +162,27 @@
         if (!cqStoreList) return;
         var curID = selectedStore ? (selectedStore.storeID || selectedStore.StoreID) : null;
         var others = allStores.filter(function (s) { return (s.storeID || s.StoreID) !== curID; });
+
+        others.sort(function (a, b) {
+            var da = storeDistanceKm(a);
+            var db = storeDistanceKm(b);
+            if (da === null && db === null) return 0;
+            if (da === null) return 1;
+            if (db === null) return -1;
+            return da - db;
+        });
+
         cqStoreList.innerHTML = '';
         others.forEach(function (s) {
+            var dist = storeDistanceKm(s);
+            var mapsUrl = storeDirectionsUrl(s);
             var item = document.createElement('div');
             item.className = 'cq-store-item';
             item.innerHTML =
                 '<div class="cq-store-item-name">' + (s.storeName || s.StoreName || 'Cửa hàng') + '</div>' +
-                '<div class="cq-store-item-addr">' + storeAddressText(s) + '</div>';
+                '<div class="cq-store-item-addr">' + storeAddressText(s) + '</div>' +
+                (dist !== null ? '<div class="cq-store-item-dist"><i class="ti-map"></i> ' + dist.toFixed(1) + ' km</div>' : '') +
+                (mapsUrl ? '<a class="cq-store-item-map-link" href="' + mapsUrl + '" target="_blank" onclick="event.stopPropagation()">🗺️ Chỉ đường</a>' : '');
             item.addEventListener('click', function () {
                 selectedStore = s;
                 userPickedStore = true;
@@ -194,6 +230,56 @@
             }
         });
     }
+
+    // ── Ticket ───────────────────────────────────────────────────────────────
+    function loadTickets() {
+        if (!cqTicketSelect) return;
+        selectedTicket = null;
+        cqTicketSelect.innerHTML = '<option value="">-- Không dùng mã giảm giá --</option>';
+        if (!isLoggedIn()) return;
+        apiGet('/ticket/my-tickets')
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (data) {
+                var now = new Date().toISOString().slice(0, 10);
+                var valid = (Array.isArray(data) ? data : []).filter(function (tk) {
+                    return !tk.usedAt && !tk.deletedAt &&
+                           (tk.startDate || '') <= now &&
+                           (tk.endDate   || '') >= now;
+                });
+                valid.forEach(function (tk) {
+                    var code    = (tk.ticketID || '').toString().slice(0, 8).toUpperCase();
+                    var discPct = Math.round((tk.discount || 0) * 100);
+                    var opt     = document.createElement('option');
+                    opt.value   = JSON.stringify(tk);
+                    opt.textContent = code + ' – Giảm ' + discPct + '% (HSD: ' + (tk.endDate || '') + ')';
+                    cqTicketSelect.appendChild(opt);
+                });
+            })
+            .catch(function () {});
+    }
+
+    function applyTicketDiscount(subtotal) {
+        if (!selectedTicket) return 0;
+        return Math.round(subtotal * (selectedTicket.discount || 0));
+    }
+
+    if (cqTicketSelect) {
+        cqTicketSelect.addEventListener('change', function () {
+            if (!this.value) {
+                selectedTicket = null;
+                if (cqTicketInfo) cqTicketInfo.style.display = 'none';
+            } else {
+                try { selectedTicket = JSON.parse(this.value); } catch (e) { selectedTicket = null; }
+                if (selectedTicket && cqTicketInfo) {
+                    var discPct  = Math.round((selectedTicket.discount || 0) * 100);
+                    cqTicketInfo.textContent = 'Giảm ' + discPct + '% — HSD: ' + (selectedTicket.endDate || '');
+                    cqTicketInfo.style.display = 'block';
+                }
+            }
+            updateCQShipping();
+        });
+    }
+
     function isLoggedIn()     { return !!localStorage.getItem('fullName'); }
 
     function saveCart() {
@@ -1195,16 +1281,11 @@
         cqCheckoutBtn.style.opacity = blocked ? '0.45' : '';
         cqCheckoutBtn.title = blocked ? message : '';
         var warningEl = document.getElementById('cq-delivery-warning');
+        if (!warningEl) return;
         if (blocked) {
-            if (!warningEl) {
-                warningEl = document.createElement('div');
-                warningEl.id = 'cq-delivery-warning';
-                warningEl.style.cssText = 'color:#c0392b;background:#fdecea;border:1px solid #e74c3c;border-radius:6px;padding:8px 12px;margin:8px 0;font-size:13px;text-align:center;';
-                cqCheckoutBtn.parentNode.insertBefore(warningEl, cqCheckoutBtn);
-            }
             warningEl.textContent = message;
-            warningEl.style.display = 'block';
-        } else if (warningEl) {
+            warningEl.style.display = 'flex';
+        } else {
             warningEl.style.display = 'none';
         }
     }
@@ -1212,6 +1293,16 @@
     function updateCQShipping() {
         var subtotal    = cart.reduce(function (s, i) { return s + i.price * i.qty; }, 0);
         var distanceEl  = document.getElementById('cq-distance');
+        var discountRow = document.getElementById('cq-discount-row');
+        var discountEl  = document.getElementById('cq-discount');
+
+        var discountAmt = applyTicketDiscount(subtotal);
+        if (discountAmt > 0 && discountRow && discountEl) {
+            discountRow.style.display = '';
+            discountEl.textContent    = '-' + formatPrice(discountAmt);
+        } else if (discountRow) {
+            discountRow.style.display = 'none';
+        }
 
         if (!userPickedStore && allStores.length) {
             selectedStore = nearestStore(selectedAddress);
@@ -1221,7 +1312,7 @@
 
         if (!selectedAddress) {
             cqShipping.textContent   = '0 đ';
-            cqGrandTotal.textContent = formatPrice(subtotal);
+            cqGrandTotal.textContent = formatPrice(subtotal - discountAmt);
             if (distanceEl) distanceEl.textContent = '';
             setCheckoutBlocked(false, '');
             return;
@@ -1232,7 +1323,7 @@
         fetchShippingFee(selectedAddress.addressID, currentStoreID).then(function (data) {
             if (data && !data.isDeliverable) {
                 cqShipping.textContent   = 'Không hỗ trợ';
-                cqGrandTotal.textContent = formatPrice(subtotal);
+                cqGrandTotal.textContent = formatPrice(subtotal - discountAmt);
                 if (distanceEl) distanceEl.textContent = '(' + data.distanceKm.toFixed(1) + ' km)';
                 setCheckoutBlocked(true,
                     'Địa chỉ của bạn cách cửa hàng gần nhất ' + data.distanceKm.toFixed(1) +
@@ -1242,7 +1333,7 @@
             var fee = data ? data.shippingFee : 0;
             var km  = data ? data.distanceKm  : null;
             cqShipping.textContent   = formatPrice(fee);
-            cqGrandTotal.textContent = formatPrice(subtotal + fee);
+            cqGrandTotal.textContent = formatPrice(subtotal - discountAmt + fee);
             if (distanceEl) distanceEl.textContent = km != null ? '(' + km.toFixed(1) + ' km)' : '';
             setCheckoutBlocked(false, '');
         });
@@ -1267,6 +1358,7 @@
         document.body.style.overflow = 'hidden';
         loadAddresses();
         loadStores();
+        loadTickets();
     }
     function closeCQModal() {
         cqModal.classList.remove('open');
@@ -1274,6 +1366,9 @@
         document.body.style.overflow = '';
         addrDropdownOpen = false;
         storeDropdownOpen = false;
+        selectedTicket = null;
+        if (cqTicketSelect) { cqTicketSelect.value = ''; }
+        if (cqTicketInfo)   { cqTicketInfo.style.display = 'none'; }
         if (cqAddrList)   cqAddrList.classList.remove('open');
         if (cqAddrArrow)  cqAddrArrow.classList.remove('open');
         if (cqStoreList)  cqStoreList.classList.remove('open');
@@ -1300,14 +1395,17 @@
         var paymentRadio = document.querySelector('input[name="cq-payment"]:checked');
         var paymentMethod = paymentRadio ? paymentRadio.value : 'Cash';
 
-        var storeID = selectedStore ? (selectedStore.storeID || selectedStore.StoreID) : null;
-        apiPost('/bill/create-delivery', {
+        var storeID   = selectedStore ? (selectedStore.storeID || selectedStore.StoreID) : null;
+        var ticketID  = selectedTicket ? (selectedTicket.ticketID || selectedTicket.TicketID || null) : null;
+        var body = {
             UserID:         userId,
             StoreID:        storeID,
             AddressID:      selectedAddress.addressID,
             PaymentMethods: paymentMethod,
             products:       products
-        })
+        };
+        if (ticketID) body.TicketID = ticketID;
+        apiPost('/bill/create-delivery', body)
         .then(function (res) {
             if (!res.ok) return res.text().then(function (t) { throw new Error(t); });
             closeCQModal();

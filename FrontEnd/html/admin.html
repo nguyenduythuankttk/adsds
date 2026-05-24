@@ -336,6 +336,13 @@
                 </div>
                 <button class="btn-primary" id="btn-add-ticket"><i class="ti-plus"></i> Tạo Ưu Đãi</button>
             </div>
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
+                <label style="font-size:13px;color:var(--muted)">Từ ngày:</label>
+                <input type="date" id="ticket-filter-start" class="search-input" style="width:160px;">
+                <label style="font-size:13px;color:var(--muted)">Đến ngày:</label>
+                <input type="date" id="ticket-filter-end" class="search-input" style="width:160px;">
+                <button class="btn-primary" onclick="applyTicketFilter()" style="padding:8px 18px;"><i class="ti-filter"></i> Lọc</button>
+            </div>
             <div class="ticket-cards" id="ticket-cards"></div>
             <div class="panel" style="margin-top:20px;">
                 <div class="panel-header"><div class="panel-title">Tất Cả Mã Ưu Đãi</div></div>

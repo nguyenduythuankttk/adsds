@@ -12,14 +12,17 @@ namespace Backend.Services.Implementations{
         private readonly IAddressService _addressService;
         private readonly IUserService _userService;
         private readonly IProductService _productService;
+        private readonly ITicketService _ticketService;
         public BillService (AppDbContext dbcontext,
                             IAddressService addressService,
                             IUserService userService,
-                            IProductService productService){
+                            IProductService productService,
+                            ITicketService ticketService){
             _dbcontext = dbcontext;
             _addressService = addressService;
             _userService = userService;
             _productService = productService;
+            _ticketService = ticketService;
         }
 
         public async Task<List<Bill>?> GetAllBillIn(DateOnly start, DateOnly end){
@@ -187,6 +190,17 @@ namespace Backend.Services.Implementations{
                     total += price * i.qty;
                 }
                 bill.Total = total * (1 + bill.VAT);
+
+                if (request.TicketID.HasValue && request.TicketID.Value != Guid.Empty)
+                {
+                    var ticket = await _ticketService.GetTicketByID(request.TicketID.Value);
+                    if (ticket != null && ticket.UsedAt == null && ticket.EndDate >= DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7)))
+                    {
+                        bill.TicketID = ticket.TicketID;
+                        bill.Total = Math.Round(bill.Total * (1 - ticket.Discount), 0);
+                    }
+                }
+
                 if (request.MoneyReceived < bill.Total)
                     throw new Exception($"MoneyReceived ({request.MoneyReceived}) is less than Total ({bill.Total}).");
                 bill.MoneyGiveBack = bill.MoneyReceived - bill.Total;
@@ -201,6 +215,10 @@ namespace Backend.Services.Implementations{
                 bill.BillChange.Add(billChange);
                 _dbcontext.Bill.Add(bill);
                 await _dbcontext.SaveChangesAsync();
+
+                if (bill.TicketID.HasValue)
+                    await _ticketService.SetUsedAt(bill.TicketID.Value, userID);
+
                 await IncreaseSoldCount(bill.BillDetail.ToList());
                 await ConsumeIngredients(bill.BillID, bill.BillDetail.ToList(), request.EmployeID.Value, request.StoreID);
                 await tx.CommitAsync();
@@ -311,13 +329,26 @@ namespace Backend.Services.Implementations{
                 if (deliveryAddress?.Latitude != null && deliveryAddress.Longitude != null &&
                     resolvedStore?.Address?.Latitude != null && resolvedStore.Address.Longitude != null)
                 {
+                    const double MaxDeliveryKm = 50.0;
                     double distKm = HaversineKm(
                         deliveryAddress.Latitude!.Value, deliveryAddress.Longitude!.Value,
                         resolvedStore.Address.Latitude!.Value, resolvedStore.Address.Longitude!.Value);
+                    if (distKm > MaxDeliveryKm)
+                        throw new Exception($"Địa chỉ giao hàng cách cửa hàng {distKm:F1} km, vượt quá khoảng cách tối đa {MaxDeliveryKm} km.");
                     decimal rate = distKm < 4 ? 15000m : distKm <= 10 ? 17000m : 21000m;
                     shippingFee = (decimal)distKm * rate;
                 }
                 bill.Total = total * (1 + bill.VAT);
+
+                if (request.TicketID.HasValue && request.TicketID.Value != Guid.Empty)
+                {
+                    var ticket = await _ticketService.GetTicketByID(request.TicketID.Value);
+                    if (ticket != null && ticket.UsedAt == null && ticket.EndDate >= DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7)))
+                    {
+                        bill.TicketID = ticket.TicketID;
+                        bill.Total = Math.Round(bill.Total * (1 - ticket.Discount), 0);
+                    }
+                }
 
                 var billChange = new BillChange
                 {
@@ -347,6 +378,10 @@ namespace Backend.Services.Implementations{
                 _dbcontext.DeliveryInfo.Add(delivery);
 
                 await _dbcontext.SaveChangesAsync();
+
+                if (bill.TicketID.HasValue)
+                    await _ticketService.SetUsedAt(bill.TicketID.Value, bill.UserID);
+
                 await IncreaseSoldCount(bill.BillDetail.ToList());
                 // Không trừ nguyên liệu ở đây – sẽ trừ khi bếp bắt đầu chuẩn bị (Preparing)
                 await tx.CommitAsync();

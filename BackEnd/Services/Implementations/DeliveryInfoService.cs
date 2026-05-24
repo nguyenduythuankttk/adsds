@@ -79,6 +79,9 @@ namespace Backend.Services.Implementations{
         public async Task<List<DeliveryInfo>?> GetAllDeliveryIn(DateTime start, DateTime end) =>
             await _dbcontext.DeliveryInfo
                 .AsNoTracking()
+                .Include(di => di.User)
+                .Include(di => di.Address)
+                .Include(di => di.Bill)
                 .Include(di => di.DeliveryLog.OrderByDescending(l => l.ChangeAt).Take(1))
                 .Where(di => di.DeliveryLog.Any() &&
                              di.DeliveryLog.Min(l => l.ChangeAt) >= start &&

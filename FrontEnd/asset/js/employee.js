@@ -43,7 +43,7 @@ function showTab(name) {
     if (tab) tab.classList.add('active');
 
     var renders = {
-        invoice:   function () { renderInvMenu(); renderInvoices(); updateInvStats(); },
+        invoice:   function () { renderInvMenu(); renderInvoices(); updateInvStats(); loadAvailableTickets(); },
         table:     renderTables,
         warehouse: renderWarehouse,
         stockmove: renderStockMove,
@@ -66,7 +66,7 @@ var MOVE_BADGE  = { import: 'badge-green', consume: 'badge-orange', waste: 'badg
 var TABLE_STATUS_LABEL = { Available: 'Trống', Occupied: 'Đang dùng', Reserved: 'Đã đặt', available: 'Trống', occupied: 'Đang dùng', reserved: 'Đã đặt' };
 var TABLE_STATUS_CYCLE = ['Available', 'Occupied', 'Reserved'];
 
-// Load menu từ API khi trang tải
+// Load menu và ticket từ API khi trang tải
 (function loadMenu() {
     apiGet('/product/get-all').then(function (r) { return r.json(); }).then(function (data) {
         MENU = [];
@@ -84,6 +84,52 @@ var TABLE_STATUS_CYCLE = ['Available', 'Occupied', 'Reserved'];
         renderInvMenu();
     }).catch(function () {});
 })();
+
+function loadAvailableTickets() {
+    var sel = document.getElementById('inv-ticket');
+    if (!sel) return;
+    var today = new Date().toISOString().slice(0, 10);
+    var end7  = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+    apiGet('/ticket/get-all/' + today + '/' + end7)
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (data) {
+            var now = today;
+            var valid = (data || []).filter(function (tk) {
+                return !tk.usedAt && !tk.deletedAt &&
+                       (tk.startDate || '') <= now &&
+                       (tk.endDate   || '') >= now;
+            });
+            sel.innerHTML = '<option value="">-- Không dùng mã --</option>';
+            valid.forEach(function (tk) {
+                var code = (tk.ticketID || '').toString().slice(0, 8).toUpperCase();
+                var discPct = Math.round((tk.discount || 0) * 100);
+                var opt = document.createElement('option');
+                opt.value = tk.ticketID || '';
+                opt.dataset.discount = tk.discount || 0;
+                opt.textContent = code + ' – Giảm ' + discPct + '% (HSD: ' + (tk.endDate || '') + ')';
+                sel.appendChild(opt);
+            });
+            sel.dataset.ticketId = '';
+            sel.dataset.discount = 0;
+        })
+        .catch(function () {});
+}
+
+function onTicketSelect(sel) {
+    if (!sel.value) {
+        sel.dataset.ticketId = '';
+        sel.dataset.discount = 0;
+    } else {
+        var opt = sel.options[sel.selectedIndex];
+        var discountRate = parseFloat(opt.dataset.discount) || 0;
+        var subtotal = getInvSubtotal();
+        var afterVat = subtotal * 1.1;
+        sel.dataset.ticketId = sel.value;
+        sel.dataset.discount = Math.round(afterVat * discountRate);
+    }
+    updateInvTotal();
+    calcChange();
+}
 
 // LẬP HÓA ĐƠN
 function renderInvMenu() {
@@ -133,28 +179,6 @@ function updateInvTotal() {
     return total;
 }
 
-function applyTicket() {
-    var ticketEl = document.getElementById('inv-ticket');
-    if (!ticketEl) return;
-    var code = ticketEl.value.trim();
-    if (!code) { toast('Vui lòng nhập mã giảm giá!', 'error'); return; }
-    apiGet('/ticket/get/' + encodeURIComponent(code)).then(function (r) {
-        if (!r.ok) { toast('Mã giảm giá không hợp lệ!', 'error'); return null; }
-        return r.json();
-    }).then(function (d) {
-        if (!d) return;
-        var ticket = d.data || d;
-        ticketEl.dataset.ticketId = ticket.TicketID || '';
-        var discountAmt = ticket.DiscountAmount || 0;
-        if (!discountAmt && ticket.DiscountPercent) {
-            discountAmt = Math.round(getInvSubtotal() * ticket.DiscountPercent / 100);
-        }
-        ticketEl.dataset.discount = discountAmt;
-        updateInvTotal();
-        calcChange();
-        toast('Áp dụng mã giảm giá: -' + discountAmt.toLocaleString('vi-VN') + 'đ');
-    }).catch(function () { toast('Lỗi kiểm tra mã giảm giá!', 'error'); });
-}
 
 function calcChange() {
     var total    = updateInvTotal();
@@ -465,9 +489,25 @@ function renderDelivery() {
     });
 }
 
+function getDeliveryStatus(d) {
+    var logs = d.deliveryLog || d.DeliveryLog || [];
+    if (!logs.length) return '';
+    var last = logs[0];
+    return (last.status || last.Status || '').toLowerCase();
+}
+
+function getDeliveryAddrText(d) {
+    var a = d.address || d.Address || {};
+    var parts = [];
+    if (a.streetAddress) parts.push(a.streetAddress);
+    if (a.district)      parts.push(a.district);
+    if (a.province)      parts.push(a.province);
+    return parts.join(', ') || (d.addressID || d.AddressID || '—');
+}
+
 function renderDeliveryLocal() {
-    var pending = DELIVERIES.filter(function (d) { return (d.status || d.Status || '').toLowerCase() === 'pending'; });
-    var done    = DELIVERIES.filter(function (d) { return (d.status || d.Status || '').toLowerCase() !== 'pending'; });
+    var pending = DELIVERIES.filter(function (d) { return getDeliveryStatus(d) === 'pending'; });
+    var done    = DELIVERIES.filter(function (d) { return getDeliveryStatus(d) !== 'pending'; });
 
     var pList = document.getElementById('delivery-pending-list');
     if (!pList) return;
@@ -475,18 +515,20 @@ function renderDeliveryLocal() {
         pList.innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px">Không có đơn hàng đang chờ giao.</p>';
     } else {
         pList.innerHTML = pending.map(function (d) {
-            var id       = d.BillID || d.id;
-            var customer = d.FullName || d.customer || '—';
-            var address  = d.Address || d.address || '—';
+            var delivId  = d.deliveryID || d.DeliveryID || '';
+            var billId   = d.billID || d.BillID || '';
+            var user     = d.user || d.User || {};
+            var customer = user.fullName || user.FullName || ('BillID: ' + String(billId).slice(0, 8));
+            var address  = getDeliveryAddrText(d);
             return '<div class="delivery-item">'
                 + '<div class="del-info">'
-                + '<div class="del-id">' + id + '</div>'
+                + '<div class="del-id">Đơn: ' + String(billId).slice(0, 8).toUpperCase() + '</div>'
                 + '<div class="del-customer">' + customer + '</div>'
                 + '<div class="del-addr"><i class="ti-location-pin"></i> ' + address + '</div>'
                 + '</div>'
                 + '<div style="display:flex;gap:8px;align-items:center">'
-                + '<input type="text" placeholder="Ghi chú..." style="padding:6px 10px;border:1px solid #e8e8e8;border-radius:6px;font-size:12px;width:160px" id="del-note-' + id + '">'
-                + '<button class="btn btn-success btn-sm" onclick="confirmDelivery(\'' + id + '\')">'
+                + '<input type="text" placeholder="Ghi chú..." style="padding:6px 10px;border:1px solid #e8e8e8;border-radius:6px;font-size:12px;width:160px" id="del-note-' + delivId + '">'
+                + '<button class="btn btn-success btn-sm" onclick="confirmDelivery(\'' + delivId + '\')">'
                 + '<i class="ti-check"></i> Đã giao</button>'
                 + '</div></div>';
         }).join('');
@@ -498,44 +540,53 @@ function renderDeliveryLocal() {
         return;
     }
     tbody.innerHTML = done.map(function (d) {
-        var id       = d.BillID || d.id;
-        var customer = d.FullName || d.customer || '—';
-        var address  = d.Address || d.address || '—';
-        var at       = d.DeliveredAt || d.deliveredAt || '—';
-        var by       = d.DeliveredBy || d.deliveredBy || '—';
-        var note     = d.Note || d.note || '—';
+        var delivId  = d.deliveryID || d.DeliveryID || '';
+        var billId   = d.billID || d.BillID || '';
+        var user     = d.user || d.User || {};
+        var customer = user.fullName || user.FullName || ('BillID: ' + String(billId).slice(0, 8));
+        var address  = getDeliveryAddrText(d);
+        var logs     = d.deliveryLog || d.DeliveryLog || [];
+        var lastLog  = logs[0] || {};
+        var at       = lastLog.changeAt || lastLog.ChangeAt || '—';
+        var note     = lastLog.note || lastLog.Note || d.note || d.Note || '—';
         return '<tr>'
-            + '<td><strong style="color:var(--primary)">' + id + '</strong></td>'
+            + '<td><strong style="color:var(--primary)">' + String(billId).slice(0, 8).toUpperCase() + '</strong></td>'
             + '<td>' + customer + '</td>'
             + '<td style="font-size:12px;color:var(--muted)">' + address + '</td>'
-            + '<td style="font-size:12px">' + at + '</td>'
-            + '<td style="font-size:12px">' + by + '</td>'
+            + '<td style="font-size:12px">' + String(at).replace('T', ' ').slice(0, 16) + '</td>'
+            + '<td style="font-size:12px">' + (getDeliveryStatus(d) || '—') + '</td>'
             + '<td style="font-size:12px;color:var(--muted)">' + note + '</td>'
             + '</tr>';
     }).join('');
 }
 
-function confirmDelivery(id) {
-    var d      = DELIVERIES.find(function (d) { return (d.BillID || d.id) == id; });
+function confirmDelivery(deliveryId) {
+    var d = DELIVERIES.find(function (x) {
+        return (x.deliveryID || x.DeliveryID) == deliveryId;
+    });
     if (!d) return;
-    var noteEl = document.getElementById('del-note-' + id);
-    var note   = noteEl ? noteEl.value.trim() : '';
-    var empId  = localStorage.getItem('employeeId');
+    var noteEl   = document.getElementById('del-note-' + deliveryId);
+    var note     = noteEl ? noteEl.value.trim() : '';
+    var empId    = localStorage.getItem('employeeId');
+    var received = parseFloat(prompt('Nhập số tiền khách trả (VND):', '') || '0') || 0;
 
-    apiPut('/delivery/update/' + id, { Status: 'Delivered', Note: note, EmployeeID: empId })
-        .then(function (r) {
-            if (!r.ok) throw new Error();
-            d.status      = 'done';
-            d.Status      = 'done';
-            d.DeliveredAt = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-            d.DeliveredBy = localStorage.getItem('fullName') || 'Nhân viên';
-            d.Note        = note;
+    apiPut('/delivery/update/' + deliveryId, {
+        Status: 'Delivered',
+        Note: note,
+        EmployeeID: empId,
+        MoneyReceived: received,
+        ChangeAt: new Date().toISOString()
+    }).then(function (r) {
+            if (!r.ok) return r.text().then(function (t) { throw new Error(t); });
+            var logs = d.deliveryLog || d.DeliveryLog || [];
+            logs.unshift({ status: 'Delivered', changeAt: new Date().toISOString(), note: note });
             renderDeliveryLocal();
-            toast('Đã xác nhận giao đơn ' + id);
-        }).catch(function () {
-            toast('Lỗi cập nhật đơn giao hàng!', 'error');
+            toast('Đã xác nhận giao đơn ' + String(d.billID || d.BillID || '').slice(0, 8).toUpperCase());
+        }).catch(function (err) {
+            toast('Lỗi cập nhật đơn giao hàng: ' + (err.message || ''), 'error');
         });
 }
 
 // Khởi tạo trang
 showTab('invoice');
+loadAvailableTickets();
