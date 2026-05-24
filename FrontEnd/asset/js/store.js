@@ -33,13 +33,12 @@ function initStoreMap() {
     if (storeMap) return;
     storeMap = L.map('store-map').setView([15.88, 108.0], 6);
 
-    // VietMap raster tiles — không bị CORS
+    // Tiles: đổi lại VietMap sau khi thêm domain vào Consumers tại maps.vietmap.vn
     L.tileLayer(
-        'https://maps.vietmap.vn/api/raster/v2/{z}/{x}/{y}.png?apikey=' + VIETMAP_API_KEY,
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         {
-            attribution: '© <a href="https://vietmap.vn" target="_blank">VietMap</a>',
-            maxZoom: 19,
-            tileSize: 256
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: 19
         }
     ).addTo(storeMap);
 
