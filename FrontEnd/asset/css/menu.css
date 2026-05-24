@@ -2147,6 +2147,31 @@ body {
 .cq-store-item.active { border-color: #e8472a; background: #fdf6f3; }
 .cq-store-item-name { font-size: 13px; font-weight: 700; color: #333; }
 .cq-store-item-addr { font-size: 12px; color: #888; margin-top: 2px; }
+.cq-store-item-dist { font-size: 12px; color: #e8472a; margin-top: 3px; }
+.cq-store-item-dist i { margin-right: 3px; }
+.cq-store-item-map-link {
+    display: inline-block;
+    margin-top: 5px;
+    font-size: 11px;
+    color: #e8472a;
+    text-decoration: none;
+    font-weight: 600;
+}
+.cq-store-item-map-link:hover { text-decoration: underline; }
+.cq-store-dist { font-size: 12px; color: #e8472a; margin-top: 3px; }
+.cq-store-dist i { margin-right: 3px; }
+.cq-store-map-link {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #fff;
+    background: #e8472a;
+    border-radius: 4px;
+    padding: 3px 10px;
+    text-decoration: none;
+    font-weight: 600;
+}
+.cq-store-map-link:hover { background: #c73a21; }
 
 /* ── Payment Method Picker ── */
 .cq-payment-section {
@@ -2272,6 +2297,27 @@ body {
     font-size: 18px;
     font-weight: 900;
     color: rgb(220, 77, 11);
+}
+
+.cq-delivery-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: #fdecea;
+    border: 1px solid #e74c3c;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: #c0392b;
+    line-height: 1.5;
+}
+
+.cq-delivery-warning::before {
+    content: '⚠️';
+    font-size: 15px;
+    flex-shrink: 0;
+    margin-top: 1px;
 }
 
 .cq-checkout-btn {
@@ -2625,3 +2671,47 @@ body {
 .addr-submit-btn:hover { background: #d03b20; }
 .addr-submit-btn:active { transform: scale(0.97); }
 .addr-submit-btn:disabled { background: #e0a090; cursor: not-allowed; transform: none; }
+
+/* ── Ticket / Mã giảm giá section ────────────────────────────────────── */
+.cq-ticket-section {
+    padding: 10px 20px 4px;
+    border-top: 1.5px solid #f0ebe6;
+}
+.cq-ticket-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.cq-ticket-header i { color: #e8472a; font-size: 14px; }
+.cq-ticket-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+}
+.cq-ticket-select {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1.5px solid #e8e0da;
+    border-radius: 10px;
+    font-size: 13px;
+    font-family: inherit;
+    background: #faf8f6;
+    color: #333;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+}
+.cq-ticket-select:focus { border-color: #e8472a; }
+.cq-ticket-info {
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: #fff4f2;
+    border: 1px solid #f5c2b8;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #c0392b;
+    font-weight: 600;
+}

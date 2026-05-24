@@ -9,8 +9,7 @@
     <link rel="stylesheet" href="/asset/css/menu.css">
     <link rel="stylesheet" href="/asset/themify-icons/themify-icons.css">
     <link rel="stylesheet" href="/asset/css/menu-auth.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDrJPMUqm3jA3DJP4SUTmYMndcrfB3rLbI"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -328,6 +327,20 @@
                 <div class="cq-store-list" id="cq-store-list"></div>
             </div>
 
+            <!-- Ticket / Mã giảm giá -->
+            <div class="cq-ticket-section" id="cq-ticket-section">
+                <div class="cq-ticket-header">
+                    <i class="ti-ticket"></i>
+                    <span class="cq-ticket-label">Mã giảm giá</span>
+                </div>
+                <div id="cq-ticket-body">
+                    <select id="cq-ticket-select" class="cq-ticket-select">
+                        <option value="">-- Không dùng mã --</option>
+                    </select>
+                    <div id="cq-ticket-info" class="cq-ticket-info" style="display:none"></div>
+                </div>
+            </div>
+
             <!-- Price summary -->
             <div class="cq-price-breakdown">
                 <div class="cq-price-row">
@@ -351,6 +364,7 @@
 
         <!-- Footer: checkout button fixed at bottom -->
         <div class="cq-footer">
+            <div id="cq-delivery-warning" class="cq-delivery-warning" style="display:none"></div>
             <button class="cq-checkout-btn" id="cq-checkout-btn">
                 Hoàn tất đơn hàng
             </button>

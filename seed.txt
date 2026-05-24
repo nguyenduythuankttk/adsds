@@ -223,18 +223,38 @@ VALUES (1, 1, 1000, NULL);
 
 
 -- ================================================================
--- 12. TICKET (Mã giảm giá 20% cho tran_thi_b)
+-- 12. TICKET
+-- Ticket 001: 20% cho tran_thi_b  – còn hạn, chưa dùng
+-- Ticket 002: 10% cho nguyen_van_a – còn hạn, chưa dùng
+-- Ticket 003: 15% cho tran_thi_b  – còn hạn, chưa dùng (ticket thứ 2)
+-- Ticket 004: 25% cho nguyen_van_a – đã dùng (test không thể dùng lại)
+-- Ticket 005: 30% cho tran_thi_b  – hết hạn  (test ticket expired)
 -- ================================================================
-INSERT INTO Ticket (TicketID, StartDate, EndDate, Discount, DeletedAt, UsedAt, UsedBy, UserID)
-VALUES (
-  'tic00001-0000-0000-0000-000000000001',
-  '2026-01-01 00:00:00', '2026-12-31 23:59:59',
-  0.20, NULL, NULL, NULL,
-  'usr00001-0000-0000-0000-000000000002'
-);
+INSERT INTO Ticket (TicketID, StartDate, EndDate, Discount, DeletedAt, UsedAt, UsedBy)
+VALUES
+  ('tic00001-0000-0000-0000-000000000001',
+   '2026-01-01', '2026-12-31', 0.20, NULL, NULL, NULL),
+
+  ('tic00001-0000-0000-0000-000000000002',
+   '2026-01-01', '2026-12-31', 0.10, NULL, NULL, NULL),
+
+  ('tic00001-0000-0000-0000-000000000003',
+   '2026-03-01', '2026-12-31', 0.15, NULL, NULL, NULL),
+
+  ('tic00001-0000-0000-0000-000000000004',
+   '2026-01-01', '2026-12-31', 0.25, NULL,
+   '2026-05-10 12:30:00', 'usr00001-0000-0000-0000-000000000001'),
+
+  ('tic00001-0000-0000-0000-000000000005',
+   '2025-01-01', '2025-12-31', 0.30, NULL, NULL, NULL);
 
 INSERT INTO TicketUser (TicketID, UserID)
-VALUES ('tic00001-0000-0000-0000-000000000001', 'usr00001-0000-0000-0000-000000000002');
+VALUES
+  ('tic00001-0000-0000-0000-000000000001', 'usr00001-0000-0000-0000-000000000002'),
+  ('tic00001-0000-0000-0000-000000000002', 'usr00001-0000-0000-0000-000000000001'),
+  ('tic00001-0000-0000-0000-000000000003', 'usr00001-0000-0000-0000-000000000002'),
+  ('tic00001-0000-0000-0000-000000000004', 'usr00001-0000-0000-0000-000000000001'),
+  ('tic00001-0000-0000-0000-000000000005', 'usr00001-0000-0000-0000-000000000002');
 
 
 -- ================================================================
@@ -272,7 +292,7 @@ VALUES
   ('po000001-0000-0000-0000-000000000001', 1, 5000, 50),
   ('po000001-0000-0000-0000-000000000001', 2, 3000, 200);
 
-INSERT INTO POApproval (POApprovalID, POID, EmployeeID, LastUpdated, Comment, Status)
+INSERT INTO POApproval (POApprovalID, POID, EmployeeID, LastUpdated, Comment, POStatus)
 VALUES (
   'poa00001-0000-0000-0000-000000000001',
   'po000001-0000-0000-0000-000000000001',
@@ -317,21 +337,21 @@ INSERT INTO InventoryBatch (
   BatchID, WarehouseID,
   ImportDate, Exp, Mfd,
   QuantityOriginal, QuantityOnHand, Status, UnitCost,
-  UpdatedAt, BatchCode, Note,
+  UpdatedAt, BatchCode, Note, BatchType,
   IngredientID, GoodsReceiptID,
   ReceiptDetailGoodsReceiptID, ReceiptDetailIngredientID
 ) VALUES
   ('bat00001-0000-0000-0000-000000000001', 1,
    '2026-05-09 10:30:00', '2026-11-09', '2026-04-01',
    4950, 4700, 'Available', 50,
-   NULL, 'BT-PHO-20260509', NULL,
+   NULL, 'BT-PHO-20260509', NULL, 'Regular',
    1, 'rec00001-0000-0000-0000-000000000001',
    'rec00001-0000-0000-0000-000000000001', 1),
 
   ('bat00001-0000-0000-0000-000000000002', 1,
    '2026-05-09 10:30:00', '2026-07-09', '2026-04-20',
    3000, 2850, 'Available', 200,
-   NULL, 'BT-BO-20260509', NULL,
+   NULL, 'BT-BO-20260509', NULL, 'Regular',
    2, 'rec00001-0000-0000-0000-000000000001',
    'rec00001-0000-0000-0000-000000000001', 2);
 
