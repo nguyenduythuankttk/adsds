@@ -9,8 +9,6 @@
     <link rel="stylesheet" href="/asset/css/menu.css">
     <link rel="stylesheet" href="/asset/themify-icons/themify-icons.css">
     <link rel="stylesheet" href="/asset/css/menu-auth.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -48,15 +46,28 @@
                 <h3>Hệ Thống Cửa Hàng Chônlibi</h3>
                 <button id="store-panel-close" class="store-panel-close">✕</button>
             </div>
-            <div id="store-map"></div>
-            <div class="store-map-actions">
-                <button id="find-nearest-btn" onclick="findNearestStore()">
+            <div class="store-locate-bar">
+                <button id="find-nearest-btn" onclick="findNearestStore()" style="margin-bottom: 10px;">
                     <i class="ti-location-pin"></i> Tìm cửa hàng gần tôi nhất
                 </button>
+                <select id="store-region-select" onchange="filterStoresByRegion(this.value)" style="padding: 10px 15px; border-radius: 6px; border: 1px solid #ddd; outline: none; cursor: pointer; width: 100%; max-width: 300px; font-family: inherit;">
+                    <option value="all">📍 Tất cả các miền</option>
+                    <option value="north">Miền Bắc</option>
+                    <option value="central">Miền Trung</option>
+                    <option value="south">Miền Nam</option>
+                </select>
                 <p id="nearest-store-label"></p>
             </div>
-            <div id="store-list" class="store-list">
-                <p style="color:#aaa;text-align:center;padding:20px">Đang tải...</p>
+            <div id="store-nearest-section" style="display:none">
+                <div class="store-region-title store-region-nearest">
+                    <i class="ti-location-pin"></i> 3 Cửa Hàng Gần Bạn Nhất
+                </div>
+                <div id="store-nearest-list" class="store-list"></div>
+            </div>
+            <div id="store-list-wrapper">
+                <div id="store-list" class="store-list">
+                    <p style="color:#aaa;text-align:center;padding:20px;grid-column:1/-1">Đang tải...</p>
+                </div>
             </div>
         </div>
     </div>

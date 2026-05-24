@@ -51,13 +51,21 @@
                 </div>
                 <div id="store-map"></div>
                 <div class="store-map-actions">
-                    <button id="find-nearest-btn" onclick="findNearestStore()">
+                    <button id="find-nearest-btn" onclick="findNearestStore()" style="margin-bottom: 10px;">
                         <i class="ti-location-pin"></i> Tìm cửa hàng gần tôi nhất
                     </button>
+                    <select id="store-region-select" onchange="filterStoresByRegion(this.value)" style="padding: 10px 15px; border-radius: 6px; border: 1px solid #ddd; outline: none; cursor: pointer; width: 100%; max-width: 300px; font-family: inherit;">
+                        <option value="all">📍 Tất cả các miền</option>
+                        <option value="north">Miền Bắc</option>
+                        <option value="central">Miền Trung</option>
+                        <option value="south">Miền Nam</option>
+                    </select>
                     <p id="nearest-store-label"></p>
                 </div>
-                <div id="store-list" class="store-list">
-                    <p style="color:#aaa;text-align:center;padding:20px">Đang tải...</p>
+                <div id="store-list-wrapper">
+                    <div id="store-list" class="store-list">
+                        <p style="color:#aaa;text-align:center;padding:20px">Đang tải...</p>
+                    </div>
                 </div>
             </div>
         </div>
