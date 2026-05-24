@@ -34,14 +34,13 @@ function initStoreMap() {
     if (storeMap) return;
 
     if (VIETMAP_API_KEY) {
-        storeMap = new vietmapsdk.Map({
+        storeMap = new maplibregl.Map({
             container: 'store-map',
-            style: 'https://maps.vietmap.vn/api/maps/light/styles.json?apikey=' + VIETMAP_API_KEY,
+            style: 'https://maps.vietmap.vn/api/maps/raster/styles.json?apikey=' + VIETMAP_API_KEY,
             center: [108.0, 15.88],
             zoom: 5,
-            attributionControl: false
+            attributionControl: true
         });
-        new vietmapsdk.AttributionControl({ compact: true });
         storeMap.on('load', function () { loadStoresOnMap(); });
     } else {
         // Fallback: Leaflet + OpenStreetMap khi chưa có VietMap key
@@ -109,8 +108,8 @@ function placeStoreMarker(store) {
         el.style.cssText = 'width:18px;height:18px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);cursor:pointer;background:' + getVietmapMarkerColor(id);
         el.dataset.storeId = id;
 
-        var popup = new vietmapsdk.Popup({ offset: 12 }).setHTML(popupHtml);
-        var marker = new vietmapsdk.Marker({ element: el })
+        var popup = new maplibregl.Popup({ offset: 12 }).setHTML(popupHtml);
+        var marker = new maplibregl.Marker({ element: el })
             .setLngLat([addr.longitude, addr.latitude])
             .setPopup(popup)
             .addTo(storeMap);
@@ -284,9 +283,9 @@ function findNearestStore() {
                 if (userMarker) userMarker.remove();
                 var el = document.createElement('div');
                 el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)';
-                userMarker = new vietmapsdk.Marker({ element: el })
+                userMarker = new maplibregl.Marker({ element: el })
                     .setLngLat([userLng, userLat])
-                    .setPopup(new vietmapsdk.Popup({ offset: 12 }).setHTML('<div style="font-weight:600">📍 Vị trí của bạn</div>'))
+                    .setPopup(new maplibregl.Popup({ offset: 12 }).setHTML('<div style="font-weight:600">📍 Vị trí của bạn</div>'))
                     .addTo(storeMap);
                 userMarker.togglePopup();
             } else {
