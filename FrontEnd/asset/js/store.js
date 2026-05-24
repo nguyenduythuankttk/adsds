@@ -7,8 +7,7 @@ var selectedStoreId = null;
 var userLat = null;
 var userLng = null;
 
-// ── Thay VIETMAP_API_KEY bằng key thật sau khi đăng ký tại maps.vietmap.vn ──
-var VIETMAP_API_KEY = '';
+var VIETMAP_API_KEY = 'bf9a4d3c158f8a879b905ee2d9997515e4f59bcd08e7e04c';
 
 function haversineDistance(lat1, lng1, lat2, lng2) {
     var R = 6371;
