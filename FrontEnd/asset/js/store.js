@@ -6,7 +6,9 @@ var nearestStoreId = null;
 var selectedStoreId = null;
 var userLat = null;
 var userLng = null;
-var infoWindow = null;
+
+// ── Thay VIETMAP_API_KEY bằng key thật sau khi đăng ký tại maps.vietmap.vn ──
+var VIETMAP_API_KEY = '';
 
 function haversineDistance(lat1, lng1, lat2, lng2) {
     var R = 6371;
@@ -28,60 +30,118 @@ function formatAddress(addr) {
         .filter(Boolean).join(', ');
 }
 
-function getMarkerIcon(storeId) {
-    if (storeId === selectedStoreId) return 'https://maps.google.com/mapfiles/ms/icons/green-dot.png';
-    if (storeId === nearestStoreId) return 'https://maps.google.com/mapfiles/ms/icons/red-dot.png';
-    return 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png';
-}
-
+// ── Khởi tạo bản đồ VietMap (MapLibre GL JS) ──────────────────────────────
 function initStoreMap() {
     if (storeMap) return;
-    storeMap = new google.maps.Map(document.getElementById('store-map'), {
-        center: { lat: 15.88, lng: 108.0 },
-        zoom: 6,
-        mapTypeControl: false,
-        fullscreenControl: false,
-        streetViewControl: false
-    });
-    infoWindow = new google.maps.InfoWindow();
-    loadStoresOnMap();
+
+    if (VIETMAP_API_KEY) {
+        storeMap = new vietmapsdk.Map({
+            container: 'store-map',
+            style: 'https://maps.vietmap.vn/api/maps/light/styles.json?apikey=' + VIETMAP_API_KEY,
+            center: [108.0, 15.88],
+            zoom: 5,
+            attributionControl: false
+        });
+        new vietmapsdk.AttributionControl({ compact: true });
+        storeMap.on('load', function () { loadStoresOnMap(); });
+    } else {
+        // Fallback: Leaflet + OpenStreetMap khi chưa có VietMap key
+        storeMap = L.map('store-map').setView([15.88, 108.0], 6);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: 19
+        }).addTo(storeMap);
+        setTimeout(function () { storeMap.invalidateSize(); }, 300);
+        loadStoresOnMap();
+    }
 }
 
+// ── Marker icons (Leaflet fallback) ───────────────────────────────────────
+var orangeIcon = typeof L !== 'undefined' ? L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-orange.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+}) : null;
+var redIcon = typeof L !== 'undefined' ? L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+}) : null;
+var greenIcon = typeof L !== 'undefined' ? L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+}) : null;
+var blueIcon = typeof L !== 'undefined' ? L.icon({
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+}) : null;
+
+function getLeafletIcon(storeId) {
+    if (storeId === selectedStoreId) return greenIcon;
+    if (storeId === nearestStoreId) return redIcon;
+    return orangeIcon;
+}
+
+function getVietmapMarkerColor(storeId) {
+    if (storeId === selectedStoreId) return '#1a7c3e';
+    if (storeId === nearestStoreId) return '#e8472a';
+    return '#f97316';
+}
+
+// ── Đặt marker ────────────────────────────────────────────────────────────
 function placeStoreMarker(store) {
     var addr = store.address || store.Address;
     if (!addr || addr.latitude == null || addr.longitude == null) return null;
     var id = store.storeID || store.StoreID;
-    var marker = new google.maps.Marker({
-        position: { lat: addr.latitude, lng: addr.longitude },
-        map: storeMap,
-        title: store.storeName || store.StoreName,
-        icon: getMarkerIcon(id)
-    });
-
-    var content =
-        '<div style="font-family:sans-serif;min-width:180px;padding:4px 2px">' +
-        '<strong style="color:#dc4d0b;font-size:14px">' + (store.storeName || store.StoreName) + '</strong><br>' +
-        '<span style="font-size:12px;color:#555">' + formatAddress(addr) + '</span><br>' +
+    var name = store.storeName || store.StoreName;
+    var addrText = formatAddress(addr);
+    var popupHtml =
+        '<div style="font-family:sans-serif;min-width:180px">' +
+        '<strong style="color:#dc4d0b">' + name + '</strong><br>' +
+        '<span style="font-size:12px;color:#555">' + addrText + '</span><br>' +
         '<a href="' + getDirectionsUrl(addr.latitude, addr.longitude) + '" target="_blank" ' +
-        'style="display:inline-block;margin-top:8px;padding:5px 12px;background:#dc4d0b;color:#fff;border-radius:5px;text-decoration:none;font-size:12px;font-weight:600">🗺️ Chỉ đường Google Maps</a>' +
+        'style="display:inline-block;margin-top:6px;padding:5px 12px;background:#dc4d0b;color:#fff;border-radius:5px;text-decoration:none;font-size:12px;font-weight:600">🗺️ Chỉ đường Google Maps</a>' +
         '</div>';
 
-    marker.addListener('click', function () {
-        infoWindow.setContent(content);
-        infoWindow.open(storeMap, marker);
-        selectedStoreId = id;
-        refreshMarkerIcons();
-        renderStoreCards(allStores);
-    });
+    if (VIETMAP_API_KEY) {
+        var el = document.createElement('div');
+        el.style.cssText = 'width:18px;height:18px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);cursor:pointer;background:' + getVietmapMarkerColor(id);
+        el.dataset.storeId = id;
 
-    return marker;
+        var popup = new vietmapsdk.Popup({ offset: 12 }).setHTML(popupHtml);
+        var marker = new vietmapsdk.Marker({ element: el })
+            .setLngLat([addr.longitude, addr.latitude])
+            .setPopup(popup)
+            .addTo(storeMap);
+        el.addEventListener('click', function () {
+            selectedStoreId = id;
+            refreshMarkerIcons();
+            renderStoreCards(allStores);
+        });
+        return marker;
+    } else {
+        var marker = L.marker([addr.latitude, addr.longitude], {
+            icon: getLeafletIcon(id),
+            title: name
+        }).addTo(storeMap);
+        marker.bindPopup(popupHtml);
+        return marker;
+    }
 }
 
 function refreshMarkerIcons() {
     allStores.forEach(function (s) {
         var id = s.storeID || s.StoreID;
         var marker = storeMarkerMap[id];
-        if (marker) marker.setIcon(getMarkerIcon(id));
+        if (!marker) return;
+        if (VIETMAP_API_KEY) {
+            var el = marker.getElement();
+            if (el) el.style.background = getVietmapMarkerColor(id);
+        } else {
+            marker.setIcon(getLeafletIcon(id));
+        }
     });
 }
 
@@ -90,24 +150,34 @@ function loadStoresOnMap() {
         .then(function (r) { return r.json(); })
         .then(function (data) {
             allStores = Array.isArray(data) ? data : (data.data || []);
-            Object.values(storeMarkerMap).forEach(function (m) { m.setMap(null); });
+
+            Object.values(storeMarkerMap).forEach(function (m) {
+                if (VIETMAP_API_KEY) m.remove(); else storeMap.removeLayer(m);
+            });
             storeMarkerMap = {};
 
-            var bounds = new google.maps.LatLngBounds();
-            var hasValid = false;
-
+            var lats = [], lngs = [];
             allStores.forEach(function (s) {
                 var id = s.storeID || s.StoreID;
                 var m = placeStoreMarker(s);
                 if (m) {
                     storeMarkerMap[id] = m;
                     var addr = s.address || s.Address;
-                    bounds.extend({ lat: addr.latitude, lng: addr.longitude });
-                    hasValid = true;
+                    lats.push(addr.latitude);
+                    lngs.push(addr.longitude);
                 }
             });
 
-            if (hasValid) storeMap.fitBounds(bounds, { padding: 60 });
+            if (lats.length > 0) {
+                if (VIETMAP_API_KEY) {
+                    var bounds = [[Math.min.apply(null, lngs), Math.min.apply(null, lats)],
+                                  [Math.max.apply(null, lngs), Math.max.apply(null, lats)]];
+                    storeMap.fitBounds(bounds, { padding: 60 });
+                } else {
+                    var latLngs = lats.map(function (lat, i) { return [lat, lngs[i]]; });
+                    storeMap.fitBounds(latLngs, { padding: [30, 30] });
+                }
+            }
 
             renderStoreCards(allStores);
         })
@@ -123,16 +193,19 @@ function selectStore(id) {
     renderStoreCards(allStores);
 
     if (selectedStoreId) {
-        var store = allStores.find(function (s) {
-            return (s.storeID || s.StoreID) === selectedStoreId;
-        });
+        var store = allStores.find(function (s) { return (s.storeID || s.StoreID) === selectedStoreId; });
         if (store) {
             var addr = store.address || store.Address;
             if (addr && addr.latitude != null && addr.longitude != null) {
-                storeMap.panTo({ lat: addr.latitude, lng: addr.longitude });
-                storeMap.setZoom(16);
-                var marker = storeMarkerMap[selectedStoreId];
-                if (marker) setTimeout(function () { infoWindow.open(storeMap, marker); }, 300);
+                if (VIETMAP_API_KEY) {
+                    storeMap.flyTo({ center: [addr.longitude, addr.latitude], zoom: 16, duration: 800 });
+                    var marker = storeMarkerMap[selectedStoreId];
+                    if (marker) setTimeout(function () { marker.togglePopup(); }, 900);
+                } else {
+                    storeMap.flyTo([addr.latitude, addr.longitude], 16, { duration: 0.8 });
+                    var marker = storeMarkerMap[selectedStoreId];
+                    if (marker) setTimeout(function () { marker.openPopup(); }, 900);
+                }
             }
         }
     }
@@ -198,10 +271,7 @@ function renderStoreCards(stores) {
 }
 
 function findNearestStore() {
-    if (!navigator.geolocation) {
-        alert('Trình duyệt không hỗ trợ định vị.');
-        return;
-    }
+    if (!navigator.geolocation) { alert('Trình duyệt không hỗ trợ định vị.'); return; }
     var btn = document.getElementById('find-nearest-btn');
     btn.disabled = true;
     btn.innerHTML = '<i class="ti-location-pin"></i> Đang xác định vị trí...';
@@ -211,21 +281,27 @@ function findNearestStore() {
             userLat = position.coords.latitude;
             userLng = position.coords.longitude;
 
-            if (userMarker) userMarker.setMap(null);
-            userMarker = new google.maps.Marker({
-                position: { lat: userLat, lng: userLng },
-                map: storeMap,
-                title: 'Vị trí của bạn',
-                icon: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-            });
-            infoWindow.setContent('<div style="font-weight:600;padding:2px 4px">📍 Vị trí của bạn</div>');
-            infoWindow.open(storeMap, userMarker);
+            if (VIETMAP_API_KEY) {
+                if (userMarker) userMarker.remove();
+                var el = document.createElement('div');
+                el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)';
+                userMarker = new vietmapsdk.Marker({ element: el })
+                    .setLngLat([userLng, userLat])
+                    .setPopup(new vietmapsdk.Popup({ offset: 12 }).setHTML('<div style="font-weight:600">📍 Vị trí của bạn</div>'))
+                    .addTo(storeMap);
+                userMarker.togglePopup();
+            } else {
+                if (userMarker) storeMap.removeLayer(userMarker);
+                userMarker = L.marker([userLat, userLng], { icon: blueIcon, title: 'Vị trí của bạn' })
+                    .addTo(storeMap)
+                    .bindPopup('<div style="font-weight:600">📍 Vị trí của bạn</div>')
+                    .openPopup();
+            }
 
             var validStores = allStores.filter(function (s) {
                 var addr = s.address || s.Address;
                 return addr && addr.latitude != null && addr.longitude != null;
             });
-
             if (validStores.length === 0) {
                 alert('Các cửa hàng chưa có tọa độ.');
                 btn.disabled = false;
@@ -241,12 +317,14 @@ function findNearestStore() {
 
             nearestStoreId = nearest.store.storeID || nearest.store.StoreID;
             selectedStoreId = nearestStoreId;
-
             refreshMarkerIcons();
 
             var nearestAddr = nearest.store.address || nearest.store.Address;
-            storeMap.panTo({ lat: nearestAddr.latitude, lng: nearestAddr.longitude });
-            storeMap.setZoom(15);
+            if (VIETMAP_API_KEY) {
+                storeMap.flyTo({ center: [nearestAddr.longitude, nearestAddr.latitude], zoom: 15 });
+            } else {
+                storeMap.setView([nearestAddr.latitude, nearestAddr.longitude], 15);
+            }
 
             renderStoreCards(allStores);
 
@@ -257,7 +335,9 @@ function findNearestStore() {
             label.style.display = 'block';
 
             var marker = storeMarkerMap[nearestStoreId];
-            if (marker) setTimeout(function () { infoWindow.open(storeMap, marker); }, 400);
+            if (marker) setTimeout(function () {
+                if (VIETMAP_API_KEY) marker.togglePopup(); else marker.openPopup();
+            }, 400);
 
             btn.disabled = false;
             btn.innerHTML = '<i class="ti-location-pin"></i> Tìm cửa hàng gần tôi nhất';
@@ -284,7 +364,7 @@ function findNearestStore() {
             mapInited = true;
             setTimeout(initStoreMap, 50);
         } else if (storeMap) {
-            google.maps.event.trigger(storeMap, 'resize');
+            if (VIETMAP_API_KEY) storeMap.resize(); else storeMap.invalidateSize();
         }
     }
 
