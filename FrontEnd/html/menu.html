@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Menu – Chônlibi </title>
     <meta name="description" content="Khám phá thực đơn gà rán Chônlibi – combo, best seller, ưu đãi hôm nay và món mới hấp dẫn.">
-    <link rel="stylesheet" href="/asset/css/style.css">
-    <link rel="stylesheet" href="/asset/css/menu.css">
-    <link rel="stylesheet" href="/asset/themify-icons/themify-icons.css">
-    <link rel="stylesheet" href="/asset/css/menu-auth.css">
+    <link rel="stylesheet" href="../asset/css/style.css">
+    <link rel="stylesheet" href="../asset/css/menu.css">
+    <link rel="stylesheet" href="../asset/themify-icons/themify-icons.css">
+    <link rel="stylesheet" href="../asset/css/menu-auth.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -20,8 +20,8 @@
         <button id="hamburger-btn" aria-label="Mở menu" aria-expanded="false">☰</button>
 
         <ul id="nav">
-            <li><a href="/html/index.html">Home</a></li>
-            <li><a href="/html/menu.html" class="nav-active">Menu</a></li>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="menu.html" class="nav-active">Menu</a></li>
             <li><a href="#" id="nav-store-btn">Store <i class="ti-angle-down nav-arrow-down"></i></a></li>
         </ul>
         <button class="delivery-btn delivery-cart-btn" id="cart-fab" aria-label="Xem giỏ hàng">
@@ -47,10 +47,33 @@
                 <button id="store-panel-close" class="store-panel-close">✕</button>
             </div>
             <div class="store-locate-bar">
-                <button id="find-nearest-btn" onclick="findNearestStore()" style="margin-bottom: 10px;">
-                    <i class="ti-location-pin"></i> Tìm cửa hàng gần tôi nhất
-                </button>
-                <select id="store-region-select" onchange="filterStoresByRegion(this.value)" style="padding: 10px 15px; border-radius: 6px; border: 1px solid #ddd; outline: none; cursor: pointer; width: 100%; max-width: 300px; font-family: inherit;">
+                <div style="display: flex; gap: 10px; margin-bottom: 10px; width: 100%;">
+                    <button id="find-nearest-btn" onclick="findNearestStore()" style="flex: 1; padding: 10px; border: none; background: var(--primary, #ff6b00); color: white; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                        <i class="ti-location-pin"></i> Vị trí hiện tại
+                    </button>
+                    <button id="toggle-manual-btn" onclick="toggleManualAddr()" style="flex: 1; padding: 10px; border: 1px solid #ddd; background: #f8f8f8; color: #333; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                        <i class="ti-pencil-alt"></i> Nhập địa chỉ
+                    </button>
+                </div>
+                
+                <div id="manual-addr-container" style="display: none; background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #ddd; width: 100%; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <select id="manual-province" onchange="onProvinceChange(this)" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc; outline: none; font-family: inherit;">
+                            <option value="">Chọn Tỉnh/Thành</option>
+                        </select>
+                        <select id="manual-district" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc; outline: none; font-family: inherit;">
+                            <option value="">Chọn Quận/Huyện</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="manual-street" placeholder="Số nhà, tên đường..." style="flex: 2; padding: 8px; border-radius: 4px; border: 1px solid #ccc; outline: none; font-family: inherit;">
+                        <button onclick="findStoreByManualAddress()" style="flex: 1; background: var(--primary, #ff6b00); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                            Tìm kiếm
+                        </button>
+                    </div>
+                </div>
+
+                <select id="store-region-select" onchange="filterStoresByRegion(this.value)" style="padding: 10px 15px; border-radius: 6px; border: 1px solid #ddd; outline: none; cursor: pointer; width: 100%; max-width: 100%; font-family: inherit; margin-bottom: 10px;">
                     <option value="all">📍 Tất cả các miền</option>
                     <option value="north">Miền Bắc</option>
                     <option value="central">Miền Trung</option>
@@ -274,7 +297,7 @@
                     <div class="cq-upsell-row">
                         <button class="cq-upsell-nav" id="cq-upsell-prev" aria-label="Trước">&lsaquo;</button>
                         <div class="cq-upsell-item" id="cq-upsell-item">
-                            <img class="cq-upsell-img" src="/asset/img/slider/KTC.webdp" alt="Khoai Tây Chiên" id="cq-upsell-img">
+                            <img class="cq-upsell-img" src="../asset/img/slider/KTC.webdp" alt="Khoai Tây Chiên" id="cq-upsell-img">
                             <div class="cq-upsell-info">
                                 <div class="cq-upsell-name" id="cq-upsell-name">Khoai Tây Chiên Giòn (Alacarte)</div>
                                 <div class="cq-upsell-price" id="cq-upsell-price">35.000 đ</div>
@@ -541,9 +564,9 @@
         </div>
     </div>
 
-    <script src="/asset/js/api.js"></script>
-    <script src="/asset/js/store.js"></script>
-    <script src="/asset/js/menu.js"></script>
-    <script src="/asset/js/mobile-nav.js"></script>
+    <script src="../asset/js/api.js"></script>
+    <script src="../asset/js/store.js"></script>
+    <script src="../asset/js/menu.js"></script>
+    <script src="../asset/js/mobile-nav.js"></script>
 </body>
 </html>

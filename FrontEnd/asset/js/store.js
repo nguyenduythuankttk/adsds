@@ -156,20 +156,127 @@ function findNearestStore() {
 
             renderStoreCards(allStores);
 
-            renderStoreCards(allStores);
-
             var wrapper = document.getElementById('store-list-wrapper');
             if (wrapper) wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
             btn.disabled = false;
-            btn.innerHTML = '<i class="ti-location-pin"></i> Cập nhật vị trí';
+            btn.innerHTML = '<i class="ti-location-pin"></i> Vị trí hiện tại';
         },
         function () {
             alert('Không thể lấy vị trí. Vui lòng cho phép truy cập vị trí trong trình duyệt.');
             btn.disabled = false;
-            btn.innerHTML = '<i class="ti-location-pin"></i> Tìm cửa hàng gần tôi nhất';
+            btn.innerHTML = '<i class="ti-location-pin"></i> Vị trí hiện tại';
         }
     );
+}
+
+// ── Xử lý địa chỉ thủ công ──────────────────────────────────────────────────
+var vnProvincesLoaded = false;
+var vnData = [];
+
+function toggleManualAddr() {
+    var container = document.getElementById('manual-addr-container');
+    if (!container) return;
+    
+    if (container.style.display === 'none' || container.style.display === '') {
+        container.style.display = 'block';
+        if (!vnProvincesLoaded) loadVNProvinces();
+    } else {
+        container.style.display = 'none';
+    }
+}
+
+function loadVNProvinces() {
+    fetch('https://provinces.open-api.vn/api/?depth=2')
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            vnData = data;
+            vnProvincesLoaded = true;
+            var pSelect = document.getElementById('manual-province');
+            if (!pSelect) return;
+            pSelect.innerHTML = '<option value="">Chọn Tỉnh/Thành</option>';
+            data.forEach(function(p) {
+                var opt = document.createElement('option');
+                opt.value = p.code;
+                opt.text = p.name;
+                pSelect.add(opt);
+            });
+        })
+        .catch(function(err) {
+            console.error('Lỗi tải danh sách tỉnh thành:', err);
+            alert('Không thể tải danh sách tỉnh thành.');
+        });
+}
+
+function onProvinceChange(selectElem) {
+    var code = parseInt(selectElem.value);
+    var dSelect = document.getElementById('manual-district');
+    if (!dSelect) return;
+    
+    dSelect.innerHTML = '<option value="">Chọn Quận/Huyện</option>';
+    if (!code) return;
+    
+    var province = vnData.find(function(p) { return p.code === code; });
+    if (province && province.districts) {
+        province.districts.forEach(function(d) {
+            var opt = document.createElement('option');
+            opt.value = d.code;
+            opt.text = d.name;
+            dSelect.add(opt);
+        });
+    }
+}
+
+function findStoreByManualAddress() {
+    var pSelect = document.getElementById('manual-province');
+    var dSelect = document.getElementById('manual-district');
+    var streetInput = document.getElementById('manual-street');
+    
+    if (!pSelect || !dSelect || !streetInput) return;
+
+    if (!pSelect.value) { alert('Vui lòng chọn Tỉnh/Thành phố'); return; }
+    if (!dSelect.value) { alert('Vui lòng chọn Quận/Huyện'); return; }
+
+    var pText = pSelect.options[pSelect.selectedIndex].text;
+    var dText = dSelect.options[dSelect.selectedIndex].text;
+    var street = streetInput.value.trim();
+
+    var addressParts = [];
+    if (street) addressParts.push(street);
+    addressParts.push(dText);
+    addressParts.push(pText);
+    addressParts.push('Việt Nam');
+
+    var addressQuery = addressParts.join(', ');
+
+    var btn = document.querySelector('#manual-addr-container button');
+    var oldText = btn.innerHTML;
+    btn.innerHTML = 'Đang tìm...';
+    btn.disabled = true;
+
+    fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(addressQuery))
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            btn.innerHTML = oldText;
+            btn.disabled = false;
+            
+            if (data && data.length > 0) {
+                userLat = parseFloat(data[0].lat);
+                userLng = parseFloat(data[0].lon);
+                renderStoreCards(allStores);
+                
+                var wrapper = document.getElementById('store-list-wrapper');
+                if (wrapper) wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                alert('Không thể xác định tọa độ từ địa chỉ này. Vui lòng nhập chi tiết hơn (ví dụ: thêm số nhà).');
+            }
+        })
+        .catch(function(err) {
+            btn.innerHTML = oldText;
+            btn.disabled = false;
+            console.error('Lỗi Nominatim:', err);
+            alert('Lỗi kết nối khi tìm kiếm địa chỉ.');
+        });
 }
 
 // ── Panel open/close ─────────────────────────────────────────────────────────
