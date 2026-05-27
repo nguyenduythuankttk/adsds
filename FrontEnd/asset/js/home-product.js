@@ -724,6 +724,76 @@
         if (el) el.addEventListener('keydown', function (e) { if (e.key === 'Enter') window.homeSearch(); });
     });
 
+    // ── Combo Modal ───────────────────────────────────────────────────────────
+    function openComboModal(people, title, comboKey) {
+        var modal   = document.getElementById('combo-modal-overlay');
+        var grid    = document.getElementById('combo-modal-grid');
+        var titleEl = document.getElementById('combo-modal-title');
+        var viewAll = document.getElementById('combo-modal-viewall');
+
+        if (titleEl) titleEl.textContent = title;
+        if (viewAll) viewAll.href = 'menu.html?category=' + comboKey;
+        if (grid) grid.innerHTML = '<p style="text-align:center;padding:30px;color:#aaa">Đang tải...</p>';
+        if (modal) modal.classList.add('active');
+
+        apiPost('/product/search', { Type: 'Combo' })
+            .then(function (res) { return res.ok ? res.json() : []; })
+            .then(function (data) {
+                var all = Array.isArray(data) ? data : [];
+                var filtered = all
+                    .filter(function (p) {
+                        return (p.productVarient || []).some(function (v) {
+                            return Number(v.forPeople) === people && v.isActive !== false && !v.deletedAt;
+                        });
+                    })
+                    .map(function (p) {
+                        var mv = (p.productVarient || []).find(function (v) { return Number(v.forPeople) === people; });
+                        if (!mv) return p;
+                        var rest = (p.productVarient || []).filter(function (v) { return v !== mv; });
+                        return Object.assign({}, p, { productVarient: [mv].concat(rest) });
+                    });
+
+                if (!grid) return;
+                if (!filtered.length) {
+                    grid.innerHTML = '<p style="text-align:center;padding:30px;color:#aaa">Chưa có combo phù hợp.</p>';
+                    return;
+                }
+                grid.innerHTML = filtered.map(function (p) { return renderProductCard(p, 0); }).join('');
+            })
+            .catch(function () {
+                if (grid) grid.innerHTML = '<p style="text-align:center;color:red;padding:20px">Không thể tải dữ liệu.</p>';
+            });
+    }
+
+    function closeComboModal() {
+        var modal = document.getElementById('combo-modal-overlay');
+        if (modal) modal.classList.remove('active');
+    }
+
+    function initComboModal() {
+        var overlay  = document.getElementById('combo-modal-overlay');
+        var closeBtn = document.getElementById('combo-modal-close');
+        if (overlay)  overlay.addEventListener('click', function (e) { if (e.target === overlay) closeComboModal(); });
+        if (closeBtn) closeBtn.addEventListener('click', closeComboModal);
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeComboModal(); });
+
+        var COMBO_MAP = {
+            'cat-combo1':  { people: 1, title: 'Combo 1 Người',      key: 'combo1' },
+            'cat-combo2':  { people: 2, title: 'Combo Cặp Đôi',      key: 'combo2' },
+            'cat-combo3':  { people: 3, title: 'Combo Hội Bạn Thân', key: 'combo3' },
+            'cat-giadinh': { people: 4, title: 'Combo Gia Đình',      key: 'combo4' }
+        };
+        Object.keys(COMBO_MAP).forEach(function (id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('click', function (e) {
+                e.preventDefault();
+                var cfg = COMBO_MAP[id];
+                openComboModal(cfg.people, cfg.title, cfg.key);
+            });
+        });
+    }
+
     // ── Init ──────────────────────────────────────────────────────────────────
     loadCart();
     updateCartBadge();
@@ -732,5 +802,6 @@
     initCQModal();
     initAddrPopup();
     initEmptyCartPopup();
+    initComboModal();
     loadFeatured();
 })();
