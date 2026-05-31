@@ -16,10 +16,10 @@ namespace Backend.Controller {
         }
         [Authorize(Roles = "Manager,Counter")]
         [HttpGet("get-all/{start}/{end}")]
-        public async Task<IActionResult> GetAllBillIn(DateOnly start, DateOnly end) {
+        public async Task<IActionResult> GetAllBillIn(DateOnly start, DateOnly end, [FromQuery] int? storeID = null) {
             try {
-                var bills = await _billService.GetAllBillIn(start, end);
-                if (bills == null || bills.Count == 0) return NotFound("Không có hóa đơn nào");
+                var bills = await _billService.GetAllBillIn(start, end, storeID);
+                if (bills == null || bills.Count == 0) return Ok(new List<Bill>());
                 return Ok(bills);
             } catch (Exception e) {
                 return StatusCode(500, $"Error in billController.GetAllBillIn: {e.Message}");
@@ -105,6 +105,20 @@ namespace Backend.Controller {
                 return Ok(status);
             } catch (Exception e) {
                 return StatusCode(500, $"Error in billController.GetPaymentStatus: {e.Message}");
+            }
+        }
+
+        // FE gọi khi countdown 3 phút hết, hoặc user bấm "Huỷ" trên popup QR
+        [Authorize]
+        [HttpPost("cancel/{billID}")]
+        public async Task<IActionResult> CancelUnpaidBill(Guid billID) {
+            try {
+                var callerID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("user_id")?.Value)!);
+                await _billService.CancelUnpaidBill(billID, callerID);
+                return Ok(new { success = true });
+            } catch (Exception e) {
+                return StatusCode(500, new { success = false, message = e.Message });
             }
         }
 

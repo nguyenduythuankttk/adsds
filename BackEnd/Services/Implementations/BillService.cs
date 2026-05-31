@@ -30,9 +30,9 @@ namespace Backend.Services.Implementations{
             _sepay = sepayOptions.Value;
         }
 
-        public async Task<List<Bill>?> GetAllBillIn(DateOnly start, DateOnly end){
+        public async Task<List<Bill>?> GetAllBillIn(DateOnly start, DateOnly end, int? storeID = null){
             try {
-                return await _dbcontext.Bill
+                var query = _dbcontext.Bill
                     .AsNoTracking()
                     .Include(b => b.BillChange
                         .Where(bc => bc.Status == BillStatus.Create)
@@ -47,7 +47,12 @@ namespace Backend.Services.Implementations{
                         .ThenInclude(bd => bd.ProductVarient)
                             .ThenInclude(pr => pr.Product)
                     .Include(b => b.Store)
-                    .ToListAsync();
+                    .AsQueryable();
+
+                if (storeID.HasValue)
+                    query = query.Where(b => b.StoreID == storeID.Value);
+
+                return await query.ToListAsync();
             } catch (Exception e) {
                 throw new Exception("Lỗi khi lấy danh sách hóa đơn: " + e.Message);
             }
@@ -446,6 +451,29 @@ namespace Backend.Services.Implementations{
                 })
                 .FirstOrDefaultAsync();
             return bill;
+        }
+
+        // Huỷ bill chưa thanh toán (FE gọi khi countdown 3p hết, hoặc user bấm "Huỷ").
+        // Idempotent: gọi lại trên bill đã Failed thì không throw — popup có thể race.
+        public async Task CancelUnpaidBill(Guid billID, Guid callerID)
+        {
+            var bill = await _dbcontext.Bill.FirstOrDefaultAsync(b => b.BillID == billID);
+            if (bill == null) throw new Exception("Bill không tồn tại.");
+            if (bill.UserID != callerID) throw new Exception("Không có quyền huỷ bill này.");
+            if (bill.PaymentStatus == PaymentStatus.Paid)
+                throw new Exception("Bill đã thanh toán, không thể huỷ.");
+            if (bill.PaymentStatus == PaymentStatus.Failed) return; // đã huỷ rồi
+
+            bill.PaymentStatus = PaymentStatus.Failed;
+            _dbcontext.BillChange.Add(new BillChange
+            {
+                BillChangeID = Guid.NewGuid(),
+                BillID = bill.BillID,
+                Status = BillStatus.Delete,
+                ChangeAt = DateTime.UtcNow.AddHours(7),
+                EmployeeID = null
+            });
+            await _dbcontext.SaveChangesAsync();
         }
 
         private async Task IncreaseSoldCount(List<BillDetail> billDetails)

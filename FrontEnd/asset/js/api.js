@@ -62,6 +62,13 @@ function getPaymentStatus(billId) {
         .then(function (r) { return r.ok ? r.json() : null; });
 }
 
+// Huỷ bill chưa thanh toán (countdown 3p hết hoặc user bấm Huỷ)
+function cancelBill(billId) {
+    return apiPost('/bill/cancel/' + encodeURIComponent(billId), {})
+        .then(function (r) { return r.ok; })
+        .catch(function () { return false; });
+}
+
 // Hiện modal QR cho bill BankTransfer. data = response object trả về từ /bill/create-delivery
 // onPaid() được gọi khi tiền về (webhook đã chạy). Trả về 1 hàm cancel() để gọi từ ngoài.
 function showSePayQrModal(data, onPaid) {
@@ -91,39 +98,68 @@ function showSePayQrModal(data, onPaid) {
         +   '<div><strong>Số tiền:</strong> ' + amount + ' đ</div>'
         +   '<div><strong>Nội dung CK:</strong> <code>' + (data.paymentReference || '') + '</code></div>'
         + '</div>'
-        + '<div id="sepay-status" style="margin-top:12px;color:#888;font-size:13px;">Đang chờ thanh toán…</div>'
+        + '<div id="sepay-status" style="margin-top:12px;font-size:14px;color:#e67e22;">'
+        +   'Còn lại <strong id="sepay-countdown">03:00</strong> để thanh toán'
+        + '</div>'
         + '<button id="sepay-cancel-btn" style="margin-top:14px;padding:10px 18px;border:none;border-radius:6px;'
-        +   'background:#e74c3c;color:#fff;cursor:pointer;font-size:14px;">Huỷ / đóng</button>';
+        +   'background:#e74c3c;color:#fff;cursor:pointer;font-size:14px;">Huỷ đơn</button>';
     overlay.appendChild(box);
     document.body.appendChild(overlay);
 
     var stopped = false;
+    var finalized = false; // chống double-call onPaid / cancel
     function cleanup() {
         stopped = true;
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
     }
-    box.querySelector('#sepay-cancel-btn').addEventListener('click', cleanup);
+    function formatMMSS(sec) {
+        var m = Math.floor(sec / 60), s = sec % 60;
+        return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    }
 
-    // Poll mỗi 3s, tối đa 10 phút
-    var ticks = 0, MAX_TICKS = 200;
-    var timer = setInterval(function () {
-        if (stopped) { clearInterval(timer); return; }
-        ticks++;
-        if (ticks > MAX_TICKS) {
-            clearInterval(timer);
-            var s = box.querySelector('#sepay-status');
-            if (s) s.innerHTML = '<span style="color:#e74c3c;">Hết thời gian chờ. Đơn vẫn được giữ – nhân viên sẽ liên hệ bạn.</span>';
-            return;
+    // User chủ động huỷ → gọi API cancel, alert, đóng popup
+    box.querySelector('#sepay-cancel-btn').addEventListener('click', function () {
+        if (finalized) { cleanup(); return; }
+        finalized = true;
+        cancelBill(data.billID).then(function () {
+            cleanup();
+            alert('Đã huỷ đơn hàng.');
+        });
+    });
+
+    // Countdown 3 phút (180s) — tick 1s update UI; poll status mỗi 3s
+    var SECONDS_TOTAL = 180;
+    var remaining = SECONDS_TOTAL;
+    var countdownEl = box.querySelector('#sepay-countdown');
+
+    var tickTimer = setInterval(function () {
+        if (stopped) { clearInterval(tickTimer); return; }
+        remaining--;
+        if (countdownEl) countdownEl.textContent = formatMMSS(Math.max(0, remaining));
+
+        // Poll status mỗi 3s
+        if (remaining % 3 === 0 || remaining <= 0) {
+            getPaymentStatus(data.billID).then(function (st) {
+                if (!st || stopped || finalized) return;
+                if (st.paymentStatus === 'Paid' || st.paymentStatus === 1) {
+                    finalized = true;
+                    clearInterval(tickTimer);
+                    cleanup();
+                    if (typeof onPaid === 'function') onPaid();
+                }
+            }).catch(function () { /* lỗi mạng – cứ thử lại lần sau */ });
         }
-        getPaymentStatus(data.billID).then(function (st) {
-            if (!st || stopped) return;
-            if (st.paymentStatus === 'Paid' || st.paymentStatus === 1) {
-                clearInterval(timer);
+
+        // Hết giờ — tự huỷ bill
+        if (remaining <= 0 && !finalized) {
+            finalized = true;
+            clearInterval(tickTimer);
+            cancelBill(data.billID).then(function () {
                 cleanup();
-                if (typeof onPaid === 'function') onPaid();
-            }
-        }).catch(function () { /* lỗi mạng – cứ thử lại lần sau */ });
-    }, 3000);
+                alert('Hết thời gian thanh toán (3 phút). Đơn hàng đã bị huỷ.');
+            });
+        }
+    }, 1000);
 
     return cleanup;
 }
