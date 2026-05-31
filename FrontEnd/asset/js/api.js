@@ -27,7 +27,8 @@ function apiFetch(method, path, body, noAuthRedirect) {
     return fetch(API_BASE + path, opts).then(function (res) {
         if (res.status === 401 && !noAuthRedirect) {
             clearAuth();
-            window.location.href = '/html/index.html';
+            window.location.href = 'index.html';
+            return new Promise(function() {}); // Dừng chuỗi promise trong khi chờ chuyển trang
         }
         return res;
     });
@@ -52,4 +53,77 @@ function luuThongTinKhachHang(data) {
     localStorage.setItem('fullName', data.fullName || data.FullName || '');
     localStorage.setItem('userId',   data.userID   || data.UserID   || '');
     localStorage.setItem('role',     'user');
+}
+
+// ─── SePay payment helpers ─────────────────────────────────────────────────
+// Poll trạng thái thanh toán bill (FE dùng sau khi tạo bill BankTransfer)
+function getPaymentStatus(billId) {
+    return apiGet('/bill/payment-status/' + encodeURIComponent(billId))
+        .then(function (r) { return r.ok ? r.json() : null; });
+}
+
+// Hiện modal QR cho bill BankTransfer. data = response object trả về từ /bill/create-delivery
+// onPaid() được gọi khi tiền về (webhook đã chạy). Trả về 1 hàm cancel() để gọi từ ngoài.
+function showSePayQrModal(data, onPaid) {
+    if (!data || !data.qrUrl) {
+        alert('Không tạo được QR thanh toán. Vui lòng thử lại.');
+        return function () {};
+    }
+    // Tạo DOM ad-hoc, không cần thêm CSS riêng
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99999;'
+                          + 'display:flex;align-items:center;justify-content:center;padding:20px;';
+    var box = document.createElement('div');
+    box.style.cssText = 'background:#fff;border-radius:12px;max-width:380px;width:100%;'
+                      + 'padding:24px;text-align:center;font-family:inherit;box-shadow:0 10px 40px rgba(0,0,0,.3);';
+    var amount = Number(data.total || 0).toLocaleString('vi-VN');
+    var testBadge = data.testMode
+        ? '<div style="background:#fff3cd;color:#856404;padding:6px;border-radius:6px;margin-bottom:10px;font-size:12px;">'
+        + '⚠ TEST MODE – không có tiền thật, dùng "Gửi thử webhook" trên dashboard SePay để mô phỏng.</div>'
+        : '';
+    box.innerHTML = testBadge
+        + '<h3 style="margin:0 0 8px;color:#333;">Quét QR để thanh toán</h3>'
+        + '<p style="margin:0 0 12px;color:#666;font-size:14px;">Mở app ngân hàng và quét mã bên dưới</p>'
+        + '<img src="' + data.qrUrl + '" alt="SePay QR" style="width:100%;max-width:280px;border:1px solid #eee;border-radius:8px;">'
+        + '<div style="margin-top:12px;padding:12px;background:#f5f5f5;border-radius:8px;text-align:left;font-size:13px;">'
+        +   '<div><strong>Ngân hàng:</strong> ' + (data.bankCode || '') + '</div>'
+        +   '<div><strong>Số tài khoản:</strong> ' + (data.bankAccount || '') + '</div>'
+        +   '<div><strong>Số tiền:</strong> ' + amount + ' đ</div>'
+        +   '<div><strong>Nội dung CK:</strong> <code>' + (data.paymentReference || '') + '</code></div>'
+        + '</div>'
+        + '<div id="sepay-status" style="margin-top:12px;color:#888;font-size:13px;">Đang chờ thanh toán…</div>'
+        + '<button id="sepay-cancel-btn" style="margin-top:14px;padding:10px 18px;border:none;border-radius:6px;'
+        +   'background:#e74c3c;color:#fff;cursor:pointer;font-size:14px;">Huỷ / đóng</button>';
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    var stopped = false;
+    function cleanup() {
+        stopped = true;
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+    box.querySelector('#sepay-cancel-btn').addEventListener('click', cleanup);
+
+    // Poll mỗi 3s, tối đa 10 phút
+    var ticks = 0, MAX_TICKS = 200;
+    var timer = setInterval(function () {
+        if (stopped) { clearInterval(timer); return; }
+        ticks++;
+        if (ticks > MAX_TICKS) {
+            clearInterval(timer);
+            var s = box.querySelector('#sepay-status');
+            if (s) s.innerHTML = '<span style="color:#e74c3c;">Hết thời gian chờ. Đơn vẫn được giữ – nhân viên sẽ liên hệ bạn.</span>';
+            return;
+        }
+        getPaymentStatus(data.billID).then(function (st) {
+            if (!st || stopped) return;
+            if (st.paymentStatus === 'Paid' || st.paymentStatus === 1) {
+                clearInterval(timer);
+                cleanup();
+                if (typeof onPaid === 'function') onPaid();
+            }
+        }).catch(function () { /* lỗi mạng – cứ thử lại lần sau */ });
+    }, 3000);
+
+    return cleanup;
 }

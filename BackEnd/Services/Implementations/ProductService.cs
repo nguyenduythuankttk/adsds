@@ -33,18 +33,33 @@ namespace Backend.Services.Implementations{
             }
         }
         public async Task AddProductVarient(ProductVarientCreate request){
-            try {
-                var newProductVarient = new ProductVarient {
-                    ProductID = request.ProductID,
-                    Price = request.Price,
-                    Size = request.Size,
-                    ForPeople = request.ForPeople,
-                };
-                _dbContext.ProductVarient.Add(newProductVarient);
-                await _dbContext.SaveChangesAsync();
-            } catch (Exception e){
-                Console.WriteLine(e.Message);
+            var product = await _dbContext.Product
+                .Include(p => p.ProductVarient)
+                .FirstOrDefaultAsync(p => p.ProductID == request.ProductID && p.DeletedAt == null);
+            if (product == null)
+                throw new Exception($"Product {request.ProductID} not found.");
+
+            // Combo: chỉ chấp nhận Size = Default và tối đa 1 varient duy nhất
+            if (product.ProductType == ProductType.Combo)
+            {
+                if (request.Size != ProductSize.Default)
+                    throw new Exception("Combo chỉ chấp nhận ProductSize.Default — không cho phép size khác.");
+                if (product.ProductVarient.Any(v => v.DeletedAt == null))
+                    throw new Exception("Combo đã có varient Default — không thể thêm varient thứ hai.");
             }
+
+            // Tránh trùng (ProductID, Size) cho product thường
+            if (product.ProductVarient.Any(v => v.DeletedAt == null && v.Size == request.Size))
+                throw new Exception($"ProductVarient cho Product {request.ProductID} với Size {request.Size} đã tồn tại.");
+
+            var newProductVarient = new ProductVarient {
+                ProductID = request.ProductID,
+                Price = request.Price,
+                Size = request.Size,
+                ForPeople = request.ForPeople,
+            };
+            _dbContext.ProductVarient.Add(newProductVarient);
+            await _dbContext.SaveChangesAsync();
         }
         public async Task ProductUpdate (ProductUpdateRequest request, int productID){
             try {
@@ -78,19 +93,71 @@ namespace Backend.Services.Implementations{
         }
         public async Task SoftDeleteProduct(int productID){
             var product = await _dbContext.Product
-                .FirstOrDefaultAsync(p => p.ProductID == productID &&
-                                    p.DeletedAt == null);
-            
+                .Include(p => p.ProductVarient)
+                .FirstOrDefaultAsync(p => p.ProductID == productID && p.DeletedAt == null);
+
             if(product == null){
                 throw new Exception("Product not found");
             }
 
+            using var tx = await _dbContext.Database.BeginTransactionAsync();
             try{
-                product.DeletedAt = DateTime.Now;
+                var now = DateTime.UtcNow.AddHours(7);
+
+                var activeVarients = product.ProductVarient
+                    .Where(v => v.DeletedAt == null)
+                    .ToList();
+                var varientIDs = activeVarients.Select(v => v.ProductVarientID).ToList();
+
+                // Cascade: soft-delete tất cả Recipe của các varient này
+                if (varientIDs.Count > 0)
+                {
+                    var recipes = await _dbContext.Receipe
+                        .Where(r => varientIDs.Contains(r.ProductVarientID) && r.DeletedAt == null)
+                        .ToListAsync();
+                    foreach (var r in recipes) r.DeletedAt = now;
+                }
+
+                // Cascade: soft-delete tất cả ProductVarient
+                foreach (var v in activeVarients)
+                {
+                    v.DeletedAt = now;
+                    v.IsActive = false;
+                }
+
+                product.DeletedAt = now;
                 await _dbContext.SaveChangesAsync();
+                await tx.CommitAsync();
             }catch(Exception ex){
-                Console.WriteLine($"Soft delete product error {ex.Message}");
+                await tx.RollbackAsync();
                 throw new Exception($"An error occurred while soft deleting product: {ex.Message}");
+            }
+        }
+
+        public async Task SoftDeleteProductVarient(int productVarientID){
+            var varient = await _dbContext.ProductVarient
+                .FirstOrDefaultAsync(v => v.ProductVarientID == productVarientID && v.DeletedAt == null);
+            if (varient == null)
+                throw new Exception("ProductVarient not found");
+
+            using var tx = await _dbContext.Database.BeginTransactionAsync();
+            try {
+                var now = DateTime.UtcNow.AddHours(7);
+
+                // Cascade: soft-delete tất cả Recipe gắn với varient này
+                var recipes = await _dbContext.Receipe
+                    .Where(r => r.ProductVarientID == productVarientID && r.DeletedAt == null)
+                    .ToListAsync();
+                foreach (var r in recipes) r.DeletedAt = now;
+
+                varient.DeletedAt = now;
+                varient.IsActive = false;
+
+                await _dbContext.SaveChangesAsync();
+                await tx.CommitAsync();
+            } catch (Exception ex) {
+                await tx.RollbackAsync();
+                throw new Exception($"An error occurred while soft deleting product varient: {ex.Message}");
             }
         }
         public async Task<decimal> GetPriceByID (int productVarientID)

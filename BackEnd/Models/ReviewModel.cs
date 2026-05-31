@@ -17,7 +17,7 @@ namespace Backend.Models
         public string Username {get; set; } = null!;
 
         [BsonElement("storeID")]
-        public Guid StoreID {get; set; }
+        public int StoreID {get; set; }
 
         [BsonElement("comment")]
         [Required]

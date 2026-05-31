@@ -30,6 +30,7 @@ namespace Backend.Services.Implementations
                 .Project(r => new ReviewResponse
                 {
                     ReviewID = r.ReviewID,
+                    StoreID = r.StoreID,
                     Username = r.Username,
                     Comment = r.Comment,
                     Rating = r.Rating,
@@ -48,6 +49,7 @@ namespace Backend.Services.Implementations
             .Project(r => new ReviewResponse
             {
                 ReviewID = r.ReviewID!,
+                StoreID = r.StoreID,
                 Username = r.Username,
                 Comment = r.Comment,
                 Rating = r.Rating,
@@ -55,13 +57,51 @@ namespace Backend.Services.Implementations
             })
             .FirstOrDefaultAsync();
 
+        public async Task<StoreReviewsResponse> GetReviewsByStore(int storeID)
+        {
+            try
+            {
+                var reviews = await _mongoDbContext.Reviews
+                    .Find(r => r.StoreID == storeID && r.DeletedAt == null)
+                    .SortByDescending(r => r.CreatedAt)
+                    .Project(r => new ReviewResponse
+                    {
+                        ReviewID = r.ReviewID,
+                        StoreID = r.StoreID,
+                        Username = r.Username,
+                        Comment = r.Comment,
+                        Rating = r.Rating,
+                        CreatedAt = r.CreatedAt
+                    })
+                    .ToListAsync();
+
+                var avg = reviews.Count == 0 ? 0 : Math.Round(reviews.Average(r => (double)r.Rating), 1);
+
+                return new StoreReviewsResponse
+                {
+                    StoreID = storeID,
+                    TotalReviews = reviews.Count,
+                    AverageRating = avg,
+                    Reviews = reviews
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"An error occurred while getting reviews by store {ex.Message}");
+            }
+        }
+
         public async Task AddReview(Guid userID, ReviewCreateRequest createRequest)
         {
-            try 
+            try
             {
                 var user = await _dbContext.User
                 .FirstOrDefaultAsync(u => u.UserID == userID)
                 ?? throw new Exception("User not found!");
+
+                var store = await _dbContext.Store
+                .FirstOrDefaultAsync(s => s.StoreID == createRequest.StoreID && s.DeletedAt == null)
+                ?? throw new Exception("Store not found!");
 
                 await _mongoDbContext.Reviews.InsertOneAsync(new Review
                 {
@@ -73,12 +113,29 @@ namespace Backend.Services.Implementations
                     CreatedAt = DateTime.UtcNow.AddHours(7),
                     DeletedAt = null
                 });
-                
+
+                await RecomputeStoreStats(createRequest.StoreID);
+
             }catch (Exception ex)
             {
                 Console.WriteLine($"Add review error {ex.Message}");
                 throw new Exception($"An error occurred while adding review {ex.Message}");
             }
+        }
+
+        private async Task RecomputeStoreStats(int storeID)
+        {
+            var reviews = await _mongoDbContext.Reviews
+                .Find(r => r.StoreID == storeID && r.DeletedAt == null)
+                .Project(r => r.Rating)
+                .ToListAsync();
+
+            var store = await _dbContext.Store.FirstOrDefaultAsync(s => s.StoreID == storeID);
+            if (store == null) return;
+
+            store.TotalReviews = reviews.Count;
+            store.TotalPoints = reviews.Sum();
+            await _dbContext.SaveChangesAsync();
         }
 
         public async Task UpdateReview(Guid reviewId, Guid userID, ReviewUpdateRequest updateRequest)
@@ -110,6 +167,8 @@ namespace Backend.Services.Implementations
                     r => r.ReviewID == reviewId,
                     Builders<Review>.Update.Combine(updates)
                 );
+
+                await RecomputeStoreStats(review.StoreID);
             }catch(Exception ex)
             {
                 Console.WriteLine($"Updating review error {ex.Message}");
@@ -133,6 +192,8 @@ namespace Backend.Services.Implementations
                     r => r.ReviewID == reviewId,
                     Builders<Review>.Update.Set(r => r.DeletedAt, DateTime.UtcNow.AddHours(7))
                 );
+
+                await RecomputeStoreStats(review.StoreID);
             }
             catch (Exception ex)
             {

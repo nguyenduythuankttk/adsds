@@ -11,6 +11,7 @@ namespace Backend.Services.Interface{
         Task ProductUpdate (ProductUpdateRequest request, int productID);
         Task ProductVarientUpdate (ProductVarientUpdateRequest request, int productID, ProductSize productSize);
         Task SoftDeleteProduct(int productID);
+        Task SoftDeleteProductVarient(int productVarientID);
         Task <decimal> GetPriceByID (int productVarientID);
         Task SetIsActive(int productVarientID, bool isActive);
         Task<List<Product>> SearchProducts(ProductSearchRequest request);
