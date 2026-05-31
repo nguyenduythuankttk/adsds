@@ -507,7 +507,7 @@ body {
     /* Reset old fixed-position FAB styles */
     position: static !important;
     width: auto !important;
-    height: 46px !important;
+    height: 55px !important;
     border-radius: 0 !important;
     background: linear-gradient(135deg, #FFB800, #e6a600) !important;
     color: #4A2C0A !important;
@@ -524,7 +524,7 @@ body {
     text-transform: uppercase !important;
     letter-spacing: 0.3px !important;
     border: none !important;
-    float: right !important;
+    flex-shrink: 0 !important;
 }
 
 .cart-fab:hover {

@@ -1,22 +1,26 @@
 // Mở/đóng modal đăng nhập
-document.getElementById('openLoginBtn').addEventListener('click', function (e) {
-    e.preventDefault();
+(function () {
+    var openLoginBtn = document.getElementById('openLoginBtn');
+    if (!openLoginBtn) return; // toggle slider được dùng thay thế
+    openLoginBtn.addEventListener('click', function (e) {
+        e.preventDefault();
 
-    var fullName = localStorage.getItem('fullName');
-    var role     = localStorage.getItem('role');
+        var fullName = localStorage.getItem('fullName');
+        var role     = localStorage.getItem('role');
 
-    if (fullName) {
-        if (role === 'admin') {
-            window.location.href = 'admin.html';
-        } else if (role === 'employee') {
-            window.location.href = 'employee.html';
+        if (fullName) {
+            if (role === 'admin') {
+                window.location.href = 'admin.html';
+            } else if (role === 'employee') {
+                window.location.href = 'employee.html';
+            } else {
+                window.location.href = 'user.html';
+            }
         } else {
-            window.location.href = 'user.html';
+            document.getElementById('login-modal').classList.add('active');
         }
-    } else {
-        document.getElementById('login-modal').classList.add('active');
-    }
-});
+    });
+})();
 
 document.getElementById('closeLoginBtn').addEventListener('click', function () {
     document.getElementById('login-modal').classList.remove('active');
@@ -362,7 +366,6 @@ document.getElementById('btn-register').addEventListener('click', function () {
 });
 
 function updateHeaderAfterLogin(name) {
-    var btn       = document.getElementById('openLoginBtn');
     var role      = localStorage.getItem('role');
     var initial   = name.charAt(0).toUpperCase();
     var shortName = name.split(' ').pop();
@@ -371,34 +374,50 @@ function updateHeaderAfterLogin(name) {
     var cartFab = document.getElementById('cart-fab');
     if (cartFab) cartFab.style.display = '';
 
-    // Đổi button thành avatar + tên + nút đăng xuất
-    btn.innerHTML =
-        '<span class="user-avatar-btn">' + initial + '</span>' +
-        '<span id="login-btn-text">' + shortName + '</span>' +
-        '<span class="logout-divider">|</span>' +
-        '<span class="logout-text" id="btn-logout-header">Đăng xuất</span>';
-
-    // Gắn sự kiện đăng xuất
-    var logoutEl = document.getElementById('btn-logout-header');
-    if (logoutEl) {
-        logoutEl.addEventListener('click', function (e) {
-            e.stopPropagation();
-            apiPost('/auth/logout').then(function () {
-                clearAuth();
-                window.location.reload();
-            }).catch(function () {
-                clearAuth();
-                window.location.reload();
-            });
-        });
+    // Cập nhật toggle slider: user icon → hiển thị avatar + tên rút gọn
+    var userBtn = document.getElementById('nav-toggle-user');
+    if (userBtn) {
+        userBtn.innerHTML =
+            '<span class="user-avatar-toggle">' + initial + '</span>';
+        userBtn.title = shortName;
+        // Đảm bảo active
+        userBtn.classList.add('active');
+        var homeBtn = document.getElementById('nav-toggle-home');
+        if (homeBtn) homeBtn.classList.remove('active');
+        var thumb = document.getElementById('nav-toggle-thumb');
+        if (thumb) thumb.classList.add('on-user');
     }
 
-    if (role === 'admin') {
-        btn.title = 'Vào trang quản lý';
-    } else if (role === 'employee') {
-        btn.title = 'Xem trang nhân viên';
-    } else {
-        btn.title = 'Xem trang cá nhân';
+    // Giữ tương thích: cập nhật login-btn nếu vẫn tồn tại (cho các trang khác)
+    var btn = document.getElementById('openLoginBtn');
+    if (btn) {
+        btn.innerHTML =
+            '<span class="user-avatar-btn">' + initial + '</span>' +
+            '<span id="login-btn-text">' + shortName + '</span>' +
+            '<span class="logout-divider">|</span>' +
+            '<span class="logout-text" id="btn-logout-header">Đăng xuất</span>';
+
+        var logoutEl = document.getElementById('btn-logout-header');
+        if (logoutEl) {
+            logoutEl.addEventListener('click', function (e) {
+                e.stopPropagation();
+                apiPost('/auth/logout').then(function () {
+                    clearAuth();
+                    window.location.reload();
+                }).catch(function () {
+                    clearAuth();
+                    window.location.reload();
+                });
+            });
+        }
+
+        if (role === 'admin') {
+            btn.title = 'Vào trang quản lý';
+        } else if (role === 'employee') {
+            btn.title = 'Xem trang nhân viên';
+        } else {
+            btn.title = 'Xem trang cá nhân';
+        }
     }
 }
 
@@ -430,5 +449,49 @@ function updateHeaderAfterLogin(name) {
                 toggle.classList.remove('female');
             }
         });
+    });
+})();
+
+// ── Header Nav Toggle (Home / User) ──────────────────
+(function () {
+    var homeBtn  = document.getElementById('nav-toggle-home');
+    var userBtn  = document.getElementById('nav-toggle-user');
+    var thumb    = document.getElementById('nav-toggle-thumb');
+    if (!homeBtn || !userBtn) return;
+
+    function setActiveTab(tab) {
+        if (tab === 'home') {
+            homeBtn.classList.add('active');
+            userBtn.classList.remove('active');
+            if (thumb) thumb.classList.remove('on-user');
+        } else {
+            userBtn.classList.add('active');
+            homeBtn.classList.remove('active');
+            if (thumb) thumb.classList.add('on-user');
+        }
+    }
+
+    // Trang hiện tại là Home → active Home
+    setActiveTab('home');
+
+    homeBtn.addEventListener('click', function () {
+        window.location.href = 'index.html';
+    });
+
+    userBtn.addEventListener('click', function () {
+        var fullName = localStorage.getItem('fullName');
+        var role     = localStorage.getItem('role');
+        if (fullName) {
+            if (role === 'admin') {
+                window.location.href = 'admin.html';
+            } else if (role === 'employee') {
+                window.location.href = 'employee.html';
+            } else {
+                window.location.href = 'user.html';
+            }
+        } else {
+            var loginModal = document.getElementById('login-modal');
+            if (loginModal) loginModal.classList.add('active');
+        }
     });
 })();
