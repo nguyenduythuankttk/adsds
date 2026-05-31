@@ -382,7 +382,7 @@
                 }
                 if (!selectedAddress) {
                     alert('Bạn chưa có địa chỉ giao hàng. Vui lòng thêm địa chỉ trong trang tài khoản.');
-                    window.location.href = '/html/user.html';
+                    window.location.href = 'user.html';
                     return;
                 }
 
@@ -401,10 +401,19 @@
                 })
                 .then(function (res) {
                     if (!res.ok) return res.text().then(function (t) { throw new Error(t); });
+                    return res.json();
+                })
+                .then(function (data) {
                     closeCQModal();
-                    alert('Đặt hàng thành công!\nCảm ơn bạn đã tin tưởng Chônlibi!');
                     cart.length = 0;
                     saveCart(); updateCartBadge(); renderCart();
+                    if (data && data.paymentMethods === 'BankTransfer' && data.qrUrl) {
+                        showSePayQrModal(data, function () {
+                            alert('Thanh toán thành công!\nCảm ơn bạn đã tin tưởng Chônlibi!');
+                        });
+                    } else {
+                        alert('Đặt hàng thành công!\nCảm ơn bạn đã tin tưởng Chônlibi!');
+                    }
                 })
                 .catch(function (err) {
                     alert('Đặt hàng thất bại. Vui lòng thử lại.\n' + err.message);

@@ -3,9 +3,11 @@ using Backend.Data;
 using Backend.Models;
 using Backend.Models.DTOs.Reponse;
 using Backend.Models.DTOs.Request;
+using Backend.Services;
 using Backend.Services.Interface;
 using BackEnd.Migrations;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 namespace Backend.Services.Implementations{
     public class BillService : IBillService{
         private readonly AppDbContext _dbcontext;
@@ -13,16 +15,19 @@ namespace Backend.Services.Implementations{
         private readonly IUserService _userService;
         private readonly IProductService _productService;
         private readonly ITicketService _ticketService;
+        private readonly SePayOptions _sepay;
         public BillService (AppDbContext dbcontext,
                             IAddressService addressService,
                             IUserService userService,
                             IProductService productService,
-                            ITicketService ticketService){
+                            ITicketService ticketService,
+                            IOptions<SePayOptions> sepayOptions){
             _dbcontext = dbcontext;
             _addressService = addressService;
             _userService = userService;
             _productService = productService;
             _ticketService = ticketService;
+            _sepay = sepayOptions.Value;
         }
 
         public async Task<List<Bill>?> GetAllBillIn(DateOnly start, DateOnly end){
@@ -174,6 +179,8 @@ namespace Backend.Services.Implementations{
                         PaymentMethods = request.PaymentMethods,
                         Note = request.Note,
                         MoneyReceived = request.MoneyReceived,
+                        PaymentStatus = PaymentStatus.Paid,
+                        PaidAt = DateTime.UtcNow.AddHours(7)
                         };
                 decimal total = 0.0m;
                 foreach (var i in request.products)
@@ -275,7 +282,7 @@ namespace Backend.Services.Implementations{
             throw new Exception("Không thể xác định cửa hàng xử lý đơn giao hàng: địa chỉ thiếu tọa độ và không có StoreID dự phòng.");
         }
 
-        public async Task CreateDeliveryBill(DeliveryBillCreateRequest request)
+        public async Task<DeliveryBillCreateReponse> CreateDeliveryBill(DeliveryBillCreateRequest request)
         {
             if (request.products == null || request.products.Count == 0)
                 throw new Exception("Bill must have at least one product.");
@@ -307,7 +314,11 @@ namespace Backend.Services.Implementations{
                     AddressID = addressID,
                     Note = request.Note,
                     MoneyReceived = null,
-                    MoneyGiveBack = null
+                    MoneyGiveBack = null,
+                    // Cash/Card mặc định Paid (xử lý ngoài app); BankTransfer chờ webhook SePay
+                    PaymentStatus = request.PaymentMethods == PaymentMethods.BankTransfer
+                        ? PaymentStatus.Pending
+                        : PaymentStatus.Paid
                 };
                 decimal total = 0.0m;
                 foreach (var i in request.products)
@@ -358,6 +369,14 @@ namespace Backend.Services.Implementations{
                     ChangeAt = DateTime.UtcNow.AddHours(7)
                 };
                 bill.BillChange.Add(billChange);
+
+                // Sinh mã nội dung CK cho chuyển khoản SePay (rút gọn BillID 8 ký tự đầu)
+                if (request.PaymentMethods == PaymentMethods.BankTransfer)
+                {
+                    var prefix = string.IsNullOrWhiteSpace(_sepay.ReferencePrefix) ? "JLB" : _sepay.ReferencePrefix;
+                    bill.PaymentReference = prefix + bill.BillID.ToString("N").Substring(0, 8).ToUpper();
+                }
+
                 _dbcontext.Bill.Add(bill);
 
                 var delivery = new DeliveryInfo{
@@ -385,10 +404,48 @@ namespace Backend.Services.Implementations{
                 await IncreaseSoldCount(bill.BillDetail.ToList());
                 // Không trừ nguyên liệu ở đây – sẽ trừ khi bếp bắt đầu chuẩn bị (Preparing)
                 await tx.CommitAsync();
+
+                var response = new DeliveryBillCreateReponse
+                {
+                    BillID           = bill.BillID,
+                    Total            = bill.Total,
+                    PaymentMethods   = bill.PaymentMethods,
+                    PaymentStatus    = bill.PaymentStatus,
+                    PaymentReference = bill.PaymentReference,
+                    BankAccount      = _sepay.Account,
+                    BankCode         = _sepay.Bank,
+                    TestMode         = _sepay.TestMode
+                };
+
+                if (bill.PaymentMethods == PaymentMethods.BankTransfer
+                    && !string.IsNullOrEmpty(_sepay.Account)
+                    && !string.IsNullOrEmpty(_sepay.Bank))
+                {
+                    // VietQR ảnh động của SePay: https://qr.sepay.vn/img?acc=...&bank=...&amount=...&des=...
+                    var amount = ((long)bill.Total).ToString();
+                    var des    = Uri.EscapeDataString(bill.PaymentReference ?? "");
+                    response.QrUrl = $"https://qr.sepay.vn/img?acc={_sepay.Account}&bank={_sepay.Bank}&amount={amount}&des={des}";
+                }
+                return response;
             } catch (Exception e) {
                 await tx.RollbackAsync();
                 throw new Exception("Error in BillService.CreateDeliveryBill: " + e.Message);
             }
+        }
+
+        public async Task<PaymentStatusReponse?> GetPaymentStatus(Guid billID)
+        {
+            var bill = await _dbcontext.Bill
+                .AsNoTracking()
+                .Where(b => b.BillID == billID)
+                .Select(b => new PaymentStatusReponse
+                {
+                    BillID = b.BillID,
+                    PaymentStatus = b.PaymentStatus,
+                    PaidAt = b.PaidAt
+                })
+                .FirstOrDefaultAsync();
+            return bill;
         }
 
         private async Task IncreaseSoldCount(List<BillDetail> billDetails)
@@ -426,51 +483,69 @@ namespace Backend.Services.Implementations{
             var now = DateTime.UtcNow.AddHours(7);
             var today = DateOnly.FromDateTime(now);
 
+            var demand = new Dictionary<int, decimal>();
             foreach (var detail in billDetails)
             {
-                var recipeItems = recipes.Where(r => r.ProductVarientID == detail.ProductVarientID).ToList();
-                foreach (var recipe in recipeItems)
+                foreach (var recipe in recipes.Where(r => r.ProductVarientID == detail.ProductVarientID))
                 {
-                    decimal totalToConsume = recipe.QtyAfterProcess * detail.Quantity;
-                    if (totalToConsume <= 0) continue;
-
-                    var batches = await _dbcontext.InventoryBatch
-                        .Where(b => b.IngredientID == recipe.IngredientID
-                                 && b.BatchType == BatchType.Processed
-                                 && b.Status == BatchStatus.Available
-                                 && b.QuantityOnHand > 0
-                                 && b.Exp >= today
-                                 && b.Warehouse.StoreID == storeID)
-                        .OrderBy(b => b.ImportDate)
-                        .ToListAsync();
-
-                    decimal remaining = totalToConsume;
-                    foreach (var batch in batches)
-                    {
-                        if (remaining <= 0) break;
-                        var deduct = Math.Min(remaining, batch.QuantityOnHand);
-                        batch.QuantityOnHand -= deduct;
-                        if (batch.QuantityOnHand == 0)
-                            batch.Status = BatchStatus.Depleted;
-                        batch.UpdatedAt = now;
-
-                        _dbcontext.StockMovement.Add(new StockMovement
-                        {
-                            StockMovementID = Guid.NewGuid(),
-                            BatchID         = batch.BatchID,
-                            EmployeeID      = employeeID,
-                            QtyChange       = -deduct,
-                            MovementType    = StockMovementType.Consumption,
-                            ReferenceType   = StockReferenceType.Bill,
-                            ReferenceID     = billID,
-                            TimeStamp       = now,
-                        });
-                        remaining -= deduct;
-                    }
-
-                    if (remaining > 0)
-                        throw new Exception($"Insufficient stock for IngredientID {recipe.IngredientID}: short by {remaining}.");
+                    var need = recipe.QtyAfterProcess * detail.Quantity;
+                    if (need <= 0) continue;
+                    demand[recipe.IngredientID] = demand.GetValueOrDefault(recipe.IngredientID) + need;
                 }
+            }
+            if (demand.Count == 0) return;
+
+            var ingredientIDs = demand.Keys.ToList();
+            var availableBatches = await _dbcontext.InventoryBatch
+                .Where(b => ingredientIDs.Contains(b.IngredientID)
+                         && b.BatchType == BatchType.Processed
+                         && b.Status == BatchStatus.Available
+                         && b.QuantityOnHand > 0
+                         && b.Exp >= today
+                         && b.Warehouse.StoreID == storeID)
+                .ToListAsync();
+
+            var batchesByIngredient = availableBatches
+                .GroupBy(b => b.IngredientID)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            foreach (var (ingredientID, totalToConsume) in demand)
+            {
+                if (!batchesByIngredient.TryGetValue(ingredientID, out var batches) || batches.Count == 0)
+                    throw new Exception($"Insufficient stock for IngredientID {ingredientID}: short by {totalToConsume}.");
+
+                var sortedBatches = batches
+                    .OrderBy(b => b.Exp)
+                    .ThenBy(b => b.QuantityOnHand)
+                    .ThenBy(b => b.ImportDate)
+                    .ToList();
+
+                decimal remaining = totalToConsume;
+                foreach (var batch in sortedBatches)
+                {
+                    if (remaining <= 0) break;
+                    var deduct = Math.Min(remaining, batch.QuantityOnHand);
+                    batch.QuantityOnHand -= deduct;
+                    if (batch.QuantityOnHand == 0)
+                        batch.Status = BatchStatus.Depleted;
+                    batch.UpdatedAt = now;
+
+                    _dbcontext.StockMovement.Add(new StockMovement
+                    {
+                        StockMovementID = Guid.NewGuid(),
+                        BatchID         = batch.BatchID,
+                        EmployeeID      = employeeID,
+                        QtyChange       = -deduct,
+                        MovementType    = StockMovementType.Consumption,
+                        ReferenceType   = StockReferenceType.Bill,
+                        ReferenceID     = billID,
+                        TimeStamp       = now,
+                    });
+                    remaining -= deduct;
+                }
+
+                if (remaining > 0)
+                    throw new Exception($"Insufficient stock for IngredientID {ingredientID}: short by {remaining}.");
             }
 
             await _dbcontext.SaveChangesAsync();

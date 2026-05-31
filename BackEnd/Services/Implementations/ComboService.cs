@@ -35,32 +35,39 @@ namespace Backend.Services.Implementations
         {
             try
             {
-                var combo = new Product();
+                if (request.Products == null || request.Products.Count == 0)
+                    throw new Exception("Combo must have at least one product.");
+
+                var combo = new Product
+                {
+                    ProductType = ProductType.Combo,
+                };
                 foreach (var product in request.Products)
                 {
-                    Product? p =await _productService.GetProductByID(product.ProductID);
-                    if (p?.ProductType == ProductType.Combo) throw new Exception("Combo in combo isn't acepted");
+                    Product? p = await _productService.GetProductByID(product.ProductID);
+                    if (p == null) throw new Exception($"Product {product.ProductID} not found.");
+                    if (p.ProductType == ProductType.Combo) throw new Exception("Combo in combo isn't accepted");
                     var comboDetail = new ComboDetail
                     {
-                        ComboID =combo.ProductID,
-                        ProductID = p.ProductID, 
+                        ProductID = p.ProductID,
                         qty = product.qty
                     };
+                    // Dùng navigation property — EF sẽ tự gán ComboID khi SaveChanges
                     combo.ComboDetail.Add(comboDetail);
-                    _dbContext.ComboDetail.Add(comboDetail);
                 }
+
+                // Combo chỉ có duy nhất 1 varient với Size = Default
                 var comboVarient = new ProductVarient{
-                    ProductID = combo.ProductID,
                     Size = ProductSize.Default,
                     Price = request.Price
                 };
                 combo.ProductVarient.Add(comboVarient);
-                _dbContext.ProductVarient.Add(comboVarient);
+
                 _dbContext.Product.Add(combo);
                 await _dbContext.SaveChangesAsync();
             } catch(Exception e)
             {
-                throw new Exception("Error in ComboService.CreateNewCombo"+ e.Message);
+                throw new Exception("Error in ComboService.CreateNewCombo: "+ e.Message);
             }
         }
     }

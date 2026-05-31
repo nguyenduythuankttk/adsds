@@ -88,10 +88,23 @@ namespace Backend.Controller {
                 if (!isEmployee)
                     request.UserID = callerID;
 
-                await _billService.CreateDeliveryBill(request);
-                return Ok("Tạo hóa đơn giao hàng thành công");
+                var result = await _billService.CreateDeliveryBill(request);
+                return Ok(result);
             } catch (Exception e) {
                 return StatusCode(500, $"Error in billController.CreateDeliveryBill: {e.Message}");
+            }
+        }
+
+        // FE poll trạng thái thanh toán (chủ yếu cho BankTransfer/SePay)
+        [Authorize]
+        [HttpGet("payment-status/{billID}")]
+        public async Task<IActionResult> GetPaymentStatus(Guid billID) {
+            try {
+                var status = await _billService.GetPaymentStatus(billID);
+                if (status == null) return NotFound("Không tìm thấy hóa đơn");
+                return Ok(status);
+            } catch (Exception e) {
+                return StatusCode(500, $"Error in billController.GetPaymentStatus: {e.Message}");
             }
         }
 

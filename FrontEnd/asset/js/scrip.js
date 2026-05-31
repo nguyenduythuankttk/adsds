@@ -7,11 +7,11 @@ document.getElementById('openLoginBtn').addEventListener('click', function (e) {
 
     if (fullName) {
         if (role === 'admin') {
-            window.location.href = '/html/admin.html';
+            window.location.href = 'admin.html';
         } else if (role === 'employee') {
-            window.location.href = '/html/employee.html';
+            window.location.href = 'employee.html';
         } else {
-            window.location.href = '/html/user.html';
+            window.location.href = 'user.html';
         }
     } else {
         document.getElementById('login-modal').classList.add('active');
@@ -75,7 +75,7 @@ document.getElementById('btn-login').addEventListener('click', function () {
                 luuThongTinNhanVien(result.data);
                 document.getElementById('login-modal').classList.remove('active');
                 var role = localStorage.getItem('role');
-                window.location.href = role === 'admin' ? '/html/admin.html' : '/html/employee.html';
+                window.location.href = role === 'admin' ? 'admin.html' : 'employee.html';
             } else {
                 luuThongTinKhachHang(result.data);
                 document.getElementById('login-modal').classList.remove('active');

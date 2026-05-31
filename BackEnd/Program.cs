@@ -1,5 +1,6 @@
 using Backend.Data;
 using Backend.Models;
+using Backend.Services;
 using Backend.Services.Interface;
 using Backend.Services.Implementations;
 using Scalar.AspNetCore;
@@ -115,6 +116,8 @@ builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IIngredientService, IngredientService>();
 builder.Services.AddScoped<IWareHouseService, WarehouseService>();
 builder.Services.AddScoped<IBillService, BillService>();
+builder.Services.AddScoped<ISePayService, SePayService>();
+builder.Services.Configure<SePayOptions>(builder.Configuration.GetSection(SePayOptions.SectionName));
 builder.Services.AddScoped<ITicketService, TicketService>();
 builder.Services.AddScoped<IDiningTableService, DiningTableService>();
 builder.Services.AddScoped<IDeliveryInfoService, DeliveryService>();
@@ -169,6 +172,17 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference();
+}
+
+// Cảnh báo nếu SePay đang chạy ở test mode (để tránh nhầm với prod)
+{
+    var sepayOpts = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<SePayOptions>>().Value;
+    var startupLogger = app.Services.GetRequiredService<ILogger<Program>>();
+    if (sepayOpts.TestMode)
+        startupLogger.LogWarning("⚠ SePay đang chạy ở chế độ TEST – không nhận tiền thật. Account={Acc} Bank={Bank}",
+            sepayOpts.Account, sepayOpts.Bank);
+    if (string.IsNullOrEmpty(sepayOpts.ApiKey))
+        startupLogger.LogWarning("⚠ SePay:ApiKey trống – webhook sẽ trả 401 cho mọi request.");
 }
 
 // app.UseHttpsRedirection(); // Tắt redirect HTTPS khi dev với frontend HTTP

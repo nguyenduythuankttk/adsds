@@ -58,17 +58,30 @@ function makeStoreCardHTML(store, isNearest) {
         rankBadge = '<span class="store-nearest-rank" style="font-size:11px; padding:3px 8px; border-radius:12px; background:var(--primary,#ff6b00); color:#fff; margin-right:8px; display:inline-block; vertical-align:middle; line-height:1;">📍 Gần nhất</span>';
     }
 
-    return '<div class="store-card" id="store-card-' + id + '">' +
+    var totalReviews = store.totalReviews || store.TotalReviews || 0;
+    var totalPoints  = store.totalPoints  || store.TotalPoints  || 0;
+    var avgRating    = totalReviews > 0 ? (totalPoints / totalReviews) : 0;
+    var safeName = (name || '').replace(/"/g, '&quot;');
+    var safeNameJs = safeName.replace(/\'/g, "\\\'");
+    var ratingHtml = '<div class="store-card-info store-card-rating" title="Click để xem đánh giá" onclick="event.stopPropagation();openStoreReviewModal(' + id + ', \'' + safeNameJs + '\')" style="color:#f5a623;font-weight:600;cursor:pointer">' +
+        '<i class="ti-star"></i><span>' +
+        (totalReviews > 0 ? (avgRating.toFixed(1) + ' / 5 (' + totalReviews + ' đánh giá)') : 'Chưa có đánh giá') +
+        '</span></div>';
+
+    return '<div class="store-card" id="store-card-' + id + '" data-store-id="' + id + '" data-store-name="' + safeName + '" style="cursor:pointer" onclick="openStoreReviewModal(' + id + ', \'' + safeNameJs + '\')">' +
         '<div class="store-card-name">' + rankBadge + '<i class="ti-home"></i> ' + name + '</div>' +
         (addrText ? '<div class="store-card-info"><i class="ti-location-pin"></i><span>' + addrText + '</span></div>' : '') +
         distHtml +
+        ratingHtml +
         '<div class="store-card-info"><i class="ti-headphone-alt"></i><span>' + (store.phone || store.Phone || '') + '</span></div>' +
         '<div class="store-card-info"><i class="ti-email"></i><span>' + (store.email || store.Email || '') + '</span></div>' +
         '<div class="store-card-info"><i class="ti-agenda"></i><span>Sức chứa: ' + (store.seatingCapacity || store.SeatingCapacity || '?') + ' người</span></div>' +
-        (hasCoords
-            ? '<a class="store-directions-btn" href="' + getDirectionsUrl(addr.latitude, addr.longitude) +
-              '" target="_blank" onclick="event.stopPropagation()">🗺️ Chỉ đường Google Maps</a>'
-            : '') +
+        '<div class="store-card-cta" style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px">' +
+            (hasCoords
+                ? '<a class="store-directions-btn" href="' + getDirectionsUrl(addr.latitude, addr.longitude) +
+                  '" target="_blank" onclick="event.stopPropagation()" style="display:flex;align-items:center;justify-content:center;text-align:center;padding:8px 12px;border:1px solid rgb(220,77,11);border-radius:6px;font-weight:600;font-size:13px;line-height:1.2;box-sizing:border-box;min-width:0;height:36px">🗺️ Chỉ đường</a>'
+                : '') +
+        '</div>' +
         '</div>';
 }
 
@@ -309,3 +322,199 @@ function findStoreByManualAddress() {
     // Gọi API ngay khi trang load
     loadStores();
 })();
+
+// ── Store review modal ──────────────────────────────────────────────────────
+function escapeHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function ensureStoreReviewModal() {
+    if (document.getElementById('store-review-modal')) return;
+    var html = ''
+        + '<div id="store-review-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9998"></div>'
+        + '<div id="store-review-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:92%;max-width:560px;max-height:88vh;overflow:hidden;background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.25);z-index:9999;flex-direction:column">'
+        +   '<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #eee">'
+        +     '<h3 id="srm-title" style="margin:0;font-size:18px;color:#222">Đánh giá cửa hàng</h3>'
+        +     '<button id="srm-close" type="button" style="background:none;border:none;font-size:22px;cursor:pointer;color:#666">✕</button>'
+        +   '</div>'
+        +   '<div id="srm-summary" style="padding:12px 18px;background:#fff8f1;border-bottom:1px solid #f1e3d2;font-weight:600;color:#333">Đang tải...</div>'
+        +   '<div id="srm-list" style="flex:1;overflow-y:auto;padding:12px 18px"></div>'
+        +   '<div id="srm-form-wrap" style="border-top:1px solid #eee;padding:12px 18px;background:#fafafa"></div>'
+        + '</div>';
+    var wrap = document.createElement('div');
+    wrap.innerHTML = html;
+    while (wrap.firstChild) document.body.appendChild(wrap.firstChild);
+
+    document.getElementById('srm-close').addEventListener('click', closeStoreReviewModal);
+    document.getElementById('store-review-modal-backdrop').addEventListener('click', closeStoreReviewModal);
+}
+
+function closeStoreReviewModal() {
+    var m = document.getElementById('store-review-modal');
+    var b = document.getElementById('store-review-modal-backdrop');
+    if (m) m.style.display = 'none';
+    if (b) b.style.display = 'none';
+}
+
+function openStoreReviewModal(storeId, storeName, focusForm) {
+    ensureStoreReviewModal();
+    document.getElementById('srm-title').textContent = '⭐ Đánh giá: ' + storeName;
+    document.getElementById('srm-summary').textContent = 'Đang tải đánh giá...';
+    document.getElementById('srm-list').innerHTML = '';
+    document.getElementById('srm-form-wrap').innerHTML = '';
+    document.getElementById('store-review-modal').style.display = 'flex';
+    document.getElementById('store-review-modal-backdrop').style.display = 'block';
+
+    loadStoreReviews(storeId);
+    renderReviewForm(storeId);
+
+    if (focusForm) {
+        setTimeout(function () {
+            var wrap = document.getElementById('srm-form-wrap');
+            if (wrap && wrap.scrollIntoView) wrap.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            var ta = document.getElementById('srm-comment');
+            if (ta) ta.focus();
+        }, 50);
+    }
+}
+
+function renderStarsHtml(rating) {
+    var n = Math.max(0, Math.min(5, Math.round(rating || 0)));
+    var s = '';
+    for (var i = 1; i <= 5; i++) s += (i <= n ? '★' : '☆');
+    return '<span style="color:#f5a623;letter-spacing:2px">' + s + '</span>';
+}
+
+function renderReviewList(storeId, reviews) {
+    var total = reviews.length;
+    var avg = total > 0
+        ? reviews.reduce(function (s, r) { return s + (r.rating || r.Rating || 0); }, 0) / total
+        : 0;
+
+    document.getElementById('srm-summary').innerHTML =
+        renderStarsHtml(avg) + ' &nbsp;<span style="color:#444">' +
+        (total > 0 ? avg.toFixed(1) + ' / 5' : 'Chưa có') +
+        '</span> &nbsp;<span style="color:#888;font-weight:400">(' + total + ' đánh giá)</span>';
+
+    var listEl = document.getElementById('srm-list');
+    if (!total) {
+        listEl.innerHTML = '<p style="color:#888;text-align:center;padding:24px">Chưa có đánh giá nào. Hãy là người đầu tiên!</p>';
+        return;
+    }
+    listEl.innerHTML = reviews.map(function (rv) {
+        var name    = escapeHtml(rv.username || rv.Username || 'Khách');
+        var comment = escapeHtml(rv.comment  || rv.Comment  || '');
+        var rating  = rv.rating || rv.Rating || 0;
+        var created = rv.createdAt || rv.CreatedAt;
+        var dt = '';
+        if (created) {
+            try { dt = new Date(created).toLocaleString('vi-VN'); } catch (e) {}
+        }
+        return '<div style="border:1px solid #eee;border-radius:8px;padding:10px 12px;margin-bottom:8px">'
+            +    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+            +      '<strong style="color:#222">' + name + '</strong>'
+            +      '<span>' + renderStarsHtml(rating) + '</span>'
+            +    '</div>'
+            +    (dt ? '<div style="font-size:12px;color:#999;margin-bottom:6px">' + dt + '</div>' : '')
+            +    '<div style="color:#444;white-space:pre-wrap">' + comment + '</div>'
+            +  '</div>';
+    }).join('');
+}
+
+function loadStoreReviews(storeId) {
+    apiGet('/review/store/' + storeId)
+        .then(function (r) {
+            if (!r.ok) throw new Error('store endpoint not available (' + r.status + ')');
+            return r.json();
+        })
+        .then(function (data) {
+            var reviews = data.reviews || data.Reviews || [];
+            renderReviewList(storeId, reviews);
+        })
+        .catch(function () {
+            // Fallback: gọi get-all rồi lọc theo storeID (cho trường hợp backend chưa rebuild)
+            apiGet('/review/get-all')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    var all = Array.isArray(data) ? data : (data.data || []);
+                    var filtered = all.filter(function (rv) {
+                        var sid = rv.storeID != null ? rv.storeID : rv.StoreID;
+                        return sid === storeId || String(sid) === String(storeId);
+                    });
+                    renderReviewList(storeId, filtered);
+                })
+                .catch(function () {
+                    document.getElementById('srm-summary').textContent = '';
+                    document.getElementById('srm-list').innerHTML =
+                        '<p style="color:#c00;text-align:center;padding:24px">Không tải được đánh giá.</p>';
+                });
+        });
+}
+
+function renderReviewForm(storeId) {
+    var wrap = document.getElementById('srm-form-wrap');
+    var token = (typeof getToken === 'function') ? getToken() : null;
+    var isUser = !!token && (localStorage.getItem('role') === 'user');
+
+    if (!isUser) {
+        wrap.innerHTML = '<p style="margin:0;color:#888;text-align:center">Vui lòng đăng nhập tài khoản khách hàng để viết đánh giá.</p>';
+        return;
+    }
+
+    wrap.innerHTML = ''
+        + '<div style="font-weight:600;margin-bottom:6px;color:#333">Viết đánh giá của bạn</div>'
+        + '<div id="srm-star-picker" style="font-size:22px;cursor:pointer;letter-spacing:4px;color:#ddd;margin-bottom:6px">'
+        +   '<span data-v="1">☆</span><span data-v="2">☆</span><span data-v="3">☆</span><span data-v="4">☆</span><span data-v="5">☆</span>'
+        + '</div>'
+        + '<textarea id="srm-comment" rows="3" maxlength="1000" placeholder="Cảm nhận của bạn..." style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-family:inherit;resize:vertical"></textarea>'
+        + '<div style="display:flex;justify-content:flex-end;margin-top:8px">'
+        +   '<button type="button" id="srm-submit" style="background:var(--primary,#ff6b00);color:#fff;border:none;padding:8px 18px;border-radius:6px;font-weight:700;cursor:pointer">Gửi đánh giá</button>'
+        + '</div>';
+
+    var picker = document.getElementById('srm-star-picker');
+    var selected = 0;
+    function paint(val) {
+        Array.prototype.forEach.call(picker.children, function (span) {
+            var v = parseInt(span.getAttribute('data-v'), 10);
+            span.textContent = v <= val ? '★' : '☆';
+            span.style.color = v <= val ? '#f5a623' : '#ddd';
+        });
+    }
+    Array.prototype.forEach.call(picker.children, function (span) {
+        span.addEventListener('mouseover', function () { paint(parseInt(span.getAttribute('data-v'), 10)); });
+        span.addEventListener('click', function () {
+            selected = parseInt(span.getAttribute('data-v'), 10);
+            paint(selected);
+        });
+    });
+    picker.addEventListener('mouseleave', function () { paint(selected); });
+
+    document.getElementById('srm-submit').addEventListener('click', function () {
+        if (selected < 1 || selected > 5) { alert('Vui lòng chọn số sao (1-5).'); return; }
+        var comment = document.getElementById('srm-comment').value.trim();
+        if (!comment) { alert('Vui lòng viết nội dung đánh giá.'); return; }
+
+        var btn = this; btn.disabled = true; btn.textContent = 'Đang gửi...';
+        apiPost('/review/create', { storeID: storeId, rating: selected, comment: comment })
+            .then(function (r) {
+                if (!r.ok) return r.text().then(function (t) { throw new Error(t || 'Lỗi gửi đánh giá'); });
+                return r.text();
+            })
+            .then(function () {
+                btn.disabled = false; btn.textContent = 'Gửi đánh giá';
+                loadStoreReviews(storeId);
+                document.getElementById('srm-comment').value = '';
+                selected = 0; paint(0);
+                if (typeof loadStores === 'function') loadStores();
+            })
+            .catch(function (e) {
+                btn.disabled = false; btn.textContent = 'Gửi đánh giá';
+                alert('Không gửi được đánh giá: ' + (e && e.message ? e.message : ''));
+            });
+    });
+}

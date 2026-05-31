@@ -230,35 +230,44 @@ DeliveryLog (trạng thái đầu tiên)
   Note         ← request.NoteForDelivery
 ```
 
-#### ConsumeIngredients — FIFO trừ kho
+#### ConsumeIngredients — Greedy (FEFO + smallest-remaining)
 
 Gọi sau khi `SaveChangesAsync()` nhưng vẫn trong cùng transaction — nếu hết hàng thì rollback cả bill.
 
+**Thuật toán tham lam** ưu tiên 2 mục tiêu: tránh hết hạn và dùng hết batch dở.
+
 ```
-Với mỗi BillDetail (ProductVarientID, Quantity):
-  → Lấy Recipe: WHERE ProductVarientID = X AND DeletedAt IS NULL
-  → Với mỗi Recipe item (IngredientID, QtyAfterProcess):
-       totalToConsume = QtyAfterProcess × BillDetail.Quantity
+1. Gom demand theo IngredientID:
+     demand[ingredientID] = Σ (Recipe.QtyAfterProcess × BillDetail.Quantity)
 
-       FIFO query:
-         InventoryBatch WHERE
-           IngredientID = recipe.IngredientID
-           AND BatchType = Processed
-           AND Status = Available
-           AND QuantityOnHand > 0
-           AND Exp >= today                ← loại batch hết hạn
-           AND Warehouse.StoreID = storeID ← chỉ lấy kho của store đang bán
-         ORDER BY ImportDate ASC           ← cũ nhất trước
+2. Query 1 lần tất cả batch khả dụng:
+     InventoryBatch WHERE
+       IngredientID IN demand.Keys
+       AND BatchType = Processed
+       AND Status = Available
+       AND QuantityOnHand > 0
+       AND Exp >= today                ← loại batch hết hạn
+       AND Warehouse.StoreID = storeID ← chỉ kho của store đang bán
 
-       Trừ dần qua nhiều batch:
-         deduct = Min(remaining, batch.QuantityOnHand)
-         batch.QuantityOnHand -= deduct
-         nếu QuantityOnHand == 0 → Status = Depleted
-         tạo StockMovement(Consumption, Bill, QtyChange = -deduct)
-         remaining -= deduct
+3. Với mỗi (ingredientID, totalToConsume):
+     SORT batches BY:
+       Exp ASC              ← (ưu tiên 1) cận hạn trước — tránh hỏng
+       ThenBy QuantityOnHand ASC ← (ưu tiên 2) batch dở ít nhất — dùng hết nó
+       ThenBy ImportDate ASC ← tiebreaker FIFO
 
-       Nếu remaining > 0 sau khi hết batch → throw (hết hàng → rollback cả bill)
+     remaining = totalToConsume
+     foreach batch in sortedBatches:
+       if remaining <= 0: break
+       deduct = Min(remaining, batch.QuantityOnHand)
+       batch.QuantityOnHand -= deduct
+       if batch.QuantityOnHand == 0: batch.Status = Depleted
+       tạo StockMovement(Consumption, Bill, QtyChange = -deduct)
+       remaining -= deduct
+
+     if remaining > 0: throw  ← hết hàng → rollback cả bill
 ```
+
+> Có thể trừ qua nhiều batch trong cùng nguyên liệu. Mỗi batch cạn được đánh dấu `Depleted` để query sau bỏ qua.
 
 #### StockMovement tạo ra khi bán
 

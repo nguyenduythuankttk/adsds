@@ -2,6 +2,8 @@ services:
   mongo:
     image: mongo:7
     restart: always
+    ports:
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongo_data:/data/db
 
@@ -47,6 +49,11 @@ services:
       Jwt__ExpiryMinutes: ${JWT_EXPIRY_MINUTES}
       Smtp__Password: ${SMTP_PASSWORD}
       FrontendUrl: ${FRONTEND_URL}
+      SePay__TestMode: ${SePay__TestMode}
+      SePay__ApiKey: ${SePay__ApiKey}
+      SePay__Account: ${SePay__Account}
+      SePay__Bank: ${SePay__Bank}
+      SePay__ReferencePrefix: ${SePay__ReferencePrefix}
       ASPNETCORE_ENVIRONMENT: Development
     depends_on:
       mongo:
