@@ -52,11 +52,12 @@ namespace Backend.Controller
                 return Unauthorized(new { success = false, message = "Invalid API key." });
             }
 
-            if (payload == null)
-                return Ok(new { success = false, message = "Empty payload." });
-
-            var handled = await _sepayService.HandleIncomingTransaction(payload);
-            return Ok(new { success = handled });
+            // SePay spec yêu cầu body { "success": true } để đánh dấu webhook đã consume.
+            // Trả false sẽ bị SePay retry 7 lần (kể cả khi không match bill — vô nghĩa).
+            // Kết quả thực tế (bill found/paid hay không) ghi vào log, không cần báo lại SePay.
+            if (payload != null)
+                await _sepayService.HandleIncomingTransaction(payload);
+            return Ok(new { success = true });
         }
     }
 }
