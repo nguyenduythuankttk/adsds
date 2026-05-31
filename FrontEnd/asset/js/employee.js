@@ -42,14 +42,38 @@ function showTab(name) {
     var tab = document.getElementById('tab-' + name);
     if (tab) tab.classList.add('active');
 
+    // Polling chỉ chạy khi đang ở tab invoice (đỡ tốn request)
+    stopInvoicePolling();
+
     var renders = {
-        invoice:   function () { renderInvMenu(); renderInvoices(); updateInvStats(); loadAvailableTickets(); },
+        invoice: function () {
+            renderInvMenu();
+            loadAvailableTickets();
+            loadInvoicesFromAPI(/*silent=*/true);   // Load lần đầu — không toast
+            startInvoicePolling();
+        },
         table:     renderTables,
         warehouse: renderWarehouse,
         stockmove: renderStockMove,
         delivery:  renderDelivery
     };
     if (renders[name]) renders[name]();
+}
+
+function startInvoicePolling() {
+    stopInvoicePolling();
+    // 15 giây/lần — đủ realtime cho UX, không tải nặng cho API
+    INV_POLL_TIMER = setInterval(function () {
+        if (document.hidden) return; // không poll khi tab trình duyệt ẩn
+        loadInvoicesFromAPI(/*silent=*/false);
+    }, 15000);
+}
+
+function stopInvoicePolling() {
+    if (INV_POLL_TIMER) {
+        clearInterval(INV_POLL_TIMER);
+        INV_POLL_TIMER = null;
+    }
 }
 
 var MENU           = [];
@@ -59,6 +83,8 @@ var TABLES         = [];
 var WAREHOUSE_LOG  = [];
 var STOCK_MOVEMENTS = [];
 var DELIVERIES     = [];
+var INV_POLL_TIMER = null;
+var INV_LAST_IDS   = {}; // Track BillIDs đã thấy → phát hiện bill mới
 
 var TYPE_LABEL  = { takeaway: 'Mang về', 'dine-in': 'Tại quán', delivery: 'Giao hàng' };
 var MOVE_LABEL  = { import: 'Nhập mới', consume: 'Chế biến', waste: 'Hao hụt', adjust: 'Điều chỉnh' };
@@ -229,24 +255,7 @@ function createInvoice() {
     apiPost('/bill/create-dinein', body).then(function (r) {
         if (!r.ok) return r.json().then(function (d) { throw new Error(d.message || 'Lỗi tạo hóa đơn'); });
         return r.json();
-    }).then(function (d) {
-        var billData = d.data || d;
-        var items = Object.keys(INV_CART).map(function (id) {
-            var item = MENU.find(function (m) { return m.id == id; });
-            return (item ? item.name : id) + ' ×' + INV_CART[id];
-        }).join(', ');
-
-        INVOICES.unshift({
-            id:       billData.BillID || ('HD-' + String(INVOICES.length + 1).padStart(3, '0')),
-            customer: customer || 'Khách lẻ',
-            phone:    phone,
-            items:    items,
-            total:    total,
-            type:     type,
-            table:    tableNo,
-            time:     new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-        });
-
+    }).then(function () {
         if (type === 'dine-in' && tableId) {
             var t = TABLES.find(function (t) { return (t.TableID || t.id) == tableId; });
             if (t) t.Status = 'Occupied';
@@ -259,12 +268,76 @@ function createInvoice() {
         });
         if (ticketEl) { ticketEl.value = ''; ticketEl.dataset.discount = 0; ticketEl.dataset.ticketId = ''; }
         renderInvMenu();
-        renderInvoices();
-        updateInvStats();
+        loadInvoicesFromAPI(/*silent=*/false);
         toast('Xuất hóa đơn thành công!');
     }).catch(function (err) {
         toast(err.message || 'Lỗi tạo hóa đơn!', 'error');
     });
+}
+
+// Load bills (dine-in + delivery) thật từ DB cho store đang trực, hôm nay.
+// silent=true: không hiện toast khi có bill mới (lần load đầu khi vào tab).
+function loadInvoicesFromAPI(silent) {
+    var storeId = localStorage.getItem('storeId');
+    if (!storeId) return;
+    var today = new Date().toISOString().slice(0, 10);
+    var url   = '/bill/get-all/' + today + '/' + today + '?storeID=' + encodeURIComponent(storeId);
+
+    apiGet(url).then(function (r) {
+        return r.ok ? r.json() : [];
+    }).then(function (data) {
+        var bills = Array.isArray(data) ? data : (data.data || []);
+        // Map về INVOICES shape để renderInvoices() & updateInvStats() dùng được
+        INVOICES = bills.map(function (b) {
+            var billId  = b.billID || b.BillID || '';
+            var details = b.billDetail || b.BillDetail || [];
+            var items = details.map(function (bd) {
+                var pv   = bd.productVarient || bd.ProductVarient || {};
+                var prod = pv.product || pv.Product || {};
+                return (prod.productName || prod.ProductName || 'SP') + ' ×' + (bd.quantity || bd.Quantity || 1);
+            }).join(', ');
+            // Bill có TableID = dine-in; có AddressID = delivery; không thì takeaway
+            var type = (b.tableID || b.TableID)
+                ? 'dine-in'
+                : ((b.addressID || b.AddressID) ? 'delivery' : 'takeaway');
+            var changes = b.billChange || b.BillChange || [];
+            var createChange = changes.find(function (c) { return (c.status || c.Status) === 'Create'; }) || changes[0] || {};
+            var createdAt    = createChange.changeAt || createChange.ChangeAt || '';
+            var timeStr      = createdAt
+                ? new Date(createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                : '';
+            return {
+                id:       String(billId).slice(0, 8).toUpperCase(),
+                billID:   billId,
+                customer: type === 'delivery' ? 'Khách đặt online' : 'Khách lẻ',
+                phone:    '',
+                items:    items,
+                total:    Number(b.total || b.Total || 0),
+                type:     type,
+                table:    b.tableID || b.TableID || '',
+                time:     timeStr,
+                createdAt: createdAt
+            };
+        });
+        // Sắp xếp mới nhất trước
+        INVOICES.sort(function (a, b) {
+            return (b.createdAt || '').localeCompare(a.createdAt || '');
+        });
+
+        // Phát hiện bill mới (so với lần poll trước) → toast
+        if (!silent) {
+            var newOnes = INVOICES.filter(function (inv) { return inv.billID && !INV_LAST_IDS[inv.billID]; });
+            var newDelivery = newOnes.filter(function (inv) { return inv.type === 'delivery'; });
+            if (newDelivery.length) {
+                toast('🔔 Có ' + newDelivery.length + ' đơn giao hàng mới từ khách!');
+            }
+        }
+        INV_LAST_IDS = {};
+        INVOICES.forEach(function (inv) { if (inv.billID) INV_LAST_IDS[inv.billID] = true; });
+
+        renderInvoices();
+        updateInvStats();
+    }).catch(function () { /* im lặng - lần poll tiếp theo sẽ thử lại */ });
 }
 
 function renderInvoices() {
@@ -274,11 +347,14 @@ function renderInvoices() {
         return;
     }
     tbody.innerHTML = INVOICES.map(function (inv) {
+        var typeBadge = inv.type === 'delivery' ? 'badge-orange'
+                      : inv.type === 'dine-in'  ? 'badge-green'
+                      : 'badge-blue';
         return '<tr>'
             + '<td><strong style="color:var(--primary)">' + inv.id + '</strong></td>'
             + '<td>' + inv.customer + '<br><small style="color:var(--muted)">' + (inv.phone || '—') + '</small></td>'
             + '<td><strong>' + inv.total.toLocaleString('vi-VN') + 'đ</strong></td>'
-            + '<td><span class="badge badge-blue">' + (TYPE_LABEL[inv.type] || inv.type) + '</span></td>'
+            + '<td><span class="badge ' + typeBadge + '">' + (TYPE_LABEL[inv.type] || inv.type) + '</span></td>'
             + '<td style="color:var(--muted);font-size:12px">' + inv.time + '</td>'
             + '</tr>';
     }).join('');
@@ -586,6 +662,14 @@ function confirmDelivery(deliveryId) {
             toast('Lỗi cập nhật đơn giao hàng: ' + (err.message || ''), 'error');
         });
 }
+
+// Khi user rời tab trình duyệt rồi quay lại, refresh ngay để bắt kịp bill mới
+document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && document.getElementById('section-invoice') &&
+        document.getElementById('section-invoice').classList.contains('active')) {
+        loadInvoicesFromAPI(/*silent=*/false);
+    }
+});
 
 // Khởi tạo trang
 showTab('invoice');

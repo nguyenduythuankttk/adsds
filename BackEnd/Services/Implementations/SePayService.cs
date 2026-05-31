@@ -32,13 +32,21 @@ namespace Backend.Services.Implementations
                     return false;
                 }
 
+                // Log payload raw để dễ trace
+                _logger.LogInformation(
+                    "SePay webhook: id={Id} amount={Amount} content='{Content}' code='{Code}'",
+                    payload.Id, payload.TransferAmount, payload.Content, payload.Code);
+
                 // 2. Trích PaymentReference từ Content (vd "JLB1A2B3C4D thanh toan")
                 var prefix = string.IsNullOrWhiteSpace(_opts.ReferencePrefix) ? "JLB" : _opts.ReferencePrefix;
                 var pattern = $@"{Regex.Escape(prefix)}[A-Z0-9]+";
                 var match = Regex.Match(payload.Content ?? string.Empty, pattern, RegexOptions.IgnoreCase);
                 if (!match.Success)
                 {
-                    _logger.LogWarning("SePay: không tìm thấy mã {Prefix}* trong content='{Content}'", prefix, payload.Content);
+                    _logger.LogWarning("SePay: không tìm thấy mã {Prefix}* trong content='{Content}'. " +
+                        "Nếu dùng 'Gửi thử webhook' trên dashboard SePay, content là mẫu — " +
+                        "phải dùng 'Mô phỏng giao dịch' để tự nhập content chứa mã bill thật.",
+                        prefix, payload.Content);
                     return false;
                 }
                 var reference = match.Value.ToUpper();
@@ -47,7 +55,9 @@ namespace Backend.Services.Implementations
                 var bill = await _db.Bill.FirstOrDefaultAsync(b => b.PaymentReference == reference);
                 if (bill == null)
                 {
-                    _logger.LogWarning("SePay: không tìm thấy Bill cho PaymentReference={Ref}", reference);
+                    _logger.LogWarning("SePay: không tìm thấy Bill cho PaymentReference={Ref}. " +
+                        "Có thể từ payload mẫu của SePay (Gửi thử) hoặc bill đã bị xoá.",
+                        reference);
                     return false;
                 }
 

@@ -84,9 +84,12 @@ function showSePayQrModal(data, onPaid) {
     box.style.cssText = 'background:#fff;border-radius:12px;max-width:380px;width:100%;'
                       + 'padding:24px;text-align:center;font-family:inherit;box-shadow:0 10px 40px rgba(0,0,0,.3);';
     var amount = Number(data.total || 0).toLocaleString('vi-VN');
+    var ref = data.paymentReference || '';
     var testBadge = data.testMode
-        ? '<div style="background:#fff3cd;color:#856404;padding:6px;border-radius:6px;margin-bottom:10px;font-size:12px;">'
-        + '⚠ TEST MODE – không có tiền thật, dùng "Gửi thử webhook" trên dashboard SePay để mô phỏng.</div>'
+        ? '<div style="background:#fff3cd;color:#856404;padding:8px;border-radius:6px;margin-bottom:10px;font-size:12px;line-height:1.4;">'
+        + '⚠ <strong>TEST MODE</strong> – TK ảo SePay không nhận tiền thật.<br>'
+        + 'Test bằng <strong>"Mô phỏng giao dịch"</strong> trên dashboard SePay (KHÔNG dùng "Gửi thử webhook" — gửi mã mẫu, không khớp bill).'
+        + '</div>'
         : '';
     box.innerHTML = testBadge
         + '<h3 style="margin:0 0 8px;color:#333;">Quét QR để thanh toán</h3>'
@@ -96,15 +99,39 @@ function showSePayQrModal(data, onPaid) {
         +   '<div><strong>Ngân hàng:</strong> ' + (data.bankCode || '') + '</div>'
         +   '<div><strong>Số tài khoản:</strong> ' + (data.bankAccount || '') + '</div>'
         +   '<div><strong>Số tiền:</strong> ' + amount + ' đ</div>'
-        +   '<div><strong>Nội dung CK:</strong> <code>' + (data.paymentReference || '') + '</code></div>'
+        +   '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
+        +     '<strong>Nội dung CK:</strong> <code id="sepay-ref-code">' + ref + '</code>'
+        +     '<button id="sepay-copy-ref-btn" type="button" style="padding:3px 8px;border:1px solid #ddd;'
+        +       'background:#fff;border-radius:4px;cursor:pointer;font-size:11px;">Copy</button>'
+        +   '</div>'
         + '</div>'
         + '<div id="sepay-status" style="margin-top:12px;font-size:14px;color:#e67e22;">'
         +   'Còn lại <strong id="sepay-countdown">03:00</strong> để thanh toán'
         + '</div>'
         + '<button id="sepay-cancel-btn" style="margin-top:14px;padding:10px 18px;border:none;border-radius:6px;'
-        +   'background:#e74c3c;color:#fff;cursor:pointer;font-size:14px;">Huỷ đơn</button>';
+        +   'background:#e74c3c;color:#fff;cursor:pointer;font-size:14px;width:100%;">Huỷ đơn</button>';
     overlay.appendChild(box);
     document.body.appendChild(overlay);
+
+    // Nút Copy mã CK
+    var copyBtn = box.querySelector('#sepay-copy-ref-btn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', function () {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(ref).then(function () {
+                    copyBtn.textContent = '✓ Đã copy';
+                    setTimeout(function () { copyBtn.textContent = 'Copy'; }, 1500);
+                });
+            } else {
+                // fallback cho browser cũ
+                var t = document.createElement('textarea');
+                t.value = ref; document.body.appendChild(t); t.select();
+                try { document.execCommand('copy'); copyBtn.textContent = '✓ Đã copy'; } catch (e) {}
+                document.body.removeChild(t);
+                setTimeout(function () { copyBtn.textContent = 'Copy'; }, 1500);
+            }
+        });
+    }
 
     var stopped = false;
     var finalized = false; // chống double-call onPaid / cancel

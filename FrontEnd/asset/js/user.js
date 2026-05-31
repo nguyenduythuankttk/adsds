@@ -216,7 +216,10 @@ function showBillModal(idx) {
     var moneyGiveBack = Number(o.moneyGiveBack || o.MoneyGiveBack || 0);
     var note          = o.note || o.Note || '';
     var payMethod     = o.paymentMethods || o.PaymentMethods || '';
-    var payDisplay    = payMethod === 'Cash' ? 'Tiền mặt' : payMethod === 'Card' ? 'Thẻ / Chuyển khoản' : payMethod;
+    var payDisplay    = payMethod === 'Cash' ? 'Tiền mặt'
+                      : payMethod === 'BankTransfer' ? 'Chuyển khoản / Thẻ'
+                      : payMethod === 'Card' ? 'Thẻ / Chuyển khoản'
+                      : payMethod;
     var subtotal      = vat > 0 ? total / (1 + vat) : total;
     var vatAmt        = total - subtotal;
     var tableID       = o.tableID || o.TableID || null;
