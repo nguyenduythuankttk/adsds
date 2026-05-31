@@ -20,7 +20,7 @@ namespace Backend.Services.Implementations
                 .Where(r => r.DeletedAt == null)
                 .AsNoTracking()
                 .Include(r => r.Ingredient)
-                .Include(r => r.ProductVarient)
+                .Include(r => r.ProductVarient).ThenInclude(pv => pv.Product)
                 .ToListAsync();
 
         public async Task<Receipe?> GetRecipeByID(int ingredientID, int productVarientID) =>
@@ -43,6 +43,20 @@ namespace Backend.Services.Implementations
             };
 
             await _dbContext.Receipe.AddAsync(recipe);
+            await _dbContext.SaveChangesAsync();
+        }
+
+        public async Task AddBulkRecipes(RecipeBulkCreateRequest request)
+        {
+            var recipes = request.Items.Select(item => new Receipe
+            {
+                IngredientID = item.IngredientID,
+                ProductVarientID = request.ProductVarientID,
+                QtyBeforeProcess = item.QtyBeforeProcess,
+                QtyAfterProcess = item.QtyAfterProcess
+            });
+
+            await _dbContext.Receipe.AddRangeAsync(recipes);
             await _dbContext.SaveChangesAsync();
         }
 

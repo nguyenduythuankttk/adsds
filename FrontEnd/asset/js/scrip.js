@@ -7,11 +7,11 @@ document.getElementById('openLoginBtn').addEventListener('click', function (e) {
 
     if (fullName) {
         if (role === 'admin') {
-            window.location.href = 'admin.html';
+            window.location.href = '/html/admin.html';
         } else if (role === 'employee') {
-            window.location.href = 'employee.html';
+            window.location.href = '/html/employee.html';
         } else {
-            window.location.href = 'user.html';
+            window.location.href = '/html/user.html';
         }
     } else {
         document.getElementById('login-modal').classList.add('active');
@@ -36,6 +36,23 @@ document.querySelectorAll('.modal-tab').forEach(function (tab) {
     });
 });
 
+// ── Role tabs trong panel đăng nhập ──────────────────
+var _loginRole = 'customer';
+var roleHints = {
+    customer: 'Đăng nhập với tài khoản khách hàng',
+    employee: 'Đăng nhập với tài khoản nhân viên'
+};
+document.querySelectorAll('.login-role-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+        document.querySelectorAll('.login-role-tab').forEach(function (t) { t.classList.remove('active'); });
+        tab.classList.add('active');
+        _loginRole = tab.dataset.role;
+        var hint = document.getElementById('login-role-hint');
+        if (hint) hint.textContent = roleHints[_loginRole] || '';
+        document.getElementById('login-error').textContent = '';
+    });
+});
+
 // ── Đăng nhập ────────────────────────────────────────
 document.getElementById('btn-login').addEventListener('click', function () {
     var username = document.getElementById('login-username').value.trim();
@@ -45,34 +62,24 @@ document.getElementById('btn-login').addEventListener('click', function () {
 
     if (!username || !password) { errEl.textContent = 'Vui lòng nhập tên đăng nhập và mật khẩu.'; return; }
 
-    var body = { UserName: username, HashPassword: password };
+    var body     = { UserName: username, HashPassword: password };
+    var endpoint = _loginRole === 'employee' ? '/auth/employee_login' : '/auth/customer_login';
 
-    // Thử đăng nhập khách hàng trước
-    apiPost('/auth/customer_login', body)
+    apiPost(endpoint, body, true)
         .then(function (res) {
-            if (res.ok) return res.json().then(function (d) { return { ok: true, data: d.data, type: 'user' }; });
-            // Nếu thất bại, thử đăng nhập nhân viên
-            return apiPost('/auth/employee_login', body)
-                .then(function (res2) {
-                    if (res2.ok) return res2.json().then(function (d) { return { ok: true, data: d.data, type: 'employee' }; });
-                    return res2.json().then(function (d) { return { ok: false, msg: d.message || 'Sai tên đăng nhập hoặc mật khẩu.' }; });
-                });
+            return res.json().then(function (d) { return { ok: res.ok, data: d.data, msg: d.message }; });
         })
         .then(function (result) {
-            if (!result.ok) { errEl.textContent = result.msg; return; }
-            if (result.type === 'user') {
-                luuThongTinKhachHang(result.data);
-                document.getElementById('login-modal').classList.remove('active');
-                updateHeaderAfterLogin(result.data.fullName || result.data.FullName || '');
-            } else {
+            if (!result.ok) { errEl.textContent = result.msg || 'Sai tên đăng nhập hoặc mật khẩu.'; return; }
+            if (_loginRole === 'employee') {
                 luuThongTinNhanVien(result.data);
                 document.getElementById('login-modal').classList.remove('active');
                 var role = localStorage.getItem('role');
-                if (role === 'admin') {
-                    window.location.href = 'admin.html';
-                } else {
-                    window.location.href = 'employee.html';
-                }
+                window.location.href = role === 'admin' ? '/html/admin.html' : '/html/employee.html';
+            } else {
+                luuThongTinKhachHang(result.data);
+                document.getElementById('login-modal').classList.remove('active');
+                updateHeaderAfterLogin(result.data.fullName || result.data.FullName || '');
             }
         })
         .catch(function () { errEl.textContent = 'Lỗi kết nối máy chủ.'; });
@@ -112,10 +119,97 @@ document.getElementById('btn-register').addEventListener('click', function () {
     })
     .then(function (r) {
         if (r.status === 200) {
-            _registerEmail = email;
-            _registerUsername = username;
-            document.getElementById('register-form-step').style.display = 'none';
-            document.getElementById('otp-step').style.display = '';
+            document.querySelectorAll('.modal-panel').forEach(function (p) { p.classList.remove('active'); });
+            document.getElementById('panel-otp').classList.add('active');
+            document.querySelector('.modal-tabs').style.display = 'none';
+            document.getElementById('closeLoginBtn').style.display = 'none';
+            document.getElementById('otp-error').textContent = '';
+            document.getElementById('otp-input').value = '';
+
+            var timerEl      = document.getElementById('otp-timer');
+            var countdownEl  = document.getElementById('otp-countdown');
+            var btnResend    = document.getElementById('btn-resend-otp');
+            var countdownRef = { interval: null };
+
+            function safeJson(res) {
+                return res.text().then(function (text) {
+                    var d = {};
+                    try { d = JSON.parse(text); } catch (e) {}
+                    return { status: res.status, data: d };
+                });
+            }
+
+            function resetToRegister() {
+                clearInterval(countdownRef.interval);
+                document.getElementById('closeLoginBtn').style.display = '';
+                document.querySelector('.modal-tabs').style.display = '';
+                document.querySelectorAll('.modal-tab').forEach(function (t) { t.classList.remove('active'); });
+                document.querySelectorAll('.modal-panel').forEach(function (p) { p.classList.remove('active'); });
+                document.querySelector('[data-tab="register"]').classList.add('active');
+                document.getElementById('panel-register').classList.add('active');
+            }
+
+            function startCountdown() {
+                var secs = 60;
+                timerEl.textContent = secs;
+                countdownEl.style.display = '';
+                btnResend.style.display = 'none';
+                clearInterval(countdownRef.interval);
+                countdownRef.interval = setInterval(function () {
+                    secs--;
+                    timerEl.textContent = secs;
+                    if (secs <= 0) {
+                        clearInterval(countdownRef.interval);
+                        countdownEl.style.display = 'none';
+                        btnResend.style.display = '';
+                    }
+                }, 1000);
+            }
+
+            startCountdown();
+
+            document.getElementById('btn-cancel-otp').onclick = resetToRegister;
+
+            btnResend.onclick = function () {
+                var otpErr = document.getElementById('otp-error');
+                otpErr.textContent = '';
+                apiPost('/auth/resend-verify-email', { Email: email })
+                    .then(safeJson)
+                    .then(function (result) {
+                        if (result.status === 200) {
+                            document.getElementById('otp-input').value = '';
+                            startCountdown();
+                        } else {
+                            otpErr.textContent = result.data.message || 'Không thể gửi lại mã OTP.';
+                        }
+                    })
+                    .catch(function () { otpErr.textContent = 'Không thể kết nối đến máy chủ.'; });
+            };
+
+            document.getElementById('btn-verify-otp').onclick = function () {
+                var otp    = document.getElementById('otp-input').value.trim();
+                var otpErr = document.getElementById('otp-error');
+                otpErr.textContent = '';
+                if (!otp || otp.length !== 6) { otpErr.textContent = 'Vui lòng nhập đúng 6 chữ số.'; return; }
+                apiPost('/auth/verify-otp', { Otp: otp })
+                    .then(safeJson)
+                    .then(function (result) {
+                        if (result.status === 200) {
+                            clearInterval(countdownRef.interval);
+                            document.getElementById('closeLoginBtn').style.display = '';
+                            document.querySelector('.modal-tabs').style.display = '';
+                            document.querySelectorAll('.modal-tab').forEach(function (t) { t.classList.remove('active'); });
+                            document.querySelectorAll('.modal-panel').forEach(function (p) { p.classList.remove('active'); });
+                            document.querySelector('[data-tab="login"]').classList.add('active');
+                            document.getElementById('panel-login').classList.add('active');
+                            document.getElementById('login-username').value = username;
+                            alert('Xác thực thành công! Bạn có thể đăng nhập ngay bây giờ.');
+                        } else {
+                            otpErr.textContent = result.data.message || 'OTP không đúng hoặc đã hết hạn.';
+                        }
+                    })
+                    .catch(function () { otpErr.textContent = 'Không thể kết nối đến máy chủ.'; });
+            };
         } else {
             errEl.textContent = r.data.message || 'Đăng ký thất bại.';
         }
@@ -212,5 +306,6 @@ function updateHeaderAfterLogin(name) {
 (function ktraReferrer() {
     var name = localStorage.getItem('fullName');
     if (!name) return;
+    if (isTokenExpired()) { clearAuth(); return; }
     updateHeaderAfterLogin(name);
 })();

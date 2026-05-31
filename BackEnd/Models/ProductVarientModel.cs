@@ -16,6 +16,7 @@ namespace Backend.Models{
         public ProductSize Size {get; set;} = ProductSize.Default;
         [Required]
         public decimal Price {get; set;}
+        public int? ForPeople { get; set; }
         public DateTime? DeletedAt { get; set; }
         public bool IsActive { get; set; } = true;
 

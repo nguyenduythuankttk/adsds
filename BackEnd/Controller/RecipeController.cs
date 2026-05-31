@@ -36,6 +36,23 @@ namespace Backend.Controller
             return Ok("Add recipe successfully!");
         }
 
+        [HttpPost("add-bulk")]
+        public async Task<IActionResult> AddBulkRecipes([FromBody] RecipeBulkCreateRequest request)
+        {
+            try
+            {
+                if (request.Items == null || request.Items.Count == 0)
+                    return BadRequest("Items list cannot be empty");
+
+                await _recipeService.AddBulkRecipes(request);
+                return Ok("Add bulk recipes successfully!");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred in recipeController.AddBulkRecipes: {ex.Message}");
+            }
+        }
+
         [HttpPut("Update/{ingredientID}/{productVarientID}")]
         public async Task<IActionResult> UpdateRecipe(int ingredientID, int productVarientID, [FromBody] RecipeUpdateRequest request)
         {

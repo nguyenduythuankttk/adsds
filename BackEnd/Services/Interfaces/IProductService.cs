@@ -13,5 +13,6 @@ namespace Backend.Services.Interface{
         Task SoftDeleteProduct(int productID);
         Task <decimal> GetPriceByID (int productVarientID);
         Task SetIsActive(int productVarientID, bool isActive);
+        Task<List<Product>> SearchProducts(ProductSearchRequest request);
     }
 }

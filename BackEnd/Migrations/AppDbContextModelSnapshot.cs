@@ -598,6 +598,9 @@ namespace BackEnd.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("Description")
+                        .HasColumnType("longtext");
+
                     b.Property<string>("Image")
                         .HasColumnType("longtext");
 
@@ -609,6 +612,9 @@ namespace BackEnd.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
+
+                    b.Property<int>("SoldCount")
+                        .HasColumnType("int");
 
                     b.HasKey("ProductID");
 
@@ -625,6 +631,9 @@ namespace BackEnd.Migrations
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("ForPeople")
+                        .HasColumnType("int");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("tinyint(1)");
@@ -838,7 +847,7 @@ namespace BackEnd.Migrations
                     b.Property<DateTime?>("DeleteAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<Guid>("EmployeeID")
+                    b.Property<Guid?>("EmployeeID")
                         .HasColumnType("char(36)");
 
                     b.Property<int?>("IngredientID")
@@ -1559,9 +1568,7 @@ namespace BackEnd.Migrations
 
                     b.HasOne("Backend.Models.Employee", "Employee")
                         .WithMany("StockMovement")
-                        .HasForeignKey("EmployeeID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("EmployeeID");
 
                     b.HasOne("Backend.Models.Ingredient", null)
                         .WithMany("StockMovement")

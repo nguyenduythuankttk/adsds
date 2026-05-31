@@ -5,27 +5,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tài Khoản — Chônlibi </title>
-    <link rel="stylesheet" href="../asset/css/style.css">
-    <link rel="stylesheet" href="../asset/css/user.css">
-    <link rel="stylesheet" href="../asset/themify-icons/themify-icons.css">
+    <link rel="stylesheet" href="/asset/css/style.css">
+    <link rel="stylesheet" href="/asset/css/user.css">
+    <link rel="stylesheet" href="/asset/themify-icons/themify-icons.css">
+    <script src="/asset/js/i18n.js" defer></script>
 </head>
 <body>
 
     <!-- HEADER -->
      <div id="header">
+        <div class="lang-switcher">
+            <button class="lang-btn active" data-lang="vi">VI</button>
+            <button class="lang-btn" data-lang="en">EN</button>
+            <button class="lang-btn" data-lang="ja">JA</button>
+        </div>
         <ul id="nav">
-            <li><a href="index.html">Home</a></li>
-            <li><a href="">Promotion</a></li>
-            <li><a href="">Menu</a></li>
+            <li><a href="/html/index.html" data-i18n="nav_home">Home</a></li>
+            <li><a href="" data-i18n="nav_promotion">Promotion</a></li>
+            <li><a href="/html/menu.html" data-i18n="nav_menu">Menu</a></li>
         </ul>
-        <a href="" class="delivery-btn"><i class="ti-truck"></i> Giao Hàng</a>
+        <a href="" class="delivery-btn"><i class="ti-truck"></i> <span data-i18n="btn_delivery">Giao Hàng</span></a>
         <div class="search-bar">
             <i class="ti-search search-bar-icon"></i>
-            <input type="text" class="search-bar-input" placeholder="Tìm món ăn...">
+            <input type="text" class="search-bar-input" data-i18n-ph="search_ph" placeholder="Tìm món ăn..." autocomplete="off">
         </div>
         <button class="login-btn" id="headerAvatarBtn">
             <span class="user-avatar-btn" id="header-avatar-initial">A</span>
-            <span id="header-avatar-name">Tài khoản</span>
+            <span id="header-avatar-name" data-i18n="btn_account">Tài khoản</span>
         </button>
     </div>
 
@@ -37,27 +43,27 @@
             <div class="sidebar-profile">
                 <div class="sidebar-avatar" id="sidebar-avatar">A</div>
                 <div class="sidebar-name" id="sidebar-name">Người dùng</div>
-                <div class="sidebar-role">Người Dùng </div>
+                <div class="sidebar-role" data-i18n="sidebar_role">Người Dùng</div>
             </div>
 
             <nav class="sidebar-nav">
                 <a href="#" class="sidebar-item active" data-section="profile">
-                    <i class="ti-user"></i> Thông tin tài khoản
+                    <i class="ti-user"></i> <span data-i18n="menu_profile">Thông tin tài khoản</span>
                 </a>
                 <a href="#" class="sidebar-item" data-section="orders">
-                    <i class="ti-package"></i> Lịch sử đơn hàng
+                    <i class="ti-package"></i> <span data-i18n="menu_orders">Lịch sử đơn hàng</span>
                 </a>
-                <!-- <a href="#" class="sidebar-item" data-section="reservation">
-                    <i class="ti-calendar"></i> Đặt bàn
-                </a> -->
                 <a href="#" class="sidebar-item" data-section="address">
-                    <i class="ti-location-pin"></i> Địa chỉ giao hàng
+                    <i class="ti-location-pin"></i> <span data-i18n="menu_address">Địa chỉ giao hàng</span>
                 </a>
                 <a href="#" class="sidebar-item" data-section="ticket">
-                    <i class="ti-ticket"></i> Mã giảm giá
+                    <i class="ti-ticket"></i> <span data-i18n="menu_ticket">Mã giảm giá</span>
+                </a>
+                <a href="#" class="sidebar-item" data-section="password">
+                    <i class="ti-lock"></i> <span data-i18n="menu_password">Đổi mật khẩu</span>
                 </a>
                 <a href="#" class="sidebar-item sidebar-logout" id="btn-logout">
-                    <i class="ti-power-off"></i> Đăng xuất
+                    <i class="ti-power-off"></i> <span data-i18n="menu_logout">Đăng xuất</span>
                 </a>
             </nav>
         </aside>
@@ -68,7 +74,7 @@
 
     </div>
 
-    <script src="../asset/js/api.js"></script>
-    <script src="../asset/js/user.js"></script>
+    <script src="/asset/js/api.js"></script>
+    <script src="/asset/js/user.js"></script>
 </body>
 </html>

@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chônlibi — Quản Trị Hệ Thống</title>
     <meta name="description" content="Trang quản trị toàn diện cho chuỗi cửa hàng Chônlibi">
-    <link rel="stylesheet" href="../asset/themify-icons/themify-icons.css">
-    <link rel="stylesheet" href="../asset/css/admin.css">
+    <link rel="stylesheet" href="/asset/themify-icons/themify-icons.css">
+    <link rel="stylesheet" href="/asset/css/admin.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -95,7 +95,7 @@
         </div>
 
         <div class="sidebar-group">
-            <a class="sidebar-item sidebar-home" href="./index.html">
+            <a class="sidebar-item sidebar-home" href="/html/index.html">
                 <i class="ti-arrow-left"></i><span>Về Trang Chủ</span>
             </a>
         </div>
@@ -255,26 +255,86 @@
         <section class="adm-section" id="section-inventory">
             <div class="page-header">
                 <div>
-                    <div class="page-title">Kiểm Soát Lô Hàng & Kho</div>
-                    <div class="page-sub">Theo dõi hạn sử dụng (Exp) và giá vốn (UnitCost) toàn hệ thống</div>
+                    <div class="page-title">Quản Lý Kho & Lô Hàng</div>
+                    <div class="page-sub">Tồn kho theo lô FIFO · Kiểm soát hạn sử dụng · Tính giá vốn toàn hệ thống</div>
                 </div>
+                <button class="btn-primary" id="btn-add-warehouse"><i class="ti-home"></i> Thêm Kho</button>
             </div>
+
+            <!-- Stats -->
             <div class="stats-grid" id="inv-stats"></div>
+
+            <!-- Danh sách kho -->
             <div class="panel">
                 <div class="panel-header">
-                    <div class="panel-title">Danh Sách Lô Hàng</div>
-                    <div class="filter-tabs">
-                        <button class="ftab active" data-filter="all" id="inv-filter-all">Tất Cả</button>
-                        <button class="ftab" data-filter="expiring" id="inv-filter-exp">Sắp Hết Hạn</button>
-                        <button class="ftab" data-filter="expired" id="inv-filter-expired">Đã Hết Hạn</button>
+                    <div class="panel-title"><i class="ti-home"></i> Danh Sách Kho</div>
+                </div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead><tr><th>ID Kho</th><th>Chi Nhánh</th><th>Sức Chứa</th><th>Mức Sử Dụng</th><th>Số Lô</th><th>Thao Tác</th></tr></thead>
+                        <tbody id="warehouse-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tồn kho theo nguyên liệu -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title"><i class="ti-package"></i> Tồn Kho Theo Nguyên Liệu</div>
+                </div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead><tr><th>Nguyên Liệu</th><th>Đơn Vị</th><th>Tổng SL Còn</th><th>Lô Available</th><th>Sắp Hết Hạn</th></tr></thead>
+                        <tbody id="ing-summary-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Danh sách lô hàng FIFO -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title"><i class="ti-layers"></i> Danh Sách Lô Hàng <span style="font-size:11px;color:var(--muted);font-weight:400;margin-left:6px">↑ Vào trước lên đầu (FIFO)</span></div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <select class="search-input" id="inv-wh-filter" style="width:160px;">
+                            <option value="all">Tất cả kho</option>
+                        </select>
+                        <input class="search-input" id="inv-ing-search" placeholder="🔍 Tìm nguyên liệu / mã lô..." style="width:210px;">
+                    </div>
+                </div>
+                <div style="padding:10px 18px;border-bottom:1px solid var(--border);display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+                    <div class="filter-tabs" id="inv-status-tabs">
+                        <button class="ftab active" data-sfilter="all">Tất Cả</button>
+                        <button class="ftab" data-sfilter="Available">Còn Hàng</button>
+                        <button class="ftab" data-sfilter="expiring">Sắp Hết Hạn (7N)</button>
+                        <button class="ftab" data-sfilter="Expired">Hết Hạn</button>
+                        <button class="ftab" data-sfilter="Depleted">Đã Dùng Hết</button>
+                    </div>
+                    <div class="filter-tabs" id="inv-type-tabs">
+                        <button class="ftab active" data-tfilter="all">Mọi Loại</button>
+                        <button class="ftab" data-tfilter="Raw">Thô</button>
+                        <button class="ftab" data-tfilter="Processed">Đã Sơ Chế</button>
                     </div>
                 </div>
                 <div class="tbl-wrap">
                     <table>
-                        <thead><tr><th>Mã Lô</th><th>Nguyên Liệu</th><th>Cửa Hàng</th><th>NCC</th><th>Số Lượng</th><th>Đơn Vị</th><th>Giá Vốn/Đơn Vị</th><th>Ngày Nhập</th><th>Hết Hạn</th><th>Tình Trạng</th></tr></thead>
+                        <thead><tr>
+                            <th>#</th>
+                            <th>Mã Lô</th>
+                            <th>Nguyên Liệu</th>
+                            <th>Loại</th>
+                            <th>Kho / Chi Nhánh</th>
+                            <th>SL Gốc</th>
+                            <th>SL Còn</th>
+                            <th>Giá Vốn / ĐV</th>
+                            <th>Ngày Nhập ↑</th>
+                            <th>NSX</th>
+                            <th>Hết Hạn</th>
+                            <th>Tình Trạng</th>
+                        </tr></thead>
                         <tbody id="inv-tbody"></tbody>
                     </table>
                 </div>
+                <div id="inv-count-info" style="padding:10px 18px;font-size:12px;color:var(--muted);border-top:1px solid var(--border);"></div>
             </div>
         </section>
 
@@ -422,7 +482,7 @@
 <!-- TOAST -->
 <div class="toast-container" id="toast-container"></div>
 
-<script src="../asset/js/api.js"></script>
-<script src="../asset/js/admin.js"></script>
+<script src="/asset/js/api.js"></script>
+<script src="/asset/js/admin.js"></script>
 </body>
 </html>

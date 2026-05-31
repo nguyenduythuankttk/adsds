@@ -24,6 +24,7 @@ namespace Backend.Services.Implementations{
                     ProductName = request.ProductName,
                     ProductType = request.ProductType,
                     Image = request.Image,
+                    Description = request.Description,
                 };
                 _dbContext.Product.Add(newProduct);
                 await _dbContext.SaveChangesAsync();
@@ -36,7 +37,8 @@ namespace Backend.Services.Implementations{
                 var newProductVarient = new ProductVarient {
                     ProductID = request.ProductID,
                     Price = request.Price,
-                    Size = request.Size
+                    Size = request.Size,
+                    ForPeople = request.ForPeople,
                 };
                 _dbContext.ProductVarient.Add(newProductVarient);
                 await _dbContext.SaveChangesAsync();
@@ -51,6 +53,7 @@ namespace Backend.Services.Implementations{
                 if (updateProduct != null){
                     updateProduct.ProductName = request.ProductName;
                     updateProduct.Image = request.Image;
+                    updateProduct.Description = request.Description;
                     _dbContext.Product.Update(updateProduct);
                     await _dbContext.SaveChangesAsync();
                 }
@@ -64,6 +67,7 @@ namespace Backend.Services.Implementations{
                                     .FirstOrDefaultAsync (p => p.ProductID == productID && p.Size == size);
                 if (updatePV != null){
                     updatePV.Price = request.Price;
+                    if (request.ForPeople.HasValue) updatePV.ForPeople = request.ForPeople;
                     _dbContext.ProductVarient.Update(updatePV);
                     await _dbContext.SaveChangesAsync();
                 }
@@ -109,6 +113,41 @@ namespace Backend.Services.Implementations{
             if (pv == null) throw new Exception("ProductVarient not found");
             pv.IsActive = isActive;
             await _dbContext.SaveChangesAsync();
+        }
+
+        public async Task<List<Product>> SearchProducts(ProductSearchRequest request)
+        {
+            var query = _dbContext.Product
+                .AsNoTracking()
+                .Where(p => p.DeletedAt == null)
+                .Include(p => p.ProductVarient)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(request.Name))
+                query = query.Where(p => p.ProductName.Contains(request.Name));
+
+            if (request.Type.HasValue)
+                query = query.Where(p => p.ProductType == request.Type.Value);
+
+            if (request.MinPrice.HasValue)
+                query = query.Where(p => p.ProductVarient.Any(v => v.Price >= request.MinPrice.Value && v.IsActive));
+
+            if (request.MaxPrice.HasValue)
+                query = query.Where(p => p.ProductVarient.Any(v => v.Price <= request.MaxPrice.Value && v.IsActive));
+
+            var products = await query.ToListAsync();
+
+            if (request.ForPeople.HasValue && request.ForPeople.Value > 0)
+            {
+                var n = request.ForPeople.Value;
+                products = products
+                    .Where(p => p.ProductVarient.Any(v =>
+                        v.ForPeople.HasValue &&
+                        (n >= 5 ? v.ForPeople.Value >= 5 : v.ForPeople.Value == n)))
+                    .ToList();
+            }
+
+            return products;
         }
     }
 }

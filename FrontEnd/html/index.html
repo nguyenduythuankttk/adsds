@@ -3,60 +3,72 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chônlibi 🍗</title>
-    <link rel="stylesheet" href="../asset/css/style.css">
-    <link rel="stylesheet" href="../asset/css/user.css">
-    <link rel="stylesheet" href="../asset/themify-icons/themify-icons.css">
+    <link rel="stylesheet" href="/asset/css/style.css">
+    <link rel="stylesheet" href="/asset/css/user.css">
+    <link rel="stylesheet" href="/asset/themify-icons/themify-icons.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="/asset/js/i18n.js" defer></script>
 </head>
 <body>
     <div id="main">
         <div id="header">
+            <div class="lang-switcher">
+                <button class="lang-btn active" data-lang="vi">VI</button>
+                <button class="lang-btn" data-lang="en">EN</button>
+                <button class="lang-btn" data-lang="ja">JA</button>
+            </div>
             <ul id="nav">
-                <li><a href="">Home</a></li>
-                <li><a href="">Promotion</a></li>
-                <li><a href="menu.html">Menu</a></li>
-                <!-- <li>
-                    <a href=""> <i class="nav-arrow-down ti-angle-down"></i></a>
-                    <ul class="subnav">
-                        <li><a href="">help</a></li>
-                        <li><a href="">media</a></li>
-                    </ul>
-                </li> -->
-                <!-- <li><a href="">Booking</a></li> -->
+                <li><a href="/html/index.html" data-i18n="nav_home">Home</a></li>
+                <li><a href="/html/menu.html" data-i18n="nav_menu">Menu</a></li>
+                <li><a href="#" id="nav-store-btn"><span data-i18n="nav_store">Store</span> <i class="ti-angle-down nav-arrow-down"></i></a></li>
             </ul>
 
             <a href="" class="delivery-btn" id="delivery-btn" style="display:none">
-                <i class="ti-truck"></i> Giao Hàng
+                <i class="ti-truck"></i> <span data-i18n="btn_delivery">Giao Hàng</span>
             </a>
 
             <div class="search-bar">
                 <i class="ti-search search-bar-icon"></i>
-                <input type="text" class="search-bar-input" placeholder="Tìm món ăn...">
+                <input type="text" id="hs-name" class="search-bar-input" data-i18n-ph="search_ph" placeholder="Tìm món ăn..." autocomplete="off">
             </div>
 
             <!-- login button -->
             <button class="login-btn" id="openLoginBtn">
                 <i class="ti-user"></i>
-                <span id="login-btn-text">Đăng Nhập/Đăng Ký</span>
+                <span id="login-btn-text" data-i18n="btn_login">Đăng Nhập/Đăng Ký</span>
             </button>
         </div>
+
+        <!-- STORE PANEL -->
+        <div id="store-panel" class="store-panel">
+            <div class="store-panel-inner">
+                <div class="store-panel-header">
+                    <h3 data-i18n="store_panel_title">Hệ Thống Cửa Hàng Chônlibi</h3>
+                    <button id="store-panel-close" class="store-panel-close">✕</button>
+                </div>
+                <div id="store-list" class="store-list">
+                    <p style="color:#aaa;text-align:center;padding:20px" data-i18n="loading">Đang tải...</p>
+                </div>
+            </div>
+        </div>
+        <div id="store-panel-backdrop" class="store-panel-backdrop"></div>
 
         <!-- SLIDER -->
         <div class="swiper">
             <div class="swiper-wrapper">
                 <div class="swiper-slide">
-                    <img src="../asset/img/slider/anhchung.webdp" alt="Gà rán Chônlibi">
+                    <img src="/asset/img/slider/anhchung.webdp" alt="Gà rán Chônlibi">
                     <div class="slider-content">
                         <h1>Welcome Chônlibi</h1>
-                        <p>Thưởng thức gà rán chuẩn vị Hàn Quốc</p>
+                        <p data-i18n="slider1_sub">Thưởng thức gà rán chuẩn vị Hàn Quốc</p>
                     </div>
                 </div>
                 <div class="swiper-slide">
-                    <img src="../asset/img/slider/gachung.webdp" alt="Khuyến mãi">
+                    <img src="/asset/img/slider/gachung.webdp" alt="Khuyến mãi">
                     <div class="slider-content">
-                        <h1>Khuyến Mãi Đặc Biệt</h1>
-                        <p>Đặt hàng ngay để nhận ưu đãi hấp dẫn</p>
+                        <h1 data-i18n="slider2_title">Khuyến Mãi Đặc Biệt</h1>
+                        <p data-i18n="slider2_sub">Đặt hàng ngay để nhận ưu đãi hấp dẫn</p>
                     </div>
                 </div>
             </div>
@@ -67,141 +79,74 @@
 
         <!-- COMBO -->
         <section class="category-section">
-            <h2 class="section-title">CHỌN <span>COMBO</span> CỦA BẠN</h2>
+            <h2 class="section-title" data-i18n-html="section_combo_title">CHỌN <span>COMBO</span> CỦA BẠN</h2>
             <div class="section-divider"><span></span></div>
             <div class="category-container">
                 <a class="category-item" href="menu.html?category=combo1" id="cat-combo1">
                     <div class="category-image">
-                        <img src="../asset/img/slider/combo1nguoi.webdp" alt="Combo 1 người">
+                        <img src="/asset/img/slider/combo1nguoi.webdp" alt="Combo 1 người">
                     </div>
-                    <p>COMBO 1 NGƯỜI</p>
+                    <p data-i18n="combo1">COMBO 1 NGƯỜI</p>
                 </a>
                 <a class="category-item" href="menu.html?category=combo2" id="cat-combo2">
                     <div class="category-image">
-                        <img src="../asset/img/slider/com2nguoi.webdp" alt="Combo cặp đôi">
+                        <img src="/asset/img/slider/com2nguoi.webdp" alt="Combo cặp đôi">
                     </div>
-                    <p>COMBO CẶP ĐÔI</p>
+                    <p data-i18n="combo2">COMBO CẶP ĐÔI</p>
                 </a>
                 <a class="category-item" href="menu.html?category=combo3" id="cat-combo3">
                     <div class="category-image">
-                        <img src="../asset/img/slider/gachung.webdp" alt="Combo Hội Bạn Thân">
+                        <img src="/asset/img/slider/gachung.webdp" alt="Combo Hội Bạn Thân">
                     </div>
-                    <p>COMBO HỘI BẠN THÂN</p>
+                    <p data-i18n="combo3">COMBO HỘI BẠN THÂN</p>
                 </a>
-                <a class="category-item" href="menu.html?category=combo3" id="cat-giadinh">
+                <a class="category-item" href="menu.html?category=combo4" id="cat-giadinh">
                     <div class="category-image">
-                        <img src="../asset/img/slider/combo4N.webdp" alt="Combo Gia Đình">
+                        <img src="/asset/img/slider/combo4N.webdp" alt="Combo Gia Đình">
                     </div>
-                    <p>COMBO GIA ĐÌNH</p>
+                    <p data-i18n="combo4">COMBO GIA ĐÌNH</p>
                 </a>
             </div>
         </section>
 
         <!-- PRODUCT -->
         <section class="product-section">
-            <h2 class="section-title">THỰC ĐƠN <span>NỔI BẬT</span></h2>
+            <h2 class="section-title" data-i18n-html="section_featured">THỰC ĐƠN <span>NỔI BẬT</span></h2>
             <div class="section-divider"><span></span></div>
-            <div class="product-container">
-                <a class="product-card" href="menu.html?category=bestseller" id="prod-gathuong">
-                    <div class="product-image-wrapper">
-                        <img src="../asset/img/slider/gathuong.webdp" alt="Gà Rán Nguyên Bản">
-                        <span class="product-badge">BÁN CHẠY</span>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Gà Rán Nguyên Bản</h3>
-                        <p class="product-price">45.000 đ</p>
-                        <p class="product-desc">Da giòn rụm, thịt mọng nước, tẩm ướp theo công thức bí truyền</p>
-                        <button class="add-to-cart-btn-static"><i class="ti-shopping-cart"></i> XEM THÊM</button>
-                    </div>
-                </a>
-                <a class="product-card" href="menu.html?category=bestseller" id="prod-gasotcay">
-                    <div class="product-image-wrapper">
-                        <img src="../asset/img/slider/gasotcay.webdp" alt="Gà Sốt Cay">
-                        <span class="product-badge">HOT</span>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Gà Sốt Cay Hàn Quốc</h3>
-                        <p class="product-price">55.000 đ</p>
-                        <p class="product-desc">Sốt cay chuẩn vị Hàn, cay nồng quyến rũ, ăn là ghiền</p>
-                        <button class="add-to-cart-btn-static"><i class="ti-shopping-cart"></i> XEM THÊM</button>
-                    </div>
-                </a>
-                <a class="product-card" href="menu.html?category=garan" id="prod-canhga">
-                    <div class="product-image-wrapper">
-                        <img src="../asset/img/slider/canhga.webdp" alt="Cánh Gà Chiên Mắm">
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Cánh Gà Chiên Mắm</h3>
-                        <p class="product-price">50.000 đ</p>
-                        <p class="product-desc">Cánh gà vàng giòn, phủ lớp mắm đậm đà ngọt béo</p>
-                        <button class="add-to-cart-btn-static"><i class="ti-shopping-cart"></i> XEM THÊM</button>
-                    </div>
-                </a>
-                <a class="product-card" href="menu.html?category=side" id="prod-myy">
-                    <div class="product-image-wrapper">
-                        <img src="../asset/img/slider/MyY.webdp" alt="Mỳ Ý">
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Mỳ Ý Sốt Bò Băm</h3>
-                        <p class="product-price">49.000 đ</p>
-                        <p class="product-desc">Sợi mì vàng óng kết hợp sốt bò băm thơm ngon đậm đà</p>
-                        <button class="add-to-cart-btn-static"><i class="ti-shopping-cart"></i> XEM THÊM</button>
-                    </div>
-                </a>
-                <a class="product-card" href="menu.html?category=side" id="prod-ktc">
-                    <div class="product-image-wrapper">
-                        <img src="../asset/img/slider/KTC.webdp" alt="Khoai Tây Chiên">
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Khoai Tây Chiên</h3>
-                        <p class="product-price">35.000 đ</p>
-                        <p class="product-desc">Vàng giòn, rắc muối tinh khiết, món phụ tuyệt vời</p>
-                        <button class="add-to-cart-btn-static"><i class="ti-shopping-cart"></i> XEM THÊM</button>
-                    </div>
-                </a>
+            <div class="product-container" id="home-product-container">
+                <p style="color:#aaa;padding:20px" data-i18n="loading_products">Đang tải sản phẩm...</p>
             </div>
         </section>
 
-        <!-- Map-->
-                    <!-- <section class="map-section">
-            <iframe 
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d18236.573630100538!2d108.14934620617343!3d16.077558258765112!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x314218d68dff9545%3A0x714561e9f3a7292c!2zVHLGsOG7nW5nIMSQ4bqhaSBo4buNYyBCw6FjaCBLaG9hIC0gxJDhuqFpIGjhu41jIMSQw6AgTuG6tW5n!5e0!3m2!1svi!2s!4v1778766148149!5m2!1svi!2s" 
-                width="100%" 
-                height=300" 
-                style="border:0;" 
-                allowfullscreen="" 
-                loading="lazy" 
-                referrerpolicy="no-referrer-when-downgrade">
-            </iframe>
-        </section> -->
-
+        <!-- Mini cart toast -->
+        <div id="home-cart-toast" class="home-cart-toast" style="display:none"></div>
 
         <!-- FOOTER -->
         <div id="footer">
            <div class="footer-grid">
                 <div class="footer-col">
                     <div class="footer-brand">Chônlibi 🍗</div>
-                    <p class="footer-about-text">Chônlibi — nơi mỗi miếng gà đều kể một câu chuyện về hương vị. Chúng tôi tự hào mang đến những phần gà rán da giòn, thịt mọng nước theo công thức đặc biệt.</p>
-                    
+                    <p class="footer-about-text" data-i18n="footer_about">Chônlibi — nơi mỗi miếng gà đều kể một câu chuyện về hương vị. Chúng tôi tự hào mang đến những phần gà rán da giòn, thịt mọng nước theo công thức đặc biệt.</p>
+
                     <div class="footer-map">
-                        <iframe 
-                            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d18236.573630100538!2d108.14934620617343!3d16.077558258765112!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x314218d68dff9545%3A0x714561e9f3a7292c!2zVHLGsOG7nW5nIMSQ4bqhaSBo4buNYyBCw6FjaCBLaG9hIC0gxJDhuqFpIGjhu41jIMSQw6AgTuG6tW5n!5e0!3m2!1svi!2s!4v1778766148149!5m2!1svi!2s" 
-                            width="100%" 
-                            height="200" 
-                            style="border:0; border-radius: 8px;" 
-                            allowfullscreen="" 
-                            loading="lazy" 
+                        <iframe
+                            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d18236.573630100538!2d108.14934620617343!3d16.077558258765112!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x314218d68dff9545%3A0x714561e9f3a7292c!2zVHLGsOG7nW5nIMSQ4bqhaSBo4buNYyBCw6FjaCBLaG9hIC0gxJDhuqFpIGjhu41jIMSQw6AgTuG6tW5n!5e0!3m2!1svi!2s!4v1778766148149!5m2!1svi!2s"
+                            width="100%"
+                            height="200"
+                            style="border:0; border-radius: 8px;"
+                            allowfullscreen=""
+                            loading="lazy"
                             referrerpolicy="no-referrer-when-downgrade">
                         </iframe>
                     </div>
                 </div>
                 <div class="footer-col">
-                    <span class="footer-col-title">Thông Tin Liên Hệ</span>
+                    <span class="footer-col-title" data-i18n="footer_contact">Thông Tin Liên Hệ</span>
                     <ul class="footer-contact-list">
                         <li><div class="fc-icon"><i class="ti-location-pin"></i></div><span>Liên Chiểu, Đà Nẵng</span></li>
                         <li><div class="fc-icon"><i class="ti-headphone-alt"></i></div><span>Hotline: <a href="tel:0272375252">0272 375 252</a></span></li>
                         <li><div class="fc-icon"><i class="ti-email"></i></div><span><a href="mailto:cholibi@gmail.com">cholibi@gmail.com</a></span></li>
-                        <li><div class="fc-icon"><i class="ti-time"></i></div><span>Mở cửa: 9:00 – 22:00 (Tất cả các ngày)</span></li>
+                        <li><div class="fc-icon"><i class="ti-time"></i></div><span data-i18n="footer_hours">Mở cửa: 9:00 – 22:00 (Tất cả các ngày)</span></li>
                     </ul>
                     <div class="footer-social">
                         <a href="" title="Facebook" target="_blank"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></a>
@@ -214,52 +159,62 @@
         </div>
     </div>
 
-    <!-- login model -->
+    <!-- login modal -->
     <div id="login-modal" class="modal-overlay">
         <div class="modal-box">
             <button class="modal-close" id="closeLoginBtn">✕</button>
             <div class="modal-logo">Chônlibi 🍗</div>
-            <div class="modal-subtitle">Đăng nhập để đặt hàng và nhận ưu đãi</div>
+            <div class="modal-subtitle" data-i18n="modal_subtitle">Đăng nhập để đặt hàng và nhận ưu đãi</div>
             <div class="modal-tabs">
-                <button class="modal-tab active" data-tab="login">Đăng Nhập</button>
-                <button class="modal-tab" data-tab="register">Đăng Ký</button>
+                <button class="modal-tab active" data-tab="login" data-i18n="tab_login">Đăng Nhập</button>
+                <button class="modal-tab" data-tab="register" data-i18n="tab_register">Đăng Ký</button>
             </div>
             <div class="modal-panel active" id="panel-login">
-                <div class="form-group"><label>Tên đăng nhập</label><input type="text" id="login-username" placeholder="Tên đăng nhập"></div>
-                <div class="form-group"><label>Mật khẩu</label><input type="password" id="login-password" placeholder="Nhập mật khẩu"></div>
-                <p id="login-error" class="form-error"></p>
-                <div class="form-forgot"><a href="">Quên mật khẩu?</a></div>
-                <button class="form-submit" id="btn-login">Đăng Nhập</button>
-                <div class="form-divider">— hoặc —</div>
-                <div class="form-social">
-                    <button class="social-btn">Google</button>
-                    <button class="social-btn">Facebook</button>
+                <!-- Role tabs -->
+                <div class="login-role-tabs">
+                    <button class="login-role-tab active" data-role="customer">
+                        <i class="ti-user"></i> <span data-i18n="role_customer">Khách hàng</span>
+                    </button>
+                    <button class="login-role-tab" data-role="employee">
+                        <i class="ti-id-badge"></i> <span data-i18n="role_employee">Nhân viên</span>
+                    </button>
                 </div>
+                <p class="login-role-hint" id="login-role-hint" data-i18n="role_hint">Đăng nhập với tài khoản khách hàng</p>
+                <div class="form-group"><label data-i18n="label_username">Tên đăng nhập</label><input type="text" id="login-username" data-i18n-ph="ph_username" placeholder="Tên đăng nhập" autocomplete="username"></div>
+                <div class="form-group"><label data-i18n="label_password">Mật khẩu</label><input type="password" id="login-password" data-i18n-ph="ph_password" placeholder="Nhập mật khẩu" autocomplete="current-password"></div>
+                <p id="login-error" class="form-error"></p>
+                <div class="form-forgot"><a href="" data-i18n="forgot_pw">Quên mật khẩu?</a></div>
+                <button class="form-submit" id="btn-login" data-i18n="btn_login_submit">Đăng Nhập</button>
             </div>
             <div class="modal-panel" id="panel-register">
-                <div id="register-form-step">
-                    <div class="form-group"><label>Họ và tên</label><input type="text" id="reg-fullname" placeholder="Nguyễn Văn A"></div>
-                    <div class="form-group"><label>Tên đăng nhập</label><input type="text" id="reg-username" placeholder="Tên đăng nhập (không dấu)"></div>
-                    <div class="form-group"><label>Số điện thoại</label><input type="tel" id="reg-phone" placeholder="0947 392 552"></div>
-                    <div class="form-group"><label>Email</label><input type="email" id="reg-email" placeholder="example@email.com"></div>
-                    <div class="form-group"><label>Ngày sinh</label><input type="date" id="reg-birthdate"></div>
-                    <div class="form-group"><label>Giới tính</label><select id="reg-gender"><option value="Male">Nam</option><option value="Female">Nữ</option><option value="Others">Khác</option></select></div>
-                    <div class="form-group"><label>Mật khẩu</label><input type="password" id="reg-password" placeholder="Tối thiểu 6 ký tự"></div>
-                    <p id="register-error" class="form-error"></p>
-                    <button class="form-submit" id="btn-register">Tạo Tài Khoản</button>
+                <div class="form-group"><label data-i18n="label_fullname">Họ và tên</label><input type="text" id="reg-fullname" placeholder="Nguyễn Văn A"></div>
+                <div class="form-group"><label data-i18n="label_username">Tên đăng nhập</label><input type="text" id="reg-username" data-i18n-ph="ph_username" placeholder="Tên đăng nhập (không dấu)"></div>
+                <div class="form-group"><label data-i18n="label_phone">Số điện thoại</label><input type="tel" id="reg-phone" placeholder="0947 392 552"></div>
+                <div class="form-group"><label data-i18n="label_email">Email</label><input type="email" id="reg-email" placeholder="example@email.com"></div>
+                <div class="form-group"><label data-i18n="label_birthdate">Ngày sinh</label><input type="date" id="reg-birthdate"></div>
+                <div class="form-group"><label data-i18n="label_gender">Giới tính</label><select id="reg-gender"><option value="Male" data-i18n="option_male">Nam</option><option value="Female" data-i18n="option_female">Nữ</option><option value="Others" data-i18n="option_other">Khác</option></select></div>
+                <div class="form-group"><label data-i18n="label_password">Mật khẩu</label><input type="password" id="reg-password" data-i18n-ph="ph_min6" placeholder="Tối thiểu 6 ký tự"></div>
+                <p id="register-error" class="form-error"></p>
+                <button class="form-submit" id="btn-register" data-i18n="btn_register">Tạo Tài Khoản</button>
+            </div>
+            <div class="modal-panel" id="panel-otp">
+                <button id="btn-cancel-otp" style="position:absolute;top:14px;right:48px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#888;line-height:1" title="Huỷ xác thực">✕</button>
+                <p style="text-align:center;margin-bottom:14px;color:var(--muted,#666)" data-i18n-html="otp_hint">Mã OTP đã được gửi đến email của bạn.<br>Vui lòng nhập mã để xác thực tài khoản.</p>
+                <div class="form-group">
+                    <label data-i18n="label_otp">Mã OTP (6 chữ số)</label>
+                    <input type="text" id="otp-input" placeholder="123456" maxlength="6" style="text-align:center;letter-spacing:4px;font-size:1.4rem">
                 </div>
-                <div id="otp-step" style="display:none;">
-                    <p style="margin-bottom:12px;color:#555;">Nhập mã OTP đã được gửi đến email của bạn (có hiệu lực trong 10 phút).</p>
-                    <div class="form-group"><label>Mã OTP</label><input type="text" id="otp-input" placeholder="Nhập 6 chữ số" maxlength="6"></div>
-                    <p id="otp-error" class="form-error"></p>
-                    <button class="form-submit" id="btn-verify-otp">Xác Thực</button>
-                    <button class="form-submit" id="btn-resend-otp" style="background:#888;margin-top:8px;">Gửi lại OTP</button>
-                </div>
+                <p id="otp-countdown" style="text-align:center;font-size:0.9rem;color:var(--muted,#888);margin-bottom:4px"><span data-i18n="otp_expire">Mã hết hạn sau:</span> <span id="otp-timer">60</span> <span data-i18n="otp_seconds">giây</span></p>
+                <p id="otp-error" class="form-error"></p>
+                <button class="form-submit" id="btn-verify-otp" data-i18n="btn_verify">Xác Thực</button>
+                <button class="form-submit" id="btn-resend-otp" style="display:none;background:#888;margin-top:8px" data-i18n="btn_resend_otp">Gửi lại mã OTP</button>
             </div>
         </div>
     </div>
-    <script src="../asset/js/api.js"></script>
-    <script src="../asset/js/scrip.js"></script>
+    <script src="/asset/js/api.js"></script>
+    <script src="/asset/js/scrip.js"></script>
+    <script src="/asset/js/home-product.js"></script>
+    <script src="/asset/js/store.js"></script>
     <script>
         const swiper = new Swiper('.swiper', {
             autoplay: { delay: 3000, disableOnInteraction: false },

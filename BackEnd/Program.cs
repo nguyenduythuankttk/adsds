@@ -2,8 +2,6 @@ using Backend.Data;
 using Backend.Models;
 using Backend.Services.Interface;
 using Backend.Services.Implementations;
-using Backend.Middleware;
-using Resend;
 using Scalar.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -13,6 +11,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.Json.Serialization;
 using Backend.Services.Interfaces;
+using Backend.Middleware;
 
 Microsoft.IdentityModel.Logging.IdentityModelEventSource.ShowPII = true;
 
@@ -32,9 +31,19 @@ builder.Services.AddControllers()
     });
 
 var jwtSettings = builder.Configuration.GetSection("Jwt");
+// Đọc JWT key: ưu tiên Jwt:Key, fallback sang JWT_KEY (env var single underscore)
+var jwtKeyValue = jwtSettings["Key"];
+if (string.IsNullOrWhiteSpace(jwtKeyValue))
+    jwtKeyValue = builder.Configuration["JWT_KEY"] ?? "";
+if (string.IsNullOrWhiteSpace(jwtKeyValue))
+    throw new Exception("JWT Key chưa được cấu hình. Hãy đặt Jwt__Key hoặc JWT_KEY trong file .env");
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        // .NET 7+ defaults MapInboundClaims to false, causing ClaimTypes.NameIdentifier
+        // to not be found because JWT stores it as "sub". Force mapping on.
+        options.MapInboundClaims = true;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -44,7 +53,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = jwtSettings["Issuer"],
             ValidAudience = jwtSettings["Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(jwtSettings["Key"]!))
+                Encoding.UTF8.GetBytes(jwtKeyValue))
         };
     });
 builder.Services.AddAuthorization();
@@ -68,7 +77,7 @@ var connectionString = builder.Configuration.GetConnectionString("JolibiDatabase
 if (!string.IsNullOrWhiteSpace(connectionString))
 {
     builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+        options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 0))));
 }
 
 builder.Services.AddSingleton<MongoDbContext>();
@@ -101,10 +110,6 @@ builder.Services.AddScoped<IComboService, ComboService>();
 builder.Services.AddHostedService<HardDeleteService>();
 
 builder.Services.AddOptions();
-var resendApiKey = builder.Configuration["Resend:ApiKey"] ?? throw new InvalidOperationException("Resend:ApiKey is not configured");
-builder.Services.AddHttpClient<ResendClient>();
-builder.Services.Configure<ResendClientOptions>(o => { o.ApiToken = resendApiKey; });
-builder.Services.AddTransient<IResend, ResendClient>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 
 builder.Services.AddResponseCompression(options =>

@@ -8,24 +8,47 @@ function setToken(t) { localStorage.setItem('token', t); }
 
 function clearAuth() { localStorage.clear(); }
 
-function apiFetch(method, path, body) {
-    var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
+function isTokenExpired() {
     var token = getToken();
-    if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+    if (!token) return true;
+    try {
+        var payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        return payload.exp * 1000 < Date.now();
+    } catch (e) {
+        return true;
+    }
+}
+
+function apiFetch(method, path, body, noAuthRedirect) {
+    var opts = { method: method, headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' } };
+    var token = getToken();
+    if (token) {
+        if (isTokenExpired()) {
+            clearAuth();
+            if (!noAuthRedirect) {
+                alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+                window.location.href = '/html/index.html';
+            }
+            return Promise.reject(new Error('Token expired'));
+        }
+        opts.headers['Authorization'] = 'Bearer ' + token;
+    }
     if (body !== undefined) opts.body = JSON.stringify(body);
     return fetch(API_BASE + path, opts).then(function (res) {
-        if (res.status === 401) {
+        if (res.status === 401 && !noAuthRedirect) {
+            console.log('[API] 401 Unauthorized tại: ' + method + ' ' + path + ' → đang redirect về index');
             clearAuth();
+            alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
             window.location.href = '/html/index.html';
         }
         return res;
     });
 }
 
-function apiGet(path)         { return apiFetch('GET',    path); }
-function apiPost(path, body)  { return apiFetch('POST',   path, body); }
-function apiPut(path, body)   { return apiFetch('PUT',    path, body); }
-function apiDelete(path)      { return apiFetch('DELETE', path); }
+function apiGet(path, noAuth)              { return apiFetch('GET',    path, undefined, noAuth); }
+function apiPost(path, body, noAuth)       { return apiFetch('POST',   path, body, noAuth); }
+function apiPut(path, body)                { return apiFetch('PUT',    path, body); }
+function apiDelete(path)                   { return apiFetch('DELETE', path); }
 
 function luuThongTinNhanVien(data) {
     setToken(data.acessToken || data.AcessToken);
