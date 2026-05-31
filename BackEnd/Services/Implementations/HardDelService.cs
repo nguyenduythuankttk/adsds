@@ -20,7 +20,7 @@ public class HardDeleteService : BackgroundService {
             using (var scope = _ServiceProvider.CreateScope()){
                 try {
                     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                    var cutoff = DateTime.UtcNow.AddHours(7).AddDays(-30);
+                    var cutoff = DateTime.UtcNow.AddDays(-30);
                     var cutoffDateOnly = DateOnly.FromDateTime(cutoff);
                     var del = 0;
                     del += await db.Ticket.Where(x =>
@@ -39,7 +39,7 @@ public class HardDeleteService : BackgroundService {
                     del += await db.DeliveryInfo.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
                     del += await db.Shift.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
                     del += await db.User.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
-                    var unverifiedCutoff = DateTime.UtcNow.AddHours(7).AddDays(-1);
+                    var unverifiedCutoff = DateTime.UtcNow.AddDays(-1);
                     del += await db.User.Where(x => !x.IsVerified && x.CreateAt < unverifiedCutoff).ExecuteDeleteAsync(token);
                     del += await db.Store.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
                     del += await db.Supplier.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);

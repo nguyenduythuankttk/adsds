@@ -84,7 +84,7 @@ namespace Backend.Services.Implementations
                 }
 
                 // 6. Đánh dấu Paid + ghi audit
-                var now = DateTime.UtcNow.AddHours(7);
+                var now = DateTime.UtcNow;
                 bill.PaymentStatus = PaymentStatus.Paid;
                 bill.PaidAt = now;
                 bill.SePayTransactionId = payload.Id;

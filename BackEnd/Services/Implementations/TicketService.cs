@@ -136,12 +136,12 @@ namespace Backend.Services.Implementations
                 throw new Exception("Ticket not found");
             if (ticket.UsedAt != null)
                 throw new Exception("Ticket đã được sử dụng");
-            if (ticket.EndDate < DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7)))
+            if (ticket.EndDate < DateOnly.FromDateTime(DateTime.UtcNow))
                 throw new Exception("Ticket đã hết hạn");
 
             try
             {
-                ticket.UsedAt = DateTime.UtcNow.AddHours(7);
+                ticket.UsedAt = DateTime.UtcNow;
                 ticket.UsedBy = userID;
                 await _dbcontext.SaveChangesAsync();
             }

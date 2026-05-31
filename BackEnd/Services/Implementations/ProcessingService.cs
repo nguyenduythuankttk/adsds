@@ -78,7 +78,7 @@ namespace Backend.Services.Implementations
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                var processedAt = DateTime.UtcNow.AddHours(7);
+                var processedAt = DateTime.UtcNow;
 
                 var log = new ProcessingLog
                 {
@@ -213,7 +213,7 @@ namespace Backend.Services.Implementations
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                var now = DateTime.UtcNow.AddHours(7);
+                var now = DateTime.UtcNow;
 
                 foreach (var detail in log.Details)
                 {

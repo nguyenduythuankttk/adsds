@@ -102,7 +102,7 @@ namespace Backend.Services.Implementations{
 
             using var tx = await _dbContext.Database.BeginTransactionAsync();
             try{
-                var now = DateTime.UtcNow.AddHours(7);
+                var now = DateTime.UtcNow;
 
                 var activeVarients = product.ProductVarient
                     .Where(v => v.DeletedAt == null)
@@ -142,7 +142,7 @@ namespace Backend.Services.Implementations{
 
             using var tx = await _dbContext.Database.BeginTransactionAsync();
             try {
-                var now = DateTime.UtcNow.AddHours(7);
+                var now = DateTime.UtcNow;
 
                 // Cascade: soft-delete tất cả Recipe gắn với varient này
                 var recipes = await _dbContext.Receipe

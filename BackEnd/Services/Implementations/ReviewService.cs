@@ -110,7 +110,7 @@ namespace Backend.Services.Implementations
                     StoreID = createRequest.StoreID,
                     Rating = createRequest.Rating,
                     Comment = createRequest.Comment,
-                    CreatedAt = DateTime.UtcNow.AddHours(7),
+                    CreatedAt = DateTime.UtcNow,
                     DeletedAt = null
                 });
 
@@ -190,7 +190,7 @@ namespace Backend.Services.Implementations
 
                 await _mongoDbContext.Reviews.UpdateOneAsync(
                     r => r.ReviewID == reviewId,
-                    Builders<Review>.Update.Set(r => r.DeletedAt, DateTime.UtcNow.AddHours(7))
+                    Builders<Review>.Update.Set(r => r.DeletedAt, DateTime.UtcNow)
                 );
 
                 await RecomputeStoreStats(review.StoreID);
