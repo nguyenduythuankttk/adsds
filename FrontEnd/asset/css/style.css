@@ -1220,6 +1220,32 @@ a.product-card {
     border-color: rgb(220, 77, 11);
 }
 
+/* ── Language switcher ── */
+.lang-switcher {
+    float: right;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-top: 11px;
+    margin-right: 8px;
+}
+.lang-btn {
+    background: rgba(255,255,255,0.15);
+    border: 1.5px solid rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.75);
+    font-size: 11px;
+    font-weight: 700;
+    font-family: Arial, Helvetica, sans-serif;
+    padding: 0 7px;
+    height: 26px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.5px;
+}
+.lang-btn:hover { background: rgba(255,255,255,0.28); color: #fff; }
+.lang-btn.active { background: rgba(255,255,255,0.35); color: #fff; border-color: rgba(255,255,255,0.7); }
+
 .footer-bottom {
     text-align: center;
     padding: 18px 0;

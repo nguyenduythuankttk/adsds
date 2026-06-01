@@ -7,28 +7,39 @@
     <meta name="description" content="Giao diện nhân viên Chônlibi — quản lý hóa đơn, bàn, đặt bàn, kho và giao hàng.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../asset/themify-icons/themify-icons.css">
-    <link rel="stylesheet" href="../asset/css/employee.css">
+    <link rel="stylesheet" href="/asset/themify-icons/themify-icons.css">
+    <link rel="stylesheet" href="/asset/css/employee.css">
 </head>
 <body>
 
 <!--HEADER -->
 <header class="emp-header">
-    <a href="index.html" class="emp-brand">
+    <a href="/html/index.html" class="emp-brand">
         Chônlibi 🍗
         <span class="emp-brand-badge">Nhân Viên</span>
     </a>
     <div class="emp-header-right">
+        <div class="emp-time-chip">
+            <i class="ti-time" style="font-size:11px"></i>
+            <span id="dash-clock">--:--:--</span>
+            <span style="opacity:0.45">·</span>
+            <span id="dash-date">--</span>
+        </div>
         <span class="emp-header-greeting">Xin chào, <strong id="header-name">...</strong></span>
+        <div class="emp-header-avatar" id="dash-avatar">--</div>
         <button class="emp-logout-btn" onclick="logout()">Đăng Xuất</button>
     </div>
 </header>
 
 <!-- SIDEBAR  -->
 <aside class="emp-sidebar">
+    <div class="sidebar-item active" id="tab-dashboard" onclick="showTab('dashboard')">
+        <i class="ti-layout-grid2-alt"></i> Tổng quan
+    </div>
+
     <div class="sidebar-group-label">Bán hàng & Phục vụ</div>
 
-    <div class="sidebar-item active" id="tab-invoice" onclick="showTab('invoice')">
+    <div class="sidebar-item" id="tab-invoice" onclick="showTab('invoice')">
         <i class="ti-receipt"></i> Lập hóa đơn
     </div>
     <div class="sidebar-item" id="tab-table" onclick="showTab('table')">
@@ -42,13 +53,22 @@
     <div class="sidebar-item" id="tab-warehouse" onclick="showTab('warehouse')">
         <i class="ti-package"></i> Nhập kho
     </div>
+    <div class="sidebar-item" id="tab-processing" onclick="showTab('processing')">
+        <i class="ti-cut"></i> Sơ chế
+    </div>
     <div class="sidebar-item" id="tab-stockmove" onclick="showTab('stockmove')">
         <i class="ti-arrow-circle-right"></i> Biến động kho
+    </div>
+    <div class="sidebar-item" id="tab-viewstock" onclick="showTab('viewstock')">
+        <i class="ti-eye"></i> Xem tồn kho
     </div>
 
     <!-- Group 3: Vận hành -->
     <div class="sidebar-group-label">Vận hành & Logistics</div>
 
+    <div class="sidebar-item" id="tab-recipe" onclick="showTab('recipe')">
+        <i class="ti-book"></i> Công thức
+    </div>
     <div class="sidebar-item" id="tab-delivery" onclick="showTab('delivery')">
         <i class="ti-truck"></i> Giao hàng
     </div>
@@ -57,7 +77,133 @@
 
 <!-- ══ MAIN ════════════════════════════════════════════ -->
 <main class="emp-main">
-    <section class="emp-section active" id="section-invoice">
+
+    <!-- ══ TỔNG QUAN DASHBOARD ══════════════════════════ -->
+    <section class="emp-section active" id="section-dashboard">
+
+        <!-- Shift banner -->
+        <div class="shift-banner">
+            <!-- Ca làm việc -->
+            <div class="shift-sec">
+                <div class="shift-label">Ca làm việc</div>
+                <div class="shift-val gold" id="dash-shift-time">Chưa xếp ca</div>
+                <div class="shift-sub-txt" id="dash-shift-pos">Đang tải...</div>
+            </div>
+            <!-- Đã làm -->
+            <div class="shift-sec">
+                <div class="shift-label">Đã làm</div>
+                <div class="shift-val" id="dash-worked">--</div>
+            </div>
+            <!-- Còn lại -->
+            <div class="shift-sec">
+                <div class="shift-label">Còn lại</div>
+                <div class="shift-val" id="dash-remaining">--</div>
+            </div>
+            <!-- Trạng thái -->
+            <div class="shift-sec">
+                <div class="shift-label">Trạng thái</div>
+                <div class="shift-val sm" id="dash-checkin-status" style="color:#9FE1CB">
+                    <span class="shift-status-dot"></span>Đúng giờ
+                </div>
+            </div>
+            <!-- Quản lý ca -->
+            <div class="shift-sec">
+                <div class="shift-label">Quản lý ca</div>
+                <div class="shift-val sm" id="dash-shift-manager">--</div>
+                <div class="shift-sub-txt">Liên hệ nội bộ</div>
+            </div>
+            <!-- Tiến độ nhiệm vụ -->
+            <div class="shift-sec shift-sec-prog">
+                <div class="shift-prog-hd">
+                    <span>Nhiệm vụ ca</span>
+                    <strong id="dash-task-pct">0%</strong>
+                </div>
+                <div class="shift-prog-track">
+                    <div class="shift-prog-fill" id="dash-task-fill"></div>
+                </div>
+                <div class="shift-prog-foot" id="dash-task-progress">0/0 xong</div>
+            </div>
+        </div>
+
+        <!-- Metric cards -->
+        <div class="dash-cards">
+            <div class="dash-card">
+                <div class="dash-card-icon orange"><i class="ti-receipt"></i></div>
+                <div class="dash-card-num" id="dash-bill-count">—</div>
+                <div class="dash-card-lbl">Đơn ca này</div>
+                <div class="dash-card-delta up" id="dash-bill-delta"></div>
+            </div>
+            <div class="dash-card">
+                <div class="dash-card-icon green"><i class="ti-money"></i></div>
+                <div class="dash-card-num" id="dash-revenue">—</div>
+                <div class="dash-card-lbl">Doanh thu ca</div>
+                <div class="dash-card-delta up" id="dash-rev-delta"></div>
+            </div>
+            <div class="dash-card">
+                <div class="dash-card-icon blue"><i class="ti-star"></i></div>
+                <div class="dash-card-num" id="dash-rating">—</div>
+                <div class="dash-card-lbl">Đánh giá tuần</div>
+                <div class="dash-card-delta up" id="dash-rating-delta"></div>
+            </div>
+            <div class="dash-card">
+                <div class="dash-card-icon red"><i class="ti-alert"></i></div>
+                <div class="dash-card-num" id="dash-lowstock">—</div>
+                <div class="dash-card-lbl">Nguyên liệu theo dõi</div>
+                <div class="dash-card-delta warn" id="dash-lowstock-note">Đang kiểm tra...</div>
+            </div>
+        </div>
+
+        <!-- Two col: Recent orders + Tasks -->
+        <div class="dash-two-col">
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title"><i class="ti-receipt" style="color:#BA7517;margin-right:5px"></i>Đơn hàng gần đây</span>
+                    <span class="see-all" onclick="showTab('invoice')">Xem tất cả →</span>
+                </div>
+                <div class="panel-body">
+                    <div id="dash-orders-body">
+                        <p style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0">Đang tải...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title"><i class="ti-check-box" style="color:#BA7517;margin-right:5px"></i>Nhiệm vụ ca</span>
+                    <span style="font-size:11px;color:var(--muted)" id="dash-task-progress">0/5 xong</span>
+                </div>
+                <div class="panel-body">
+                    <div id="dash-tasks-body"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick actions -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title"><i class="ti-bolt" style="color:#BA7517;margin-right:5px"></i>Thao tác nhanh</span>
+            </div>
+            <div class="panel-body">
+                <div class="dash-quick-actions">
+                    <div class="dash-qa-btn" onclick="showTab('invoice')">
+                        <i class="ti-plus"></i><span>Tạo đơn mới</span>
+                    </div>
+                    <div class="dash-qa-btn" onclick="showTab('stockmove')">
+                        <i class="ti-package"></i><span>Báo thiếu hàng</span>
+                    </div>
+                    <div class="dash-qa-btn" onclick="dashRequestLeave()">
+                        <i class="ti-calendar"></i><span>Xin nghỉ phép</span>
+                    </div>
+                    <div class="dash-qa-btn" onclick="dashContactManager()">
+                        <i class="ti-comment-alt"></i><span>Liên hệ quản lý</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </section>
+    <!-- ══════════════════════════════════════════════════ -->
+
+    <section class="emp-section" id="section-invoice">
         <h1 class="page-heading"><i class="ti-receipt"></i> Lập <span>Hóa Đơn</span></h1>
 
         <div class="stats-row">
@@ -86,13 +232,14 @@
                             </div>
                             <div class="form-group">
                                 <label>Số điện thoại</label>
-                                <input type="tel" id="inv-phone" placeholder="0947 xxx xxx">
+                                <input type="tel" id="inv-phone" placeholder="0947 xxx xxx" oninput="phoneLookupDebounce(this.value)">
+                                <span id="inv-phone-hint" class="phone-hint"></span>
                             </div>
                         </div>
                         <div class="form-row-3">
                             <div class="form-group">
                                 <label>Loại đơn</label>
-                                <select id="inv-type">
+                                <select id="inv-type" onchange="onInvTypeChange()">
                                     <option value="dine-in">Tại quán</option>
                                     <option value="takeaway">Mang về</option>
                                     <option value="delivery">Giao hàng</option>
@@ -104,15 +251,21 @@
                                     <option value="">-- Không dùng mã --</option>
                                 </select>
                             </div>
-                            <div class="form-group">
+                            <div class="form-group" id="inv-table-group">
                                 <label>Số bàn</label>
-                                <input type="text" id="inv-table" placeholder="B1">
+                                <select id="inv-table">
+                                    <option value="">-- Đang tải bàn... --</option>
+                                </select>
                             </div>
                         </div>
                     </div>
 
                     <div style="margin-top:16px">
                         <div class="panel-title" style="margin-bottom:10px">📋 Chọn món</div>
+                        <div class="inv-menu-toolbar">
+                            <input type="text" id="inv-menu-search" placeholder="🔍 Tìm tên món..." oninput="filterMenuCards(this.value)">
+                            <div class="inv-cat-tabs" id="inv-cat-tabs"></div>
+                        </div>
                         <div id="inv-menu"></div>
                     </div>
                 </div>
@@ -122,6 +275,17 @@
                     <span class="inv-total-val" id="inv-total">0 đ</span>
                 </div>
                 <div class="panel-body" style="padding-top:12px">
+                    <div class="form-group" style="margin-bottom:8px">
+                        <label>Tiền nhận nhanh</label>
+                        <div class="quick-cash-btns">
+                            <button type="button" class="quick-cash-btn" onclick="setReceived(50000)">50k</button>
+                            <button type="button" class="quick-cash-btn" onclick="setReceived(100000)">100k</button>
+                            <button type="button" class="quick-cash-btn" onclick="setReceived(200000)">200k</button>
+                            <button type="button" class="quick-cash-btn" onclick="setReceived(500000)">500k</button>
+                            <button type="button" class="quick-cash-btn" onclick="setReceived(1000000)">1 tr</button>
+                            <button type="button" class="quick-cash-btn exact" onclick="setReceivedExact()">Đủ tiền</button>
+                        </div>
+                    </div>
                     <div class="form-row-2">
                         <div class="form-group">
                             <label>Tiền nhận</label>
@@ -190,91 +354,99 @@
 
 
     <!-- ═══════════════════════════════════════════════ -->
-    <!-- 4. NHẬP KHO                                      -->
+    <!-- 4. NHẬP KHO — Luồng PO → Receipt → Confirm    -->
     <!-- ═══════════════════════════════════════════════ -->
     <section class="emp-section" id="section-warehouse">
         <h1 class="page-heading"><i class="ti-package"></i> Nhập <span>Kho</span></h1>
 
-        <div class="two-col">
-            <!-- Form nhập kho -->
-            <div class="panel">
-                <div class="panel-header"><span class="panel-title">📦 Tạo phiếu nhập kho (Receipt)</span></div>
-                <div class="panel-body">
-                    <div class="form-row">
-                        <div class="form-row-2">
-                            <div class="form-group">
-                                <label>Nhà cung cấp *</label>
-                                <input type="text" id="wh-supplier" placeholder="Cty Gà Sạch">
-                            </div>
-                            <div class="form-group">
-                                <label>Người nhận hàng *</label>
-                                <input type="text" id="wh-receiver" placeholder="Tên nhân viên">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Tên hàng hóa (Inventory Batch) *</label>
-                            <input type="text" id="wh-items" placeholder="VD: Gà tươi 50kg, Dầu ăn 20L...">
-                        </div>
-                        <div class="form-row-3">
-                            <div class="form-group">
-                                <label>Số lượng thực nhập</label>
-                                <input type="number" id="wh-qty" placeholder="50" min="0">
-                            </div>
-                            <div class="form-group">
-                                <label>Đơn giá (UnitCost)</label>
-                                <input type="number" id="wh-cost" placeholder="50000" min="0">
-                            </div>
-                            <div class="form-group">
-                                <label>Đơn vị</label>
-                                <select id="wh-unit">
-                                    <option value="kg">kg</option>
-                                    <option value="lít">lít</option>
-                                    <option value="túi">túi</option>
-                                    <option value="thùng">thùng</option>
-                                    <option value="cái">cái</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-row-2">
-                            <div class="form-group">
-                                <label>Ngày sản xuất (Mfd)</label>
-                                <input type="date" id="wh-mfd">
-                            </div>
-                            <div class="form-group">
-                                <label>Hạn sử dụng (Exp)</label>
-                                <input type="date" id="wh-exp">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Ghi chú</label>
-                            <textarea id="wh-note" placeholder="Ghi chú thêm về lô hàng..."></textarea>
-                        </div>
-                        <button class="btn btn-primary" onclick="confirmWarehouse()">
-                            <i class="ti-check"></i> Xác nhận nhập kho
-                        </button>
-                    </div>
-                </div>
+        <!-- Stepper header -->
+        <div class="wh-stepper">
+            <div class="wh-step active" id="whs-1">
+                <div class="wh-step-num">1</div>
+                <div class="wh-step-lbl">Chọn PO đã đặt</div>
             </div>
+            <div class="wh-step-line"></div>
+            <div class="wh-step" id="whs-2">
+                <div class="wh-step-num">2</div>
+                <div class="wh-step-lbl">Tạo phiếu nhập</div>
+            </div>
+            <div class="wh-step-line"></div>
+            <div class="wh-step" id="whs-3">
+                <div class="wh-step-num">3</div>
+                <div class="wh-step-lbl">Xác nhận nhập kho</div>
+            </div>
+        </div>
 
-            <!-- Lịch sử nhập kho -->
+        <!-- Step 1: Ordered PO list + receipt history -->
+        <div id="wh-step-1">
             <div class="panel">
-                <div class="panel-header"><span class="panel-title">📋 Lịch sử nhập kho</span></div>
+                <div class="panel-header">
+                    <span class="panel-title">📋 PO chờ nhận hàng (Ordered)</span>
+                    <button class="btn btn-sm" onclick="loadOrderedPOs()"><i class="ti-reload"></i> Làm mới</button>
+                </div>
                 <div class="tbl-wrap">
                     <table>
-                        <thead>
-                            <tr>
-                                <th>Nhà CC</th>
-                                <th>Hàng hóa</th>
-                                <th>SL</th>
-                                <th>Đơn giá</th>
-                                <th>Người nhận</th>
-                                <th>Thời gian</th>
-                            </tr>
-                        </thead>
-                        <tbody id="warehouse-tbody">
-                            <tr><td colspan="6" class="tbl-empty">Chưa có dữ liệu</td></tr>
+                        <thead><tr>
+                            <th>Mã PO</th><th>Nhà CC</th><th>Nguyên liệu</th>
+                            <th>Tổng tiền</th><th>Thuế</th><th></th>
+                        </tr></thead>
+                        <tbody id="wh-po-list">
+                            <tr><td colspan="6" class="tbl-empty">Đang tải...</td></tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header"><span class="panel-title">📋 Lịch sử phiếu nhập</span></div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead><tr>
+                            <th>Mã Receipt</th><th>Từ PO</th><th>Người nhận</th>
+                            <th>Ngày nhận</th><th>Trạng thái</th>
+                        </tr></thead>
+                        <tbody id="warehouse-tbody">
+                            <tr><td colspan="5" class="tbl-empty">Chưa có dữ liệu</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Create receipt (prefilled from PO) -->
+        <div id="wh-step-2" style="display:none">
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">📦 Kiểm kê — Điều chỉnh số lượng thực tế</span>
+                    <button class="btn btn-sm" onclick="whGoStep(1)"><i class="ti-arrow-left"></i> Quay lại</button>
+                </div>
+                <div class="panel-body">
+                    <div class="info-box" id="wh-po-info"></div>
+                    <div id="wh-receipt-lines"></div>
+                    <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="submitCreateReceipt()">
+                        <i class="ti-check"></i> Tạo phiếu nhập
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Confirm receipt → InventoryBatch -->
+        <div id="wh-step-3" style="display:none">
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">✅ Xác nhận nhập kho — Thông tin batch</span>
+                    <button class="btn btn-sm" onclick="whGoStep(1)"><i class="ti-home"></i> Về trang chủ kho</button>
+                </div>
+                <div class="panel-body">
+                    <div class="form-group" style="margin-bottom:16px">
+                        <label>Kho nhận hàng *</label>
+                        <select id="wh-confirm-warehouse">
+                            <option value="">-- Đang tải kho --</option>
+                        </select>
+                    </div>
+                    <div id="wh-confirm-lines"></div>
+                    <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="submitConfirmReceipt()">
+                        <i class="ti-package"></i> Xác nhận nhập kho → Tạo Batch
+                    </button>
                 </div>
             </div>
         </div>
@@ -389,12 +561,238 @@
         </div>
     </section>
 
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- SƠ CHẾ NGUYÊN LIỆU                              -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="emp-section" id="section-processing">
+        <h1 class="page-heading"><i class="ti-cut"></i> Sơ Chế <span>Nguyên Liệu</span></h1>
+
+        <div class="two-col">
+            <!-- Form tạo phiếu sơ chế -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">🔪 Tạo phiếu sơ chế</span>
+                </div>
+                <div class="panel-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Kho *</label>
+                            <select id="proc-warehouse">
+                                <option value="">-- Đang tải kho --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Ghi chú phiếu</label>
+                            <input type="text" id="proc-note" placeholder="VD: Sơ chế ca sáng">
+                        </div>
+                    </div>
+                    <div style="margin-top:16px">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                            <strong style="font-size:13px">Danh sách nguyên liệu sơ chế</strong>
+                            <button class="btn btn-sm" onclick="addProcessingRow()"><i class="ti-plus"></i> Thêm dòng</button>
+                        </div>
+                        <div id="proc-items"></div>
+                    </div>
+                    <button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="submitProcessing()">
+                        <i class="ti-check"></i> Tạo phiếu sơ chế
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right panel: raw batches + history -->
+            <div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">📦 Batch thô còn hàng (Raw)</span>
+                        <button class="btn btn-sm" onclick="loadRawBatches()"><i class="ti-reload"></i></button>
+                    </div>
+                    <div class="tbl-wrap">
+                        <table>
+                            <thead><tr>
+                                <th>Batch Code</th><th>Nguyên liệu</th>
+                                <th>Còn lại</th><th>Đơn giá/kg</th><th>HSD</th>
+                            </tr></thead>
+                            <tbody id="proc-raw-tbody">
+                                <tr><td colspan="5" class="tbl-empty">Đang tải...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">📋 Lịch sử sơ chế</span>
+                        <button class="btn btn-sm" onclick="loadProcessingHistory()"><i class="ti-reload"></i></button>
+                    </div>
+                    <div class="tbl-wrap">
+                        <table>
+                            <thead><tr>
+                                <th>Mã phiếu</th><th>Nhân viên</th><th>Thời gian</th><th>Ghi chú</th>
+                            </tr></thead>
+                            <tbody id="proc-history-tbody">
+                                <tr><td colspan="4" class="tbl-empty">Chưa có dữ liệu</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- CÔNG THỨC (RECIPE)                               -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="emp-section" id="section-recipe">
+        <h1 class="page-heading"><i class="ti-book"></i> Quản Lý <span>Công Thức</span></h1>
+
+        <div class="two-col">
+            <!-- Add recipe form -->
+            <div class="panel">
+                <div class="panel-header"><span class="panel-title">➕ Thêm công thức</span></div>
+                <div class="panel-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Sản phẩm (ProductVarient) *</label>
+                            <select id="recipe-product">
+                                <option value="">-- Đang tải sản phẩm --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Nguyên liệu *</label>
+                            <select id="recipe-ingredient">
+                                <option value="">-- Đang tải nguyên liệu --</option>
+                            </select>
+                        </div>
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label>QtyAfterProcess *</label>
+                                <input type="number" id="recipe-qty-after" placeholder="1" step="0.001" min="0.001">
+                            </div>
+                            <div class="form-group">
+                                <label>BatchSize (cho bao nhiêu unit bán)</label>
+                                <input type="number" id="recipe-batch-size" placeholder="1" step="0.001" min="0.001" value="1">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:13px;font-weight:600;cursor:pointer">
+                                <input type="checkbox" id="recipe-consumable" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)">
+                                Tiêu hao (IsConsumable) — dầu, muối → dùng Raw batch
+                            </label>
+                        </div>
+                        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;font-size:12px;color:#065f46">
+                            <strong>Hướng dẫn:</strong>
+                            Không tích = miếng gà (Processed batch, QtyAfterProcess = số miếng/lần bán).
+                            Có tích = dầu/muối (Raw batch, QtyAfterProcess/BatchSize = lượng dùng/unit).
+                        </div>
+                        <button class="btn btn-primary" onclick="addRecipe()">
+                            <i class="ti-plus"></i> Thêm công thức
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recipe list -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">📋 Danh sách công thức</span>
+                    <button class="btn btn-sm" onclick="loadRecipes()"><i class="ti-reload"></i> Làm mới</button>
+                </div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead><tr>
+                            <th>Sản phẩm</th><th>Nguyên liệu</th>
+                            <th>Qty/Đơn</th><th>BatchSize</th><th>Loại</th><th></th>
+                        </tr></thead>
+                        <tbody id="recipe-tbody">
+                            <tr><td colspan="6" class="tbl-empty">Đang tải...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- XEM TỒN KHO (read-only)                         -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="emp-section" id="section-viewstock">
+        <h1 class="page-heading"><i class="ti-eye"></i> Xem <span>Tồn Kho</span></h1>
+
+        <!-- Stats -->
+        <div class="stats-row" id="vs-stats-row"></div>
+
+        <!-- Tồn kho theo nguyên liệu -->
+        <div class="panel" style="margin-bottom:16px">
+            <div class="panel-header">
+                <span class="panel-title"><i class="ti-package" style="color:#BA7517;margin-right:5px"></i>Tồn Kho Theo Nguyên Liệu</span>
+                <button class="btn btn-sm" onclick="renderViewStock()"><i class="ti-reload"></i> Làm mới</button>
+            </div>
+            <div class="tbl-wrap">
+                <table>
+                    <thead><tr>
+                        <th>Nguyên Liệu</th>
+                        <th>Đơn Vị</th>
+                        <th>Tổng SL Còn</th>
+                        <th>Lô Available</th>
+                        <th>Sắp Hết Hạn</th>
+                    </tr></thead>
+                    <tbody id="vs-ing-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Danh sách lô hàng FIFO -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title"><i class="ti-layers" style="color:#BA7517;margin-right:5px"></i>Danh Sách Lô Hàng <small style="font-size:11px;color:var(--muted);font-weight:400;margin-left:4px">↑ Vào trước lên đầu (FIFO)</small></span>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                    <select id="vs-wh-filter" style="padding:5px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none">
+                        <option value="all">Tất cả kho</option>
+                    </select>
+                    <input id="vs-ing-search" placeholder="🔍 Tìm nguyên liệu / mã lô..." style="padding:5px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none;width:200px">
+                </div>
+            </div>
+            <div style="padding:8px 16px;border-bottom:1px solid #f0f0f0;display:flex;gap:8px;flex-wrap:wrap;">
+                <div id="vs-status-tabs" style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button class="vs-ftab active" data-vsfilter="all" onclick="vsSetFilter(this,'status')">Tất Cả</button>
+                    <button class="vs-ftab" data-vsfilter="Available" onclick="vsSetFilter(this,'status')">Còn Hàng</button>
+                    <button class="vs-ftab" data-vsfilter="expiring" onclick="vsSetFilter(this,'status')">Sắp Hết Hạn (7N)</button>
+                    <button class="vs-ftab" data-vsfilter="Expired" onclick="vsSetFilter(this,'status')">Hết Hạn</button>
+                    <button class="vs-ftab" data-vsfilter="Depleted" onclick="vsSetFilter(this,'status')">Hết Hàng</button>
+                </div>
+                <div id="vs-type-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;">
+                    <button class="vs-ftab active" data-vstfilter="all" onclick="vsSetFilter(this,'type')">Mọi Loại</button>
+                    <button class="vs-ftab" data-vstfilter="Raw" onclick="vsSetFilter(this,'type')">Thô</button>
+                    <button class="vs-ftab" data-vstfilter="Processed" onclick="vsSetFilter(this,'type')">Đã Sơ Chế</button>
+                </div>
+            </div>
+            <div class="tbl-wrap">
+                <table>
+                    <thead><tr>
+                        <th>#</th>
+                        <th>Mã Lô</th>
+                        <th>Nguyên Liệu</th>
+                        <th>Loại</th>
+                        <th>Kho</th>
+                        <th>SL Còn</th>
+                        <th>Giá Vốn/ĐV</th>
+                        <th>Ngày Nhập ↑</th>
+                        <th>Hết Hạn</th>
+                        <th>Tình Trạng</th>
+                    </tr></thead>
+                    <tbody id="vs-batch-tbody"></tbody>
+                </table>
+            </div>
+            <div id="vs-count-info" style="padding:8px 16px;font-size:12px;color:var(--muted);border-top:1px solid #f0f0f0;"></div>
+        </div>
+    </section>
+
 </main>
 
 <!-- ══ TOAST ═══════════════════════════════════════════ -->
 <div id="emp-toast"></div>
 
-<script src="../asset/js/api.js"></script>
-<script src="../asset/js/employee.js"></script>
+<script src="/asset/js/api.js"></script>
+<script src="/asset/js/employee.js"></script>
 </body>
 </html>

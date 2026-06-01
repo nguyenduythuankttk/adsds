@@ -1,16 +1,14 @@
-using System.Linq.Expressions;
 using Backend.Models;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
+
 namespace Backend.Controller
 {
     [ApiController]
     [Route("api/pbl3/[controller]")]
-    
     public class productController : ControllerBase
     {
-
         private readonly IProductService _productService;
 
         public productController(IProductService productService)
@@ -21,108 +19,50 @@ namespace Backend.Controller
         [HttpGet("get-all")]
         public async Task<IActionResult> GetAllProduct()
         {
-            try
-            {
-                var products = await _productService.GetAllProduct();
-                return Ok(products);
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in productController.GetAllProduct {ex.Message}");
-            }
+            return Ok(await _productService.GetAllProduct());
         }
 
         [HttpGet("get/{productID}")]
         public async Task<IActionResult> GetProductByID(int productID)
         {
-            try
-            {
-                var product = await _productService.GetProductByID(productID);
-                if(product == null)
-                    return NotFound("Product not found!");
-
-                return Ok(product);
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in productController.GetProductID {ex.Message}");
-            }
+            var product = await _productService.GetProductByID(productID);
+            if (product == null) return NotFound("Product not found!");
+            return Ok(product);
         }
 
         [HttpPost("add-product")]
         public async Task<IActionResult> AddProduct(ProductCreateRequest request)
         {
-            try
-            {
-                await _productService.AddProduct(request);
-                return Ok("Add product successfully!");
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in productController.AddProduct {ex.Message}");
-            }
+            await _productService.AddProduct(request);
+            return Ok("Add product successfully!");
         }
 
         [HttpPost("add-varient")]
         public async Task<IActionResult> AddProductVarient(ProductVarientCreate request)
         {
-            try
-            {
-                await _productService.AddProductVarient(request);
-                return Ok("Add product varient successfully!");
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in productController.AddProductVarient {ex.Message}");
-            }
+            await _productService.AddProductVarient(request);
+            return Ok("Add product varient successfully!");
         }
 
         [HttpPut("update-product/{productID}")]
         public async Task<IActionResult> ProductUpdate(ProductUpdateRequest request, int productID)
         {
-            try
-            {
-                await _productService.ProductUpdate(request, productID);
-                return Ok("Update product succesfully!");
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in productController.ProductUpdate {ex.Message}");
-            }
+            await _productService.ProductUpdate(request, productID);
+            return Ok("Update product successfully!");
         }
 
         [HttpPut("update-varient/{productID}/{productSize}")]
         public async Task<IActionResult> ProductVarientUpdate(ProductVarientUpdateRequest request, int productID, ProductSize productSize)
         {
-            try
-            {
-                await _productService.ProductVarientUpdate(request, productID, productSize);
-                return Ok("Update product succesfully!");
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in productController.ProductUpdateVarient {ex.Message}");
-            }
+            await _productService.ProductVarientUpdate(request, productID, productSize);
+            return Ok("Update product successfully!");
         }
 
         [HttpDelete("soft-delete/{productID}")]
         public async Task<IActionResult> SoftDeleteProduct(int productID)
         {
-            try
-            {
-                await _productService.SoftDeleteProduct(productID);
-                return Ok("Soft delete product successfully!");
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in productController.SoftDeleteProduct {ex.Message}");
-            }
-        }
-
-        [HttpDelete("soft-delete-varient/{productVarientID}")]
-        public async Task<IActionResult> SoftDeleteProductVarient(int productVarientID)
-        {
-            try
-            {
-                await _productService.SoftDeleteProductVarient(productVarientID);
-                return Ok("Soft delete product varient successfully!");
-            }catch(Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in productController.SoftDeleteProductVarient {ex.Message}");
-            }
+            await _productService.SoftDeleteProduct(productID);
+            return Ok("Soft delete product successfully!");
         }
 
         [HttpPost("search")]
@@ -155,5 +95,19 @@ namespace Backend.Controller
                 return StatusCode(500, $"An error occurred in productController.GetFeaturedProducts {ex.Message}");
             }
         }
+
+        [HttpDelete("soft-delete-varient/{productVarientID}")]
+        public async Task<IActionResult> SoftDeleteProductVarient(int productVarientID)
+        {
+            try
+            {
+                await _productService.SoftDeleteProductVarient(productVarientID);
+                return Ok("Soft delete product varient successfully!");
+            }catch(Exception ex)
+            {
+                return StatusCode(500, $"An error occurred in productController.SoftDeleteProductVarient {ex.Message}");
+            }
+        }
+
     }
 }

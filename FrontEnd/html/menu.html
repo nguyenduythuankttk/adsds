@@ -13,6 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="/asset/js/i18n.js" defer></script>
 </head>
 <body>
 
@@ -111,8 +112,34 @@
     <div class="location-bar">
         <div class="location-inner">
             <i class="ti-location-pin"></i>
-            <span>Đang giao tại: <strong>Liên Chiểu, Đà Nẵng</strong></span>
-            <button class="change-location-btn" id="changeLocationBtn">Đổi địa chỉ</button>
+            <span><span data-i18n="location_delivering">Đang giao tại:</span> <strong>Liên Chiểu, Đà Nẵng</strong></span>
+            <button class="change-location-btn" id="changeLocationBtn" data-i18n="btn_change_location">Đổi địa chỉ</button>
+        </div>
+    </div>
+
+    <!-- ===== CATEGORY TABS ===== -->
+    <div class="menu-category-bar">
+        <div class="category-tabs-wrapper">
+            <button class="cat-tab active" data-category="all" id="tab-all">
+                <span class="cat-icon">🏆</span>
+                <span data-i18n="tab_all">Tất Cả</span>
+            </button>
+            <button class="cat-tab" data-category="food">
+                <span class="cat-icon">🍗</span>
+                <span data-i18n="tab_food">Món Chính</span>
+            </button>
+            <button class="cat-tab" data-category="combo">
+                <span class="cat-icon">🎁</span>
+                Combo
+            </button>
+            <button class="cat-tab" data-category="addon">
+                <span class="cat-icon">🥗</span>
+                <span data-i18n="tab_addon">Món Phụ</span>
+            </button>
+            <button class="cat-tab" data-category="drink">
+                <span class="cat-icon">🥤</span>
+                <span data-i18n="tab_drink">Thức Uống</span>
+            </button>
         </div>
     </div>
 
@@ -225,28 +252,28 @@
 
         <section class="menu-cat-section section-category" id="section-food" data-category="food">
             <div class="menu-section-header">
-                <h2 class="menu-section-title"><span class="cat-section-icon">🍗</span> Món Chính</h2>
+                <h2 class="menu-section-title"><span class="cat-section-icon">🍗</span> <span data-i18n="section_food">Món Chính</span></h2>
             </div>
             <div class="menu-grid" id="grid-food"></div>
         </section>
 
         <section class="menu-cat-section section-category" id="section-combo" data-category="combo">
             <div class="menu-section-header">
-                <h2 class="menu-section-title"><span class="cat-section-icon">🎁</span> Combo</h2>
+                <h2 class="menu-section-title"><span class="cat-section-icon">🎁</span> <span data-i18n="section_combo">Combo</span></h2>
             </div>
             <div class="menu-grid" id="grid-combo"></div>
         </section>
 
         <section class="menu-cat-section section-category" id="section-addon" data-category="addon">
             <div class="menu-section-header">
-                <h2 class="menu-section-title"><span class="cat-section-icon">🥗</span> Món Phụ</h2>
+                <h2 class="menu-section-title"><span class="cat-section-icon">🥗</span> <span data-i18n="section_addon">Món Phụ</span></h2>
             </div>
             <div class="menu-grid" id="grid-addon"></div>
         </section>
 
         <section class="menu-cat-section section-category" id="section-drink" data-category="drink">
             <div class="menu-section-header">
-                <h2 class="menu-section-title"><span class="cat-section-icon">🥤</span> Thức Uống</h2>
+                <h2 class="menu-section-title"><span class="cat-section-icon">🥤</span> <span data-i18n="section_drink">Thức Uống</span></h2>
             </div>
             <div class="menu-grid" id="grid-drink"></div>
         </section>
@@ -255,40 +282,39 @@
 
     <!-- ===== CART TOAST ===== -->
     <div class="cart-toast" id="cart-toast">
-        <i class="ti-check"></i> Đã thêm vào giỏ hàng!
+        <i class="ti-check"></i> <span data-i18n="cart_added">Đã thêm vào giỏ hàng!</span>
     </div>
-
 
     <!-- ===== CART SIDEBAR ===== -->
     <div class="cart-sidebar-overlay" id="cart-overlay"></div>
     <div class="cart-sidebar" id="cart-sidebar">
         <div class="cart-sidebar-header">
-            <h2>🛒 Giỏ Hàng</h2>
+            <h2>🛒 <span data-i18n="cart_title">Giỏ Hàng</span></h2>
             <button class="cart-close-btn" id="cart-close-btn"><i class="ti-close"></i></button>
         </div>
         <div class="cart-items-list" id="cart-items-list">
             <div class="cart-empty" id="cart-empty">
                 <span>🍗</span>
-                <p>Giỏ hàng đang trống<br><small>Hãy chọn món ngon nào!</small></p>
+                <p><span data-i18n="cart_empty_title">Giỏ hàng đang trống</span><br><small data-i18n="cart_empty_hint">Hãy chọn món ngon nào!</small></p>
             </div>
         </div>
         <div class="cart-footer" id="cart-footer">
             <div class="cart-total-row">
-                <span>Tổng cộng</span>
+                <span data-i18n="cart_total">Tổng cộng</span>
                 <strong id="cart-total">0 đ</strong>
             </div>
-            <button class="cart-order-btn" id="cart-order-btn">Đặt Hàng Ngay 🍗</button>
+            <button class="cart-order-btn" id="cart-order-btn" data-i18n="btn_order">Đặt Hàng Ngay 🍗</button>
         </div>
     </div>
 
     <div class="cq-backdrop" id="cq-backdrop"></div>
-    <div class="cq-modal" id="cq-modal" role="dialog" aria-modal="true" aria-label="Đơn hàng của bạn">
+    <div class="cq-modal" id="cq-modal" role="dialog" aria-modal="true">
         <!-- Header -->
         <div class="cq-header">
             <div class="cq-header-left">
                 <div class="cq-header-icon">🛒</div>
                 <div>
-                    <div class="cq-header-title">Đơn hàng của bạn</div>
+                    <div class="cq-header-title" data-i18n="order_title">Đơn hàng của bạn</div>
                     <div class="cq-header-sub" id="cq-item-count">0 món</div>
                 </div>
             </div>
@@ -299,21 +325,20 @@
 
         <!-- Scrollable body -->
         <div class="cq-body">
-            <div class="cq-items-wrap" id="cq-items-wrap">
-            </div>
+            <div class="cq-items-wrap" id="cq-items-wrap"></div>
 
             <!-- Upsell banner -->
             <div class="cq-upsell" id="cq-upsell">
                 <div class="cq-upsell-inner">
-                    <div class="cq-upsell-label">Món ngon phải thử</div>
+                    <div class="cq-upsell-label" data-i18n="upsell_label">Món ngon phải thử</div>
                     <div class="cq-upsell-row">
                         <button class="cq-upsell-nav" id="cq-upsell-prev" aria-label="Trước">&lsaquo;</button>
                         <div class="cq-upsell-item" id="cq-upsell-item">
-                            <img class="cq-upsell-img" src="../asset/img/slider/KTC.webdp" alt="Khoai Tây Chiên" id="cq-upsell-img">
+                            <img class="cq-upsell-img" src="/asset/img/slider/KTC.webdp" alt="Khoai Tây Chiên" id="cq-upsell-img">
                             <div class="cq-upsell-info">
                                 <div class="cq-upsell-name" id="cq-upsell-name">Khoai Tây Chiên Giòn (Alacarte)</div>
                                 <div class="cq-upsell-price" id="cq-upsell-price">35.000 đ</div>
-                                <button class="cq-upsell-add-btn" id="cq-upsell-add">Thêm vào giỏ hàng</button>
+                                <button class="cq-upsell-add-btn" id="cq-upsell-add" data-i18n="btn_add_to_cart_upsell">Thêm vào giỏ hàng</button>
                             </div>
                         </div>
                         <button class="cq-upsell-nav" id="cq-upsell-next" aria-label="Tiếp">&rsaquo;</button>
@@ -321,6 +346,27 @@
                 </div>
             </div>
 
+<<<<<<< HEAD
+        <!-- Delivery Address Picker -->
+        <div class="cq-addr-section" id="cq-addr-section">
+            <div class="cq-addr-header">
+                <i class="ti-location-pin"></i>
+                <span class="cq-addr-label" data-i18n="delivery_address">Địa chỉ giao hàng</span>
+                <button class="cq-addr-add-btn" id="cq-addr-add-btn" title="Thêm địa chỉ mới"><i class="ti-plus"></i></button>
+            </div>
+            <div class="cq-addr-selected" id="cq-addr-selected">
+                <span class="cq-addr-loading" data-i18n="loading_address">Đang tải địa chỉ...</span>
+            </div>
+            <button class="cq-addr-expand-btn" id="cq-addr-expand-btn" style="display:none">
+                <span data-i18n="btn_other_address">Địa chỉ khác</span>
+                <i class="ti-angle-down cq-addr-arrow" id="cq-addr-arrow"></i>
+            </button>
+            <div class="cq-addr-list" id="cq-addr-list"></div>
+        </div>
+
+        <!-- Footer -->
+        <div class="cq-footer">
+=======
             <!-- Payment Method Picker -->
             <div class="cq-payment-section" id="cq-payment-section">
                 <div class="cq-payment-header">
@@ -389,16 +435,28 @@
             </div>
 
             <!-- Price summary -->
+>>>>>>> 4c2a19dc5465e9bc749f6abb84e5381b8bb67e06
             <div class="cq-price-breakdown">
                 <div class="cq-price-row">
-                    <span>Tổng</span>
+                    <span data-i18n="price_subtotal">Tổng</span>
                     <span class="cq-price-val" id="cq-subtotal">0 đ</span>
                 </div>
                 <div class="cq-price-row cq-discount-row" id="cq-discount-row" style="display:none">
-                    <span>Giảm giá</span>
+                    <span data-i18n="price_discount">Giảm giá</span>
                     <span class="cq-price-val cq-discount" id="cq-discount">-0 đ</span>
                 </div>
                 <div class="cq-price-row">
+<<<<<<< HEAD
+                    <span data-i18n="price_shipping">Phí giao hàng</span>
+                    <span class="cq-price-val" id="cq-shipping">0 đ</span>
+                </div>
+                <div class="cq-price-row cq-total-row">
+                    <span data-i18n="price_total">Tổng cộng</span>
+                    <span class="cq-price-val cq-grand-total" id="cq-grand-total">0 đ</span>
+                </div>
+            </div>
+            <button class="cq-checkout-btn" id="cq-checkout-btn" data-i18n="btn_checkout">
+=======
                     <span>Phí giao hàng <span class="cq-distance" id="cq-distance"></span></span>
                     <span class="cq-price-val" id="cq-shipping">0 đ</span>
                 </div>
@@ -413,6 +471,7 @@
         <div class="cq-footer">
             <div id="cq-delivery-warning" class="cq-delivery-warning" style="display:none"></div>
             <button class="cq-checkout-btn" id="cq-checkout-btn">
+>>>>>>> 4c2a19dc5465e9bc749f6abb84e5381b8bb67e06
                 Hoàn tất đơn hàng
             </button>
         </div>
@@ -433,6 +492,16 @@
             <h2 class="pd-name" id="pd-name"></h2>
             <p class="pd-desc" id="pd-desc"></p>
 
+<<<<<<< HEAD
+            <div class="pd-size-section" id="pd-size-section">
+                <div class="pd-size-label" data-i18n="size_label">Chọn kích cỡ:</div>
+                <div class="pd-size-list" id="pd-size-list"></div>
+            </div>
+
+            <div class="pd-people" id="pd-people" style="display:none">
+                <i class="ti-user"></i>
+                <span id="pd-people-text"></span>
+=======
             <!-- Size selector (chỉ hiện khi có nhiều variant) -->
             <div class="pd-size-section" id="pd-size-section">
                 <div class="pd-size-label">Chọn kích cỡ:</div>
@@ -480,14 +549,18 @@
                 <p id="menu-login-error" class="form-error"></p>
                 <div class="form-forgot"><a href="#">Quên mật khẩu?</a></div>
                 <button class="form-submit" id="menu-btn-login">Đăng Nhập</button>
+>>>>>>> 4c2a19dc5465e9bc749f6abb84e5381b8bb67e06
             </div>
 
-            <!-- Panel Đăng Ký -->
-            <div class="modal-panel" id="menu-panel-register">
-                <div class="form-group">
-                    <label>Họ và tên</label>
-                    <input type="text" id="menu-reg-fullname" placeholder="Nguyễn Văn A">
+            <div class="pd-footer">
+                <div class="pd-price-wrap">
+                    <span class="pd-price" id="pd-price">0 đ</span>
                 </div>
+<<<<<<< HEAD
+                <button class="pd-add-btn" id="pd-add-btn">
+                    <i class="ti-shopping-cart"></i> <span data-i18n="btn_add">Thêm vào giỏ</span>
+                </button>
+=======
                 <div class="form-group">
                     <label>Tên đăng nhập</label>
                     <input type="text" id="menu-reg-username" placeholder="Tên đăng nhập (không dấu)">
@@ -514,23 +587,84 @@
                 </div>
                 <p id="menu-register-error" class="form-error"></p>
                 <button class="form-submit" id="menu-btn-register">Tạo Tài Khoản</button>
+>>>>>>> 4c2a19dc5465e9bc749f6abb84e5381b8bb67e06
             </div>
         </div>
     </div>
 
-    <!--FOOTER-->
+    <!-- login modal -->
+    <div id="menu-login-modal" class="modal-overlay" role="dialog" aria-modal="true">
+        <div class="modal-box">
+            <button class="modal-close" id="menu-closeLoginBtn" aria-label="Đóng">✕</button>
+            <div class="modal-logo">Chônlibi 🍗</div>
+            <div class="modal-subtitle" id="menu-login-subtitle" data-i18n="modal_subtitle_menu">Đăng nhập để thêm món vào giỏ hàng</div>
+            <div class="modal-tabs">
+                <button class="modal-tab active" data-tab="login" id="menu-tab-login" data-i18n="tab_login">Đăng Nhập</button>
+                <button class="modal-tab" data-tab="register" id="menu-tab-register" data-i18n="tab_register">Đăng Ký</button>
+            </div>
+
+            <div class="modal-panel active" id="menu-panel-login">
+                <div class="form-group">
+                    <label data-i18n="label_username">Tên đăng nhập</label>
+                    <input type="text" id="menu-login-username" data-i18n-ph="ph_username" placeholder="Tên đăng nhập" autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label data-i18n="label_password">Mật khẩu</label>
+                    <input type="password" id="menu-login-password" data-i18n-ph="ph_password" placeholder="Nhập mật khẩu" autocomplete="current-password">
+                </div>
+                <p id="menu-login-error" class="form-error"></p>
+                <div class="form-forgot"><a href="#" data-i18n="forgot_pw">Quên mật khẩu?</a></div>
+                <button class="form-submit" id="menu-btn-login" data-i18n="btn_login_submit">Đăng Nhập</button>
+            </div>
+
+            <div class="modal-panel" id="menu-panel-register">
+                <div class="form-group">
+                    <label data-i18n="label_fullname">Họ và tên</label>
+                    <input type="text" id="menu-reg-fullname" placeholder="Nguyễn Văn A">
+                </div>
+                <div class="form-group">
+                    <label data-i18n="label_username">Tên đăng nhập</label>
+                    <input type="text" id="menu-reg-username" data-i18n-ph="ph_username" placeholder="Tên đăng nhập (không dấu)">
+                </div>
+                <div class="form-group">
+                    <label data-i18n="label_phone">Số điện thoại</label>
+                    <input type="tel" id="menu-reg-phone" placeholder="0947 392 552">
+                </div>
+                <div class="form-group">
+                    <label data-i18n="label_email">Email</label>
+                    <input type="email" id="menu-reg-email" placeholder="example@email.com">
+                </div>
+                <div class="form-group">
+                    <label data-i18n="label_birthdate">Ngày sinh</label>
+                    <input type="date" id="menu-reg-birthdate">
+                </div>
+                <div class="form-group">
+                    <label data-i18n="label_gender">Giới tính</label>
+                    <select id="menu-reg-gender"><option value="Male" data-i18n="option_male">Nam</option><option value="Female" data-i18n="option_female">Nữ</option><option value="Others" data-i18n="option_other">Khác</option></select>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="label_password">Mật khẩu</label>
+                    <input type="password" id="menu-reg-password" data-i18n-ph="ph_min6" placeholder="Tối thiểu 6 ký tự">
+                </div>
+                <p id="menu-register-error" class="form-error"></p>
+                <button class="form-submit" id="menu-btn-register" data-i18n="btn_register">Tạo Tài Khoản</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
     <div id="footer">
         <div class="footer-grid">
             <div class="footer-col">
                 <div class="footer-brand">Chônlibi 🍗</div>
-                <p class="footer-about-text">Chônlibi — nơi mỗi miếng gà đều kể một câu chuyện về hương vị.</p>
+                <p class="footer-about-text" data-i18n="footer_about">Chônlibi — nơi mỗi miếng gà đều kể một câu chuyện về hương vị.</p>
             </div>
             <div class="footer-col">
-                <span class="footer-col-title">Thông Tin Liên Hệ</span>
+                <span class="footer-col-title" data-i18n="footer_contact">Thông Tin Liên Hệ</span>
                 <ul class="footer-contact-list">
                     <li><div class="fc-icon"><i class="ti-location-pin"></i></div><span>Liên Chiểu, Đà Nẵng</span></li>
                     <li><div class="fc-icon"><i class="ti-headphone-alt"></i></div><span>Hotline: <a href="tel:0272375252">0272 375 252</a></span></li>
-                    <li><div class="fc-icon"><i class="ti-time"></i></div><span>Mở cửa: 9:00 – 22:00</span></li>
+                    <li><div class="fc-icon"><i class="ti-time"></i></div><span data-i18n="footer_hours">Mở cửa: 9:00 – 22:00</span></li>
                 </ul>
             </div>
         </div>
@@ -539,15 +673,51 @@
 
     <!-- ===== EMPTY CART POPUP ===== -->
     <div class="empty-cart-overlay" id="empty-cart-overlay"></div>
+<<<<<<< HEAD
+    <div class="empty-cart-popup" id="empty-cart-popup" role="alertdialog" aria-modal="true">
+        <div class="empty-cart-icon">🛒</div>
+        <h3 class="empty-cart-title" data-i18n="empty_cart_title">Giỏ hàng đang trống!</h3>
+        <p class="empty-cart-msg" data-i18n="empty_cart_msg">Bạn chưa chọn món nào. Hãy thêm món vào giỏ hàng trước khi đặt hàng nhé!</p>
+        <button class="empty-cart-close-btn" id="empty-cart-close-btn" data-i18n="btn_choose_now">Chọn món ngay 🍗</button>
+=======
     <div class="empty-cart-popup" id="empty-cart-popup" role="alertdialog" aria-modal="true" aria-label="Giỏ hàng trống">
         <div class="empty-cart-icon">🛒</div>
         <h3 class="empty-cart-title">Giỏ hàng đang trống!</h3>
         <p class="empty-cart-msg">Bạn chưa chọn món nào. Hãy thêm món vào giỏ hàng trước khi đặt hàng nhé!</p>
         <button class="empty-cart-close-btn" id="empty-cart-close-btn">Chọn món ngay 🍗</button>
+>>>>>>> 4c2a19dc5465e9bc749f6abb84e5381b8bb67e06
     </div>
 
     <!-- ===== ADD ADDRESS POPUP ===== -->
     <div class="addr-popup-overlay" id="addr-popup-overlay"></div>
+<<<<<<< HEAD
+    <div class="addr-popup" id="addr-popup" role="dialog" aria-modal="true">
+        <div class="addr-popup-header">
+            <h3 class="addr-popup-title"><i class="ti-location-pin"></i> <span data-i18n="addr_popup_title">Thêm địa chỉ mới</span></h3>
+            <button class="addr-popup-close" id="addr-popup-close" aria-label="Đóng"><i class="ti-close"></i></button>
+        </div>
+        <div class="addr-popup-body">
+            <div class="addr-form-row">
+                <div class="addr-form-group addr-form-group--small">
+                    <label class="addr-form-label" data-i18n="label_house_number">Số nhà</label>
+                    <input class="addr-form-input" type="number" id="addr-house-number" placeholder="VD: 42" min="1">
+                </div>
+                <div class="addr-form-group addr-form-group--large">
+                    <label class="addr-form-label"><span data-i18n="label_street">Đường / Phố</span> <span class="addr-required">*</span></label>
+                    <input class="addr-form-input" type="text" id="addr-street" placeholder="VD: Nguyễn Tất Thành">
+                </div>
+            </div>
+            <div class="addr-form-group">
+                <label class="addr-form-label"><span data-i18n="label_ward">Phường / Xã</span> <span class="addr-required">*</span></label>
+                <input class="addr-form-input" type="text" id="addr-ward" placeholder="VD: Phường Hòa Minh">
+            </div>
+            <div class="addr-form-group">
+                <label class="addr-form-label"><span data-i18n="label_district">Quận / Huyện</span> <span class="addr-required">*</span></label>
+                <input class="addr-form-input" type="text" id="addr-district" placeholder="VD: Liên Chiểu">
+            </div>
+            <div class="addr-form-group">
+                <label class="addr-form-label"><span data-i18n="label_province">Tỉnh / Thành phố</span> <span class="addr-required">*</span></label>
+=======
     <div class="addr-popup" id="addr-popup" role="dialog" aria-modal="true" aria-label="Thêm địa chỉ giao hàng">
         <div class="addr-popup-header">
             <h3 class="addr-popup-title"><i class="ti-location-pin"></i> Thêm địa chỉ mới</h3>
@@ -564,22 +734,34 @@
             </div>
             <div class="addr-form-group">
                 <label class="addr-form-label">Tỉnh / Thành phố <span class="addr-required">*</span></label>
+>>>>>>> 4c2a19dc5465e9bc749f6abb84e5381b8bb67e06
                 <input class="addr-form-input" type="text" id="addr-province" placeholder="VD: Đà Nẵng">
             </div>
             <p class="addr-form-error" id="addr-form-error"></p>
         </div>
         <div class="addr-popup-footer">
+<<<<<<< HEAD
+            <button class="addr-cancel-btn" id="addr-cancel-btn" data-i18n="btn_cancel">Hủy</button>
+            <button class="addr-submit-btn" id="addr-submit-btn">
+                <i class="ti-check"></i> <span data-i18n="btn_save_address">Lưu địa chỉ</span>
+=======
             <button class="addr-cancel-btn" id="addr-cancel-btn">Hủy</button>
             <button class="addr-submit-btn" id="addr-submit-btn">
                 <i class="ti-check"></i> Lưu địa chỉ
+>>>>>>> 4c2a19dc5465e9bc749f6abb84e5381b8bb67e06
             </button>
         </div>
     </div>
 
+<<<<<<< HEAD
+    <script src="/asset/js/api.js"></script>
+    <script src="/asset/js/menu.js"></script>
+=======
     <script src="../asset/js/api.js"></script>
     <script src="../asset/js/store.js"></script>
     <script src="../asset/js/order-success-popup.js"></script>
     <script src="../asset/js/menu.js"></script>
     <script src="../asset/js/mobile-nav.js"></script>
+>>>>>>> 4c2a19dc5465e9bc749f6abb84e5381b8bb67e06
 </body>
 </html>

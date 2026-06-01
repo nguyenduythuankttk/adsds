@@ -225,6 +225,9 @@ function togglePw(id, btn) {
 })();
 
 // ── Đăng ký ───────────────────────────────────────────
+var _registerEmail = '';
+var _registerUsername = '';
+
 document.getElementById('btn-register').addEventListener('click', function () {
     var fullName  = document.getElementById('reg-fullname').value.trim();
     var username  = document.getElementById('reg-username').value.trim();
@@ -360,6 +363,50 @@ document.getElementById('btn-register').addEventListener('click', function () {
             };
         } else {
             errEl.textContent = r.data.message || 'Đăng ký thất bại.';
+        }
+    })
+    .catch(function () { errEl.textContent = 'Lỗi kết nối máy chủ.'; });
+});
+
+document.getElementById('btn-verify-otp').addEventListener('click', function () {
+    var otp   = document.getElementById('otp-input').value.trim();
+    var errEl = document.getElementById('otp-error');
+    errEl.textContent = '';
+    if (!otp) { errEl.textContent = 'Vui lòng nhập mã OTP.'; return; }
+
+    apiPost('/auth/verify-otp', { Otp: otp })
+    .then(function (res) {
+        return res.json().then(function (d) { return { status: res.status, data: d }; });
+    })
+    .then(function (r) {
+        if (r.status === 200) {
+            document.getElementById('otp-step').style.display = 'none';
+            document.getElementById('register-form-step').style.display = '';
+            document.getElementById('otp-input').value = '';
+            document.querySelector('[data-tab="login"]').click();
+            document.getElementById('login-username').value = _registerUsername;
+            alert('Xác thực thành công! Bạn có thể đăng nhập ngay bây giờ.');
+        } else {
+            errEl.textContent = r.data.message || 'OTP không hợp lệ hoặc đã hết hạn.';
+        }
+    })
+    .catch(function () { errEl.textContent = 'Lỗi kết nối máy chủ.'; });
+});
+
+document.getElementById('btn-resend-otp').addEventListener('click', function () {
+    var errEl = document.getElementById('otp-error');
+    errEl.textContent = '';
+    if (!_registerEmail) { errEl.textContent = 'Không có email để gửi lại.'; return; }
+
+    apiPost('/auth/resend-verify-email', { Email: _registerEmail })
+    .then(function (res) {
+        return res.json().then(function (d) { return { status: res.status, data: d }; });
+    })
+    .then(function (r) {
+        if (r.status === 200) {
+            alert(r.data.message || 'Đã gửi lại OTP.');
+        } else {
+            errEl.textContent = r.data.message || 'Không thể gửi lại OTP.';
         }
     })
     .catch(function () { errEl.textContent = 'Lỗi kết nối máy chủ.'; });

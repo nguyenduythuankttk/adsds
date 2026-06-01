@@ -1899,6 +1899,8 @@ body {
 .cq-addr-section {
     padding: 10px 20px 4px;
     border-top: 1.5px solid #f0ebe6;
+    flex-shrink: 0;
+    background: #fff;
 }
 
 .cq-addr-header {

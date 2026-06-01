@@ -1,8 +1,8 @@
 using Backend.Models;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
 namespace Backend.Controller {
@@ -14,6 +14,7 @@ namespace Backend.Controller {
         public billController(IBillService billService) {
             _billService = billService;
         }
+
         [Authorize(Roles = "Manager,Counter")]
         [HttpGet("get-all/{start}/{end}")]
         public async Task<IActionResult> GetAllBillIn(DateOnly start, DateOnly end, [FromQuery] int? storeID = null) {
@@ -26,7 +27,6 @@ namespace Backend.Controller {
             }
         }
 
-    
         [Authorize]
         [HttpGet("my-bills")]
         public async Task<IActionResult> GetMyBills() {
@@ -41,53 +41,42 @@ namespace Backend.Controller {
             }
         }
 
-        // Chủ sở hữu hoặc nhân viên xem bill cụ thể
         [Authorize]
         [HttpGet("get/{billID}")]
         public async Task<IActionResult> GetBillByID(Guid billID) {
-            try {
-                var bill = await _billService.GetBillByID(billID);
-                if (bill == null) return NotFound("Không tìm thấy hóa đơn");
+            var bill = await _billService.GetBillByID(billID);
+            if (bill == null) return NotFound("Không tìm thấy hóa đơn");
 
-                var callerID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                    ?? User.FindFirst("user_id")?.Value)!);
-                var role = User.FindFirst(ClaimTypes.Role)?.Value;
-                bool isEmployee = role != "Customer";
+            var callerID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value)!);
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            bool isEmployee = role != "Customer";
 
-                if (!isEmployee && bill.UserID != callerID)
-                    return Forbid();
+            if (!isEmployee && bill.UserID != callerID)
+                return Forbid();
 
-                return Ok(bill);
-            } catch (Exception e) {
-                return StatusCode(500, $"Error in billController.GetBillByID: {e.Message}");
-            }
+            return Ok(bill);
         }
 
-        // Nhân viên tạo bill dine-in
         [Authorize(Roles = "Manager,Counter")]
         [HttpPost("create-dinein")]
         public async Task<IActionResult> CreateDineInBill([FromBody] DineInBillCreateRequest request) {
-            try {
-                await _billService.CreateDineInBill(request);
-                return Ok("Tạo hóa đơn tại chỗ thành công");
-            } catch (Exception e) {
-                return StatusCode(500, $"Error in billController.CreateDineInBill: {e.Message}");
-            }
+            await _billService.CreateDineInBill(request);
+            return Ok("Tạo hóa đơn tại chỗ thành công");
         }
-
 
         [Authorize]
         [HttpPost("create-delivery")]
         public async Task<IActionResult> CreateDeliveryBill([FromBody] DeliveryBillCreateRequest request) {
+            var callerID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value)!);
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            bool isEmployee = role != "Customer";
+
+            if (!isEmployee)
+                request.UserID = callerID;
+
             try {
-                var callerID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                    ?? User.FindFirst("user_id")?.Value)!);
-                var role = User.FindFirst(ClaimTypes.Role)?.Value;
-                bool isEmployee = role != "Customer";
-
-                if (!isEmployee)
-                    request.UserID = callerID;
-
                 var result = await _billService.CreateDeliveryBill(request);
                 return Ok(result);
             } catch (Exception e) {
@@ -95,7 +84,6 @@ namespace Backend.Controller {
             }
         }
 
-        // FE poll trạng thái thanh toán (chủ yếu cho BankTransfer/SePay)
         [Authorize]
         [HttpGet("payment-status/{billID}")]
         public async Task<IActionResult> GetPaymentStatus(Guid billID) {
@@ -108,7 +96,6 @@ namespace Backend.Controller {
             }
         }
 
-        // FE gọi khi countdown 3 phút hết, hoặc user bấm "Huỷ" trên popup QR
         [Authorize]
         [HttpPost("cancel/{billID}")]
         public async Task<IActionResult> CancelUnpaidBill(Guid billID) {
@@ -122,27 +109,11 @@ namespace Backend.Controller {
             }
         }
 
-        // Nhân viên thay đổi trạng thái bill
         [Authorize(Roles = "Manager,Counter")]
         [HttpPost("change-status")]
         public async Task<IActionResult> ChangeBill([FromBody] BillChangeRequest request) {
-            try {
-                await _billService.ChangeBill(request);
-                return Ok("Cập nhật trạng thái hóa đơn thành công");
-            } catch (Exception e) {
-                return StatusCode(500, $"Error in billController.ChangeBill: {e.Message}");
-            }
+            await _billService.ChangeBill(request);
+            return Ok("Cập nhật trạng thái hóa đơn thành công");
         }
-
-        // [Authorize(Roles = "Manager")]
-        // [HttpDelete("delete/{billID}")]
-        // public async Task<IActionResult> SoftDelete(Guid billID) {
-        //     try {
-        //         await _billService.SoftDeleteBill(billID);
-        //         return Ok("Xóa hóa đơn thành công");
-        //     } catch (Exception e) {
-        //         return StatusCode(500, $"Error in billController.SoftDelete: {e.Message}");
-        //     }
-        // }
     }
 }

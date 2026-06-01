@@ -39,7 +39,6 @@ namespace Backend.Services.Implementations{
             if (product == null)
                 throw new Exception($"Product {request.ProductID} not found.");
 
-            // Combo: chỉ chấp nhận Size = Default và tối đa 1 varient duy nhất
             if (product.ProductType == ProductType.Combo)
             {
                 if (request.Size != ProductSize.Default)

@@ -24,30 +24,15 @@ namespace Backend.Controller
         [HttpGet("get-all")]
         public async Task<IActionResult> GetAllReview()
         {
-            try
-            {
-                var reviews = await _reviewService.GetAllReview();
-                return Ok(reviews);
-            } catch (Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in reviewController.GetAllReview: {ex.Message}");
-            }
+            return Ok(await _reviewService.GetAllReview());
         }
 
         [HttpGet("get/{reviewId}")]
         public async Task<IActionResult> GetReviewByID(Guid reviewId)
         {
-            try
-            {
-                var review = await _reviewService.GetReviewByID(reviewId);
-                if (review == null)
-                    return NotFound("Review not found!");
-
-                return Ok(review);
-            } catch (Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in reviewController.GetReviewByID: {ex.Message}");
-            }
+            var review = await _reviewService.GetReviewByID(reviewId);
+            if (review == null) return NotFound("Review not found!");
+            return Ok(review);
         }
 
         [HttpGet("store/{storeId:int}")]
@@ -86,28 +71,16 @@ namespace Backend.Controller
         [HttpPut("update/{reviewId}")]
         public async Task<IActionResult> UpdateReview(Guid reviewId, [FromBody] ReviewUpdateRequest updateRequest)
         {
-            try
-            {
-                await _reviewService.UpdateReview(reviewId, GetUserId(), updateRequest);
-                return Ok("Update review successfully!");
-            } catch (Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in reviewController.UpdateReview: {ex.Message}");
-            }
+            await _reviewService.UpdateReview(reviewId, GetUserId(), updateRequest);
+            return Ok("Update review successfully!");
         }
 
         [Authorize]
         [HttpDelete("soft-delete/{reviewId}")]
         public async Task<IActionResult> DeleteReview(Guid reviewId)
         {
-            try
-            {
-                await _reviewService.SoftDeleteReview(reviewId, GetUserId());
-                return Ok("Soft delete successfully!");
-            } catch (Exception ex)
-            {
-                return StatusCode(500, $"An error occurred in reviewController.DeleteReview: {ex.Message}");
-            }
+            await _reviewService.SoftDeleteReview(reviewId, GetUserId());
+            return Ok("Soft delete successfully!");
         }
     }
 }

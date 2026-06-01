@@ -1,5 +1,5 @@
 // Khi chạy qua Live Server (port 5500) thì gọi thẳng backend; khi qua nginx thì dùng relative path
-var API_BASE = (window.location.port === '5500' || window.location.port === '3001')
+var API_BASE = (window.location.port === '5500' || window.location.port === '5501' || window.location.port === '3001')
     ? 'http://127.0.0.1:5188/api/pbl3'
     : '/api/pbl3';
 
@@ -20,21 +20,31 @@ function isTokenExpired() {
 }
 
 function apiFetch(method, path, body, noAuthRedirect) {
-    var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
+    var opts = { method: method, headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' } };
     var token = getToken();
-    if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+    if (token) {
+        if (isTokenExpired()) {
+            clearAuth();
+            if (!noAuthRedirect) {
+                alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+                window.location.href = '/html/index.html';
+            }
+            return Promise.reject(new Error('Token expired'));
+        }
+        opts.headers['Authorization'] = 'Bearer ' + token;
+    }
     if (body !== undefined) opts.body = JSON.stringify(body);
     return fetch(API_BASE + path, opts).then(function (res) {
         if (res.status === 401 && !noAuthRedirect) {
             clearAuth();
-            window.location.href = 'index.html';
-            return new Promise(function() {}); // Dừng chuỗi promise trong khi chờ chuyển trang
+            window.location.href = '/html/index.html';
+            return new Promise(function() {});
         }
         return res;
     });
 }
 
-function apiGet(path)                      { return apiFetch('GET',    path); }
+function apiGet(path, noAuth)              { return apiFetch('GET',    path, undefined, noAuth); }
 function apiPost(path, body, noAuth)       { return apiFetch('POST',   path, body, noAuth); }
 function apiPut(path, body)                { return apiFetch('PUT',    path, body); }
 function apiDelete(path)                   { return apiFetch('DELETE', path); }

@@ -18,34 +18,26 @@ namespace Backend.Controller {
 
         [HttpGet("my-addresses")]
         public async Task<IActionResult> GetMyAddresses() {
-            try {
-                var userID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                    ?? User.FindFirst("user_id")?.Value)!);
-                var addresses = await _addressService.GetUserAddress(new Backend.Models.User { UserID = userID });
-                return Ok(addresses);
-            } catch (Exception e) {
-                return StatusCode(500, $"Error in addressController.GetMyAddresses: {e.Message}");
-            }
+            var userID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value)!);
+            var addresses = await _addressService.GetUserAddress(new User { UserID = userID });
+            return Ok(addresses);
         }
 
         [HttpGet("get/{addressID}")]
         public async Task<IActionResult> GetAddressByID(Guid addressID) {
-            try {
-                var address = await _addressService.GetAddressByID(addressID);
-                if (address == null) return NotFound("Không tìm thấy địa chỉ");
+            var address = await _addressService.GetAddressByID(addressID);
+            if (address == null) return NotFound("Không tìm thấy địa chỉ");
 
-                var callerID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                    ?? User.FindFirst("user_id")?.Value)!);
-                var role = User.FindFirst(ClaimTypes.Role)?.Value;
-                bool isEmployee = role != "Customer";
+            var callerID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value)!);
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            bool isEmployee = role != "Customer";
 
-                if (!isEmployee && address.UserID != callerID)
-                    return Forbid();
+            if (!isEmployee && address.UserID != callerID)
+                return Forbid();
 
-                return Ok(address);
-            } catch (Exception e) {
-                return StatusCode(500, $"Error in addressController.GetAddressByID: {e.Message}");
-            }
+            return Ok(address);
         }
 
         [HttpPost("add")]
@@ -64,36 +56,30 @@ namespace Backend.Controller {
                 return StatusCode(500, $"Error in addressController.AddAddress: {e.Message}");
             }
         }
+
         [HttpPut("set-default/{addressID}")]
         public async Task<IActionResult> SetDefault(Guid addressID) {
-            try {
-                var userID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                    ?? User.FindFirst("user_id")?.Value)!);
-                var address = await _addressService.GetAddressByID(addressID);
-                if (address == null) return NotFound("Không tìm thấy địa chỉ");
-                if (address.UserID != userID) return Forbid();
+            var userID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value)!);
+            var address = await _addressService.GetAddressByID(addressID);
+            if (address == null) return NotFound("Không tìm thấy địa chỉ");
+            if (address.UserID != userID) return Forbid();
 
-                await _addressService.SetDefault(addressID, userID);
-                return Ok("Đặt địa chỉ mặc định thành công");
-            } catch (Exception e) {
-                return StatusCode(500, $"Error in addressController.SetDefault: {e.Message}");
-            }
+            await _addressService.SetDefault(addressID, userID);
+            return Ok("Đặt địa chỉ mặc định thành công");
         }
+
         [HttpDelete("delete/{addressID}")]
         public async Task<IActionResult> DeleteAddress(Guid addressID) {
-            try {
-                var userID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                    ?? User.FindFirst("user_id")?.Value)!);
-                var address = await _addressService.GetAddressByID(addressID);
-                if (address == null) return NotFound("Không tìm thấy địa chỉ");
-                if (address.UserID != userID) return Forbid();
+            var userID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value)!);
+            var address = await _addressService.GetAddressByID(addressID);
+            if (address == null) return NotFound("Không tìm thấy địa chỉ");
+            if (address.UserID != userID) return Forbid();
 
-                var deleted = await _addressService.DeleteUserAddress(addressID, userID);
-                if (!deleted) return BadRequest("Không thể xóa địa chỉ duy nhất.");
-                return Ok("Xóa địa chỉ thành công");
-            } catch (Exception e) {
-                return StatusCode(500, $"Error in addressController.DeleteAddress: {e.Message}");
-            }
+            var deleted = await _addressService.DeleteUserAddress(addressID, userID);
+            if (!deleted) return BadRequest("Không thể xóa địa chỉ duy nhất.");
+            return Ok("Xóa địa chỉ thành công");
         }
     }
 }

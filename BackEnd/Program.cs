@@ -9,11 +9,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.IdentityModel.JsonWebTokens;
-using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using System.Text.Json.Serialization;
 using Backend.Services.Interfaces;
+using Backend.Middleware;
 
 Microsoft.IdentityModel.Logging.IdentityModelEventSource.ShowPII = true;
 
@@ -38,12 +37,19 @@ builder.Services.AddControllers()
     });
 
 var jwtSettings = builder.Configuration.GetSection("Jwt");
+// Đọc JWT key: ưu tiên Jwt:Key, fallback sang JWT_KEY (env var single underscore)
+var jwtKeyValue = jwtSettings["Key"];
+if (string.IsNullOrWhiteSpace(jwtKeyValue))
+    jwtKeyValue = builder.Configuration["JWT_KEY"] ?? "";
+if (string.IsNullOrWhiteSpace(jwtKeyValue))
+    throw new Exception("JWT Key chưa được cấu hình. Hãy đặt Jwt__Key hoặc JWT_KEY trong file .env");
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        // options.MapInboundClaims = false;
-        options.TokenHandlers.Clear();
-        options.TokenHandlers.Add(new JwtSecurityTokenHandler());
+        // .NET 7+ defaults MapInboundClaims to false, causing ClaimTypes.NameIdentifier
+        // to not be found because JWT stores it as "sub". Force mapping on.
+        options.MapInboundClaims = true;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -53,30 +59,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = jwtSettings["Issuer"],
             ValidAudience = jwtSettings["Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(jwtSettings["Key"]!))
-        };
-
-        options.Events = new JwtBearerEvents
-        {
-            OnTokenValidated = async context =>
-            {
-                var dbContext = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
-
-                string? tokenString = context.SecurityToken switch {
-                    JsonWebToken jwt => jwt.EncodedToken,
-                    JwtSecurityToken legacyJwt => legacyJwt.RawData,
-                    _ => null
-                };
-
-                if (tokenString != null)
-                {
-                    var isBlacklisted = await dbContext.BlackListedToken
-                        .AnyAsync(bt => bt.Token == tokenString);
-
-                    if (isBlacklisted)
-                        context.Fail("This token has been blacklisted.");
-                }
-            }
+                Encoding.UTF8.GetBytes(jwtKeyValue))
         };
     });
 builder.Services.AddAuthorization();
@@ -188,8 +171,9 @@ if (app.Environment.IsDevelopment())
 // app.UseHttpsRedirection(); // Tắt redirect HTTPS khi dev với frontend HTTP
 app.UseCors("AllowFrontend");
 
-
+app.UseMiddleware<ErrorHandlingMiddleware>();
 app.UseAuthentication();
+app.UseMiddleware<BlacklistTokenMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 app.Run();

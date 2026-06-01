@@ -76,12 +76,12 @@ namespace Backend.Services.Implementations{
                     Phone = request.Phone,
                     Email = request.Email,
                     Gender = request.Gender,
-                    IsVerified = false
+                    IsVerified = true
                 };
                 Console.WriteLine($"[Register] New user created: UserName={newCustomer.UserName}, IsVerified={newCustomer.IsVerified}");
                 newCustomer.HashPassword = BCrypt.Net.BCrypt.HashPassword(request.HashPassword);
                 var token = GenerateSecureToken();
-                newCustomer.VerifiedExp = DateTime.UtcNow.AddSeconds(60);
+                newCustomer.VerifiedExp = DateTime.UtcNow.AddHours(7).AddMinutes(10);
                 newCustomer.EmailVerified = token;
                 _dbContext.User.Add(newCustomer);
                 await _dbContext.SaveChangesAsync();
@@ -111,7 +111,7 @@ namespace Backend.Services.Implementations{
 
             var token = GenerateSecureToken();
             user.EmailVerified = token;
-            user.VerifiedExp = DateTime.UtcNow.AddSeconds(60);
+            user.VerifiedExp = DateTime.UtcNow.AddHours(7).AddMinutes(10);
             await _dbContext.SaveChangesAsync();
 
             try {
@@ -148,7 +148,7 @@ namespace Backend.Services.Implementations{
             if (record == null)
                 throw new InvalidOperationException("OTP không hợp lệ.");
             Console.WriteLine($"[VerifyEmail] User found: UserName={record.UserName}, IsVerified={record.IsVerified} (before verify)");
-            if (record.VerifiedExp < DateTime.UtcNow)
+            if (record.VerifiedExp < DateTime.UtcNow.AddHours(7))
                 throw new InvalidOperationException("OTP đã hết hạn. Vui lòng nhấn gửi lại mã.");
             record.VerifiedExp = null;
             record.EmailVerified = null;
@@ -196,6 +196,7 @@ namespace Backend.Services.Implementations{
         public async Task<UserAuthReponse> UserLogin(LoginRequest request){
             Console.WriteLine($"[UserLogin] Called for UserName={request.UserName}");
             var usr = await _dbContext.User
+                .Where(u => !(u is Employee))
                 .FirstOrDefaultAsync(e => e.UserName == request.UserName);
 
             if (usr == null || !BCrypt.Net.BCrypt.Verify(request.HashPassword, usr.HashPassword))

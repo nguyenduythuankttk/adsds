@@ -671,6 +671,7 @@
         return parts.join(' · ');
     }
 
+
     function renderPdPeople(variant) {
         if (!pdPeople || !pdPeopleText) return;
         var n = variant && variant.forPeople;
@@ -1620,17 +1621,13 @@
         var initSearch = urlParams.get('search');
         if (!initSearch) return;
 
-        // Điền từ khóa vào ô tìm kiếm
         if (searchInput) {
             searchInput.value = initSearch;
-            // Dispatch 'input' event để trigger search sau khi data load
-            // Dùng polling đơn giản: chờ allProducts được nạp (tối đa 4s)
             var attempts = 0;
             var checkReady = setInterval(function () {
                 attempts++;
                 if (allProducts.length > 0 || attempts > 40) {
                     clearInterval(checkReady);
-                    // Trigger tìm kiếm
                     var q = initSearch.trim();
                     if (!q) return;
                     if (gridSearch) gridSearch.innerHTML = '<p class="bs-loading"><span class="bs-spinner"></span> Đang tìm...</p>';

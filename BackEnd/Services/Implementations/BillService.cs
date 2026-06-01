@@ -462,7 +462,7 @@ namespace Backend.Services.Implementations{
             if (bill.UserID != callerID) throw new Exception("Không có quyền huỷ bill này.");
             if (bill.PaymentStatus == PaymentStatus.Paid)
                 throw new Exception("Bill đã thanh toán, không thể huỷ.");
-            if (bill.PaymentStatus == PaymentStatus.Failed) return; // đã huỷ rồi
+            if (bill.PaymentStatus == PaymentStatus.Failed) return;
 
             bill.PaymentStatus = PaymentStatus.Failed;
             _dbcontext.BillChange.Add(new BillChange
