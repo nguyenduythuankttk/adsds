@@ -23,6 +23,18 @@ namespace Backend.Services.Implementations {
             Console.WriteLine($"[EmailService] Verify email sent successfully to {email}");
         }
 
+        public async Task SendChangePasswordOtpEmail(string email, string otp) {
+            var html = BuildOtpEmailHtml(
+                heading: "Xac nhan doi mat khau",
+                body: "Ban vua yeu cau doi mat khau tai khoan Chonlibi. Vui long nhap ma OTP duoi day de xac nhan. Ma se het han sau 1 phut.",
+                otp: otp,
+                note: "Neu ban khong yeu cau doi mat khau, vui long bo qua email nay va kiem tra lai tai khoan cua ban."
+            );
+            Console.WriteLine($"[EmailService] Sending change-password OTP email to {email}");
+            await SendEmailAsync(email, "Ma OTP doi mat khau", html);
+            Console.WriteLine($"[EmailService] Change-password OTP email sent to {email}");
+        }
+
         public async Task SendChangePasswordEmail(string email, string resetToken) {
             var frontendUrl = _configuration["FrontendUrl"];
             var resetUrl = $"{frontendUrl}/reset-password?token={resetToken}";

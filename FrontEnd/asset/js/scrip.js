@@ -1,22 +1,26 @@
 // Mở/đóng modal đăng nhập
-document.getElementById('openLoginBtn').addEventListener('click', function (e) {
-    e.preventDefault();
+(function () {
+    var openLoginBtn = document.getElementById('openLoginBtn');
+    if (!openLoginBtn) return; // toggle slider được dùng thay thế
+    openLoginBtn.addEventListener('click', function (e) {
+        e.preventDefault();
 
-    var fullName = localStorage.getItem('fullName');
-    var role     = localStorage.getItem('role');
+        var fullName = localStorage.getItem('fullName');
+        var role     = localStorage.getItem('role');
 
-    if (fullName) {
-        if (role === 'admin') {
-            window.location.href = '/html/admin.html';
-        } else if (role === 'employee') {
-            window.location.href = '/html/employee.html';
+        if (fullName) {
+            if (role === 'admin') {
+                window.location.href = 'admin.html';
+            } else if (role === 'employee') {
+                window.location.href = 'employee.html';
+            } else {
+                window.location.href = 'user.html';
+            }
         } else {
-            window.location.href = '/html/user.html';
+            document.getElementById('login-modal').classList.add('active');
         }
-    } else {
-        document.getElementById('login-modal').classList.add('active');
-    }
-});
+    });
+})();
 
 document.getElementById('closeLoginBtn').addEventListener('click', function () {
     document.getElementById('login-modal').classList.remove('active');
@@ -75,7 +79,7 @@ document.getElementById('btn-login').addEventListener('click', function () {
                 luuThongTinNhanVien(result.data);
                 document.getElementById('login-modal').classList.remove('active');
                 var role = localStorage.getItem('role');
-                window.location.href = role === 'admin' ? '/html/admin.html' : '/html/employee.html';
+                window.location.href = role === 'admin' ? 'admin.html' : 'employee.html';
             } else {
                 luuThongTinKhachHang(result.data);
                 document.getElementById('login-modal').classList.remove('active');
@@ -84,6 +88,141 @@ document.getElementById('btn-login').addEventListener('click', function () {
         })
         .catch(function () { errEl.textContent = 'Lỗi kết nối máy chủ.'; });
 });
+
+// ── Ẩn/hiện mật khẩu ─────────────────────────────────
+function togglePw(id, btn) {
+    var inp = document.getElementById(id);
+    if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+    else { inp.type = 'password'; btn.textContent = '👁'; }
+}
+
+// ── Quên mật khẩu ─────────────────────────────────────
+(function () {
+    function showPanel(id) {
+        document.querySelectorAll('.modal-panel').forEach(function (p) { p.classList.remove('active'); });
+        document.getElementById(id).classList.add('active');
+    }
+
+    function safeJson(res) {
+        return res.text().then(function (text) {
+            var d = {};
+            try { d = JSON.parse(text); } catch (e) {}
+            return { status: res.status, data: d };
+        });
+    }
+
+    var _forgotEmail = '';
+    var _forgotTimerRef = { interval: null };
+
+    function startForgotCountdown() {
+        var timerEl     = document.getElementById('forgot-otp-timer');
+        var countdownEl = document.getElementById('forgot-otp-countdown');
+        var btnResend   = document.getElementById('btn-forgot-resend');
+        var secs = 60;
+        timerEl.textContent = secs;
+        countdownEl.style.display = '';
+        btnResend.style.display = 'none';
+        clearInterval(_forgotTimerRef.interval);
+        _forgotTimerRef.interval = setInterval(function () {
+            secs--;
+            timerEl.textContent = secs;
+            if (secs <= 0) {
+                clearInterval(_forgotTimerRef.interval);
+                countdownEl.style.display = 'none';
+                btnResend.style.display = '';
+            }
+        }, 1000);
+    }
+
+    // Mở panel nhập email
+    document.getElementById('link-forgot-password').addEventListener('click', function (e) {
+        e.preventDefault();
+        document.querySelector('.modal-tabs').style.display = 'none';
+        document.getElementById('closeLoginBtn').style.display = 'none';
+        document.getElementById('forgot-error').textContent = '';
+        document.getElementById('forgot-email').value = '';
+        showPanel('panel-forgot');
+    });
+
+    // Quay lại đăng nhập
+    document.getElementById('btn-back-login').addEventListener('click', function () {
+        clearInterval(_forgotTimerRef.interval);
+        document.querySelector('.modal-tabs').style.display = '';
+        document.getElementById('closeLoginBtn').style.display = '';
+        document.querySelectorAll('.modal-tab').forEach(function (t) { t.classList.remove('active'); });
+        document.querySelector('[data-tab="login"]').classList.add('active');
+        showPanel('panel-login');
+    });
+
+    // Gửi OTP quên mật khẩu
+    document.getElementById('btn-forgot-send').addEventListener('click', function () {
+        var email = document.getElementById('forgot-email').value.trim();
+        var errEl = document.getElementById('forgot-error');
+        errEl.textContent = '';
+        if (!email) { errEl.textContent = 'Vui lòng nhập email.'; return; }
+        _forgotEmail = email;
+        apiPost('/auth/forgot-password', { Email: email }, true)
+            .then(safeJson)
+            .then(function (r) {
+                if (r.status === 200) {
+                    document.getElementById('forgot-otp-input').value = '';
+                    document.getElementById('forgot-new-pw').value = '';
+                    document.getElementById('forgot-confirm-pw').value = '';
+                    document.getElementById('forgot-otp-error').textContent = '';
+                    showPanel('panel-forgot-otp');
+                    startForgotCountdown();
+                } else {
+                    errEl.textContent = r.data.message || 'Không tìm thấy email trong hệ thống.';
+                }
+            })
+            .catch(function () { errEl.textContent = 'Lỗi kết nối máy chủ.'; });
+    });
+
+    // Gửi lại OTP
+    document.getElementById('btn-forgot-resend').addEventListener('click', function () {
+        var errEl = document.getElementById('forgot-otp-error');
+        errEl.textContent = '';
+        apiPost('/auth/forgot-password', { Email: _forgotEmail }, true)
+            .then(safeJson)
+            .then(function (r) {
+                if (r.status === 200) {
+                    document.getElementById('forgot-otp-input').value = '';
+                    startForgotCountdown();
+                } else {
+                    errEl.textContent = r.data.message || 'Không thể gửi lại mã OTP.';
+                }
+            })
+            .catch(function () { errEl.textContent = 'Lỗi kết nối máy chủ.'; });
+    });
+
+    // Đặt lại mật khẩu
+    document.getElementById('btn-forgot-reset').addEventListener('click', function () {
+        var otp       = document.getElementById('forgot-otp-input').value.trim();
+        var newPw     = document.getElementById('forgot-new-pw').value;
+        var confirmPw = document.getElementById('forgot-confirm-pw').value;
+        var errEl     = document.getElementById('forgot-otp-error');
+        errEl.textContent = '';
+        if (!otp || otp.length !== 6)         { errEl.textContent = 'Vui lòng nhập đúng 6 chữ số OTP.'; return; }
+        if (!newPw || newPw.length < 6)       { errEl.textContent = 'Mật khẩu mới phải có ít nhất 6 ký tự.'; return; }
+        if (newPw !== confirmPw)               { errEl.textContent = 'Mật khẩu xác nhận không khớp.'; return; }
+        apiPost('/auth/reset-password', { Token: otp, NewPassword: newPw }, true)
+            .then(safeJson)
+            .then(function (r) {
+                if (r.status === 200) {
+                    clearInterval(_forgotTimerRef.interval);
+                    document.querySelector('.modal-tabs').style.display = '';
+                    document.getElementById('closeLoginBtn').style.display = '';
+                    document.querySelectorAll('.modal-tab').forEach(function (t) { t.classList.remove('active'); });
+                    document.querySelector('[data-tab="login"]').classList.add('active');
+                    showPanel('panel-login');
+                    alert('Đặt lại mật khẩu thành công! Vui lòng đăng nhập lại.');
+                } else {
+                    errEl.textContent = r.data.message || 'OTP không đúng hoặc đã hết hạn.';
+                }
+            })
+            .catch(function () { errEl.textContent = 'Lỗi kết nối máy chủ.'; });
+    });
+})();
 
 // ── Đăng ký ───────────────────────────────────────────
 var _registerEmail = '';
@@ -104,6 +243,18 @@ document.getElementById('btn-register').addEventListener('click', function () {
         errEl.textContent = 'Vui lòng điền đầy đủ các trường.'; return;
     }
     if (password.length < 6) { errEl.textContent = 'Mật khẩu phải có ít nhất 6 ký tự.'; return; }
+    var confirmPw = document.getElementById('reg-password-confirm').value;
+    if (password !== confirmPw) { errEl.textContent = 'Mật khẩu xác nhận không khớp.'; return; }
+
+    if (!/^0\d{9}$/.test(phone)) {
+        errEl.textContent = 'Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0.'; return;
+    }
+
+    var minBirthYear = new Date();
+    minBirthYear.setFullYear(minBirthYear.getFullYear() - 10);
+    if (!birthdate || new Date(birthdate) > minBirthYear) {
+        errEl.textContent = 'Bạn phải đủ 10 tuổi trở lên.'; return;
+    }
 
     apiPost('/auth/register', {
         UserName:     username,
@@ -262,43 +413,58 @@ document.getElementById('btn-resend-otp').addEventListener('click', function () 
 });
 
 function updateHeaderAfterLogin(name) {
-    var btn       = document.getElementById('openLoginBtn');
     var role      = localStorage.getItem('role');
     var initial   = name.charAt(0).toUpperCase();
     var shortName = name.split(' ').pop();
 
-    // Hiện nút Giao Hàng
-    var deliveryBtn = document.getElementById('delivery-btn');
-    if (deliveryBtn) deliveryBtn.style.display = '';
+    // Hiện nút Giỏ Hàng
+    var cartFab = document.getElementById('cart-fab');
+    if (cartFab) cartFab.style.display = '';
 
-    // Đổi button thành avatar + tên + nút đăng xuất
-    btn.innerHTML =
-        '<span class="user-avatar-btn">' + initial + '</span>' +
-        '<span id="login-btn-text">' + shortName + '</span>' +
-        '<span class="logout-divider">|</span>' +
-        '<span class="logout-text" id="btn-logout-header">Đăng xuất</span>';
-
-    // Gắn sự kiện đăng xuất
-    var logoutEl = document.getElementById('btn-logout-header');
-    if (logoutEl) {
-        logoutEl.addEventListener('click', function (e) {
-            e.stopPropagation();
-            apiPost('/auth/logout').then(function () {
-                clearAuth();
-                window.location.reload();
-            }).catch(function () {
-                clearAuth();
-                window.location.reload();
-            });
-        });
+    // Cập nhật toggle slider: user icon → hiển thị avatar + tên rút gọn
+    var userBtn = document.getElementById('nav-toggle-user');
+    if (userBtn) {
+        userBtn.innerHTML =
+            '<span class="user-avatar-toggle">' + initial + '</span>';
+        userBtn.title = shortName;
+        // Đảm bảo active
+        userBtn.classList.add('active');
+        var homeBtn = document.getElementById('nav-toggle-home');
+        if (homeBtn) homeBtn.classList.remove('active');
+        var thumb = document.getElementById('nav-toggle-thumb');
+        if (thumb) thumb.classList.add('on-user');
     }
 
-    if (role === 'admin') {
-        btn.title = 'Vào trang quản lý';
-    } else if (role === 'employee') {
-        btn.title = 'Xem trang nhân viên';
-    } else {
-        btn.title = 'Xem trang cá nhân';
+    // Giữ tương thích: cập nhật login-btn nếu vẫn tồn tại (cho các trang khác)
+    var btn = document.getElementById('openLoginBtn');
+    if (btn) {
+        btn.innerHTML =
+            '<span class="user-avatar-btn">' + initial + '</span>' +
+            '<span id="login-btn-text">' + shortName + '</span>' +
+            '<span class="logout-divider">|</span>' +
+            '<span class="logout-text" id="btn-logout-header">Đăng xuất</span>';
+
+        var logoutEl = document.getElementById('btn-logout-header');
+        if (logoutEl) {
+            logoutEl.addEventListener('click', function (e) {
+                e.stopPropagation();
+                apiPost('/auth/logout').then(function () {
+                    clearAuth();
+                    window.location.reload();
+                }).catch(function () {
+                    clearAuth();
+                    window.location.reload();
+                });
+            });
+        }
+
+        if (role === 'admin') {
+            btn.title = 'Vào trang quản lý';
+        } else if (role === 'employee') {
+            btn.title = 'Xem trang nhân viên';
+        } else {
+            btn.title = 'Xem trang cá nhân';
+        }
     }
 }
 
@@ -308,4 +474,71 @@ function updateHeaderAfterLogin(name) {
     if (!name) return;
     if (isTokenExpired()) { clearAuth(); return; }
     updateHeaderAfterLogin(name);
+})();
+
+
+// ── Gender toggle slider ──────────────────────────────
+(function () {
+    var toggle = document.getElementById('gender-toggle');
+    if (!toggle) return;
+    var hidden = document.getElementById('reg-gender');
+
+    toggle.querySelectorAll('.gender-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            toggle.querySelectorAll('.gender-btn').forEach(function (b) {
+                b.classList.remove('active');
+            });
+            this.classList.add('active');
+            hidden.value = this.dataset.value;
+            if (this.dataset.value === 'Female') {
+                toggle.classList.add('female');
+            } else {
+                toggle.classList.remove('female');
+            }
+        });
+    });
+})();
+
+// ── Header Nav Toggle (Home / User) ──────────────────
+(function () {
+    var homeBtn  = document.getElementById('nav-toggle-home');
+    var userBtn  = document.getElementById('nav-toggle-user');
+    var thumb    = document.getElementById('nav-toggle-thumb');
+    if (!homeBtn || !userBtn) return;
+
+    function setActiveTab(tab) {
+        if (tab === 'home') {
+            homeBtn.classList.add('active');
+            userBtn.classList.remove('active');
+            if (thumb) thumb.classList.remove('on-user');
+        } else {
+            userBtn.classList.add('active');
+            homeBtn.classList.remove('active');
+            if (thumb) thumb.classList.add('on-user');
+        }
+    }
+
+    // Trang hiện tại là Home → active Home
+    setActiveTab('home');
+
+    homeBtn.addEventListener('click', function () {
+        window.location.href = 'index.html';
+    });
+
+    userBtn.addEventListener('click', function () {
+        var fullName = localStorage.getItem('fullName');
+        var role     = localStorage.getItem('role');
+        if (fullName) {
+            if (role === 'admin') {
+                window.location.href = 'admin.html';
+            } else if (role === 'employee') {
+                window.location.href = 'employee.html';
+            } else {
+                window.location.href = 'user.html';
+            }
+        } else {
+            var loginModal = document.getElementById('login-modal');
+            if (loginModal) loginModal.classList.add('active');
+        }
+    });
 })();

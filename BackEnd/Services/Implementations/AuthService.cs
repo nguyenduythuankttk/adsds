@@ -128,16 +128,16 @@ namespace Backend.Services.Implementations{
             if (user == null)
                 throw new InvalidOperationException("Email không tồn tại trong hệ thống");
 
-            var token = GenerateSecureToken();
-            user.PasswordEmail = token;
-            user.PasswordEmailExp = DateTime.UtcNow.AddHours(7).AddHours(1);
+            var otp = GenerateSecureToken();
+            user.PasswordEmail = otp;
+            user.PasswordEmailExp = DateTime.UtcNow.AddMinutes(1);
             await _dbContext.SaveChangesAsync();
 
             try {
-                await _emailService.SendChangePasswordEmail(email, token);
+                await _emailService.SendChangePasswordOtpEmail(email, otp);
                 return true;
             } catch (Exception ex) {
-                Console.WriteLine($"[EmailService] SendChangePasswordEmail failed: {ex.InnerException?.Message ?? ex.Message}");
+                Console.WriteLine($"[EmailService] SendChangePasswordOtpEmail failed: {ex.InnerException?.Message ?? ex.Message}");
                 return false;
             }
         }
@@ -161,7 +161,7 @@ namespace Backend.Services.Implementations{
             var user = await _dbContext.User.FirstOrDefaultAsync(u => u.PasswordEmail == request.Token);
             if (user == null)
                 throw new InvalidOperationException("Token đặt lại mật khẩu không hợp lệ");
-            if (user.PasswordEmailExp < DateTime.UtcNow.AddHours(7))
+            if (user.PasswordEmailExp < DateTime.UtcNow)
                 throw new InvalidOperationException("Token đặt lại mật khẩu đã hết hạn");
 
             user.HashPassword = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
@@ -229,7 +229,7 @@ namespace Backend.Services.Implementations{
 
                 _dbContext.BlackListedToken.Add(new BlacklistedToken{
                     Token = accessToken,
-                    ExpiryDate = DateTime.UtcNow.AddHours(7).AddMinutes(480)
+                    ExpiryDate = DateTime.UtcNow.AddMinutes(480)
                 });
 
                 await _dbContext.SaveChangesAsync();
@@ -238,16 +238,37 @@ namespace Backend.Services.Implementations{
             }
         }
 
-        public async Task ChangePassword(PasswordRequest request, Guid userID){
+        public async Task RequestChangePasswordOtp(PasswordRequest request, Guid userID) {
             var user = await _dbContext.User.FirstOrDefaultAsync(u => u.UserID == userID);
             if (user == null) throw new Exception("Không tìm thấy người dùng");
+            if (string.IsNullOrWhiteSpace(user.Email)) throw new Exception("Tài khoản chưa có email để gửi OTP.");
 
             if (!BCrypt.Net.BCrypt.Verify(request.currentPass, user.HashPassword))
                 throw new Exception("Sai mật khẩu hiện tại");
 
+            var otp = GenerateSecureToken();
+            user.PasswordEmail = otp;
+            user.PasswordEmailExp = DateTime.UtcNow.AddMinutes(1);
+            await _dbContext.SaveChangesAsync();
+
+            await _emailService.SendChangePasswordOtpEmail(user.Email, otp);
+        }
+
+        public async Task ChangePasswordWithOtp(ChangePasswordWithOtpRequest request, Guid userID) {
+            var user = await _dbContext.User.FirstOrDefaultAsync(u => u.UserID == userID);
+            if (user == null) throw new Exception("Không tìm thấy người dùng");
+
+            if (string.IsNullOrWhiteSpace(user.PasswordEmail) || user.PasswordEmail != request.otp)
+                throw new Exception("Mã OTP không hợp lệ.");
+            if (user.PasswordEmailExp == null || user.PasswordEmailExp < DateTime.UtcNow)
+                throw new Exception("Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới.");
+
             user.HashPassword = BCrypt.Net.BCrypt.HashPassword(request.newPass);
-            // Chỉ đánh dấu đúng field thay đổi, tránh conflict EF tracking với Employee
+            user.PasswordEmail = null;
+            user.PasswordEmailExp = null;
             _dbContext.Entry(user).Property(u => u.HashPassword).IsModified = true;
+            _dbContext.Entry(user).Property(u => u.PasswordEmail).IsModified = true;
+            _dbContext.Entry(user).Property(u => u.PasswordEmailExp).IsModified = true;
             await _dbContext.SaveChangesAsync();
         }
     }

@@ -2,7 +2,7 @@ namespace Backend.Models.DTOs.Request
 {
     public class ReviewCreateRequest
     {
-        public Guid StoreID {get; set; }
+        public int StoreID {get; set; }
         public string Comment {get; set; } = null!;
         public int Rating {get; set; }
     }

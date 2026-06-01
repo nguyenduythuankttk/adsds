@@ -10,6 +10,7 @@ namespace Backend.Services.Interfaces
         Task<List<ReviewResponse>> GetAllReview();
         // Task<ReviewResponse> GetReviewByUser(Guid userID);
         Task<ReviewResponse> GetReviewByID(Guid reviewId);
+        Task<StoreReviewsResponse> GetReviewsByStore(int storeID);
         Task AddReview(Guid userID, ReviewCreateRequest createRequest);
         Task UpdateReview(Guid reviewId, Guid userID, ReviewUpdateRequest updateRequest);
         Task SoftDeleteReview(Guid reviewId, Guid userID);

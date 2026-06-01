@@ -42,18 +42,19 @@ namespace Backend.Controller {
 
         [HttpPost("add")]
         public async Task<IActionResult> AddAddress([FromBody] AddressCreateRequest request) {
-            var userID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                ?? User.FindFirst("user_id")?.Value)!);
-            var address = new Address {
-                HouseNumber = request.HouseNumber,
-                Street = request.Street,
-                Ward = request.Ward,
-                District = request.District,
-                Province = request.Province,
-                Country = request.Country
-            };
-            await _addressService.AddUserAddress(address, userID);
-            return Ok("Thêm địa chỉ thành công");
+            try {
+                var userID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("user_id")?.Value)!);
+                var address = new Address {
+                    StreetAddress = request.StreetAddress,
+                    District = request.District,
+                    Province = request.Province
+                };
+                await _addressService.AddUserAddress(address, userID);
+                return Ok("Thêm địa chỉ thành công");
+            } catch (Exception e) {
+                return StatusCode(500, $"Error in addressController.AddAddress: {e.Message}");
+            }
         }
 
         [HttpPut("set-default/{addressID}")]

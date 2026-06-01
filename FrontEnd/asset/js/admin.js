@@ -1,14 +1,8 @@
 // Auth Guard
 (function(){
     var r=localStorage.getItem('role');
-    var tok=localStorage.getItem('token');
-    console.log('[GUARD] role='+r+' | token='+(tok?tok.slice(0,30)+'...':'NULL'));
     if(r!=='admin'){alert('No access!');window.location.href='/html/index.html';return;}
-    if(isTokenExpired()){
-        console.log('[GUARD] isTokenExpired=true → redirect. token='+tok);
-        clearAuth();window.location.href='/html/index.html';return;
-    }
-    console.log('[GUARD] PASSED — vào được trang admin');
+    if(isTokenExpired()){clearAuth();window.location.href='/html/index.html';return;}
     var u=document.getElementById('adm-username');
     if(u)u.textContent=localStorage.getItem('fullName')||'Admin';
 })();
@@ -58,6 +52,9 @@ function bdg(cls,txt){return '<span class="badge '+cls+'">'+txt+'</span>';}
 function eBtn(cls,ico,cb){return '<button class="'+cls+'" onclick="'+cb+'"><i class="'+ico+'"></i></button>';}
 function today(){return new Date().toISOString().slice(0,10);}
 function yearRange(){return '2020-01-01/'+today();}
+function ticketDefaultStart(){return today();}
+function ticketDefaultEnd(){var d=new Date();d.setDate(d.getDate()+7);return d.toISOString().slice(0,10);}
+function applyTicketFilter(){renderTickets();}
 
 // ===== RENDER FUNCTIONS =====
 
@@ -328,25 +325,42 @@ function renderShifts(){
 
 function renderTickets(){
     var c=document.getElementById('ticket-cards'),t=document.getElementById('ticket-tbody');if(!c||!t)return;
-    t.innerHTML='<tr><td colspan="7" class="tbl-empty">Đang tải...</td></tr>';
-    apiGet('/ticket/get-all/'+yearRange()).then(function(r){return r.ok?r.json():[];}).then(function(data){
+    t.innerHTML='<tr><td colspan="8" class="tbl-empty">Đang tải...</td></tr>';
+    var startEl=document.getElementById('ticket-filter-start'),endEl=document.getElementById('ticket-filter-end');
+    if(startEl&&!startEl.value) startEl.value=ticketDefaultStart();
+    if(endEl&&!endEl.value)     endEl.value=ticketDefaultEnd();
+    var start=startEl?startEl.value:ticketDefaultStart();
+    var end=endEl?endEl.value:ticketDefaultEnd();
+    apiGet('/ticket/get-all/'+start+'/'+end).then(function(r){return r.ok?r.json():[];}).then(function(data){
         TICKETS_DATA=data||[];
         var now=today();
-        if(c)c.innerHTML=(TICKETS_DATA.slice(0,2)).map(function(tk){
-            return '<div class="ticket-card"><div class="ticket-card-code">'+(tk.ticketID||'').toString().slice(0,8)+'</div>'+
-                   '<div class="ticket-card-info"><span><i class="ti-gift"></i> Giảm '+fv(tk.discount*100)+'%</span><span><i class="ti-timer"></i> '+tk.endDate+'</span></div></div>';
+        if(c)c.innerHTML=(TICKETS_DATA.slice(0,4)).map(function(tk){
+            var discPct=Math.round((tk.discount||0)*100);
+            return '<div class="ticket-card">'+
+                   '<div class="ticket-card-code">'+(tk.ticketID||'').toString().slice(0,8).toUpperCase()+'</div>'+
+                   '<div class="ticket-card-info">'+
+                   '<span><i class="ti-gift"></i> Giảm '+discPct+'%</span>'+
+                   '<span><i class="ti-calendar"></i> '+( tk.startDate||'')+'</span>'+
+                   '<span><i class="ti-timer"></i> HSD: '+(tk.endDate||'')+'</span>'+
+                   '</div></div>';
         }).join('');
-        if(!TICKETS_DATA.length){t.innerHTML='<tr><td colspan="7" class="tbl-empty">Chưa có mã ưu đãi</td></tr>';return;}
+        if(!TICKETS_DATA.length){t.innerHTML='<tr><td colspan="8" class="tbl-empty">Chưa có mã ưu đãi trong khoảng thời gian này</td></tr>';return;}
         t.innerHTML=TICKETS_DATA.map(function(tk){
-            var active=tk.endDate>=now&&!tk.deletedAt;
-            return '<tr><td style="font-weight:800;color:var(--primary)">'+(tk.ticketID||'').toString().slice(0,8)+'</td>'+
-                   '<td style="font-weight:700">'+fv(tk.discount*100)+'%</td>'+
+            var active=tk.endDate>=now&&!tk.deletedAt&&!tk.usedAt;
+            var used=!!tk.usedAt;
+            var discPct=Math.round((tk.discount||0)*100);
+            var statusBadge=used?bdg('badge-expired','Đã dùng'):(active?bdg('badge-active','Khả dụng'):bdg('badge-expired','Hết hạn'));
+            return '<tr>'+
+                   '<td style="font-weight:800;color:var(--primary);font-size:12px">'+(tk.ticketID||'').toString().slice(0,8).toUpperCase()+'</td>'+
+                   '<td style="font-size:11px;color:var(--muted)">'+(tk.ticketID||'')+'</td>'+
+                   '<td style="font-weight:700">'+discPct+'%</td>'+
                    '<td style="font-size:12px">'+(tk.startDate||'')+'</td>'+
                    '<td style="font-size:12px">'+(tk.endDate||'')+'</td>'+
-                   '<td>'+bdg(active?'badge-active':'badge-expired',active?'Khả dụng':'Hết hạn')+'</td>'+
+                   '<td style="font-size:12px">'+(used?'1':'0')+' / 1</td>'+
+                   '<td>'+statusBadge+'</td>'+
                    '<td>'+eBtn('btn-del','ti-trash',"crudDelete('ticket','"+(tk.ticketID)+"')")+'</td></tr>';
         }).join('');
-    }).catch(function(){t.innerHTML='<tr><td colspan="7" class="tbl-empty">Lỗi tải dữ liệu</td></tr>';});
+    }).catch(function(){t.innerHTML='<tr><td colspan="8" class="tbl-empty">Lỗi tải dữ liệu</td></tr>';});
 }
 
 function renderReports(){
@@ -547,6 +561,7 @@ function openWarehouseModal(){
         });
     }).catch(function(){showToast('Không thể tải danh sách chi nhánh','error');});
 }
+
 
 // ===== RECIPE MODAL =====
 var RECIPE_INGREDIENTS_DATA=[];

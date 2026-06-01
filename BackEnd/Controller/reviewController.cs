@@ -35,12 +35,36 @@ namespace Backend.Controller
             return Ok(review);
         }
 
+        [HttpGet("store/{storeId:int}")]
+        public async Task<IActionResult> GetReviewsByStore(int storeId)
+        {
+            try
+            {
+                var result = await _reviewService.GetReviewsByStore(storeId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred in reviewController.GetReviewsByStore: {ex.Message}");
+            }
+        }
+
         [Authorize]
         [HttpPost("create")]
         public async Task<IActionResult> AddReview([FromBody] ReviewCreateRequest createRequest)
         {
-            await _reviewService.AddReview(GetUserId(), createRequest);
-            return Ok("Add review successfully!");
+            try
+            {
+                await _reviewService.AddReview(GetUserId(), createRequest);
+                return Ok("Add review successfully!");
+            } catch (Exception ex)
+            {
+                if (ex.Message.Contains("User not found"))
+                {
+                    return Unauthorized(new { message = "Phiên đăng nhập không hợp lệ hoặc tài khoản không tồn tại. Vui lòng đăng nhập lại." });
+                }
+                return StatusCode(500, $"An error occurred in reviewController.AddReview: {ex.Message}");
+            }
         }
 
         [Authorize]

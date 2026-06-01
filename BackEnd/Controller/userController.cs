@@ -1,7 +1,10 @@
+using System.Linq.Expressions;
+using System.Security.Claims;
 using Backend.Models;
 using Backend.Models.DTOs;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Backend.Controller
@@ -38,11 +41,23 @@ namespace Backend.Controller
             return Ok("Add user successfully!");
         }
 
+        [Authorize]
         [HttpPut("Update/{userID}")]
         public async Task<IActionResult> UpdateUser(Guid userID, UserUpdateRequest request)
         {
-            await _userService.UpdateUser(userID, request);
-            return Ok("Update user successfully!");
+            var tokenUserID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (tokenUserID == null || !Guid.TryParse(tokenUserID, out var parsedID) || parsedID != userID)
+                return Forbid();
+
+            try
+            {
+                await _userService.UpdateUser(userID, request);
+                return Ok("Update user succesfully!");
+            }
+            catch(Exception ex)
+            {
+                return StatusCode(500, $"An error occurred in userController.UpdateUser {ex.Message}");
+            }
         }
 
         [HttpDelete("Delete/{userID}")]

@@ -12,5 +12,6 @@ namespace Backend.Services.Interface
         Task AddStore(Store store);
         Task UpdateStore (int StoreID, StoreUpdateRequest request);
         Task SoftDeleteStore(int StoreID);
+        Task<ShippingFeeResponse> GetShippingFee(Guid addressID, int? storeID = null);
     }
 }

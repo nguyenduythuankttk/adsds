@@ -108,13 +108,31 @@ namespace Backend.Controller
         }
 
         [Authorize]
+        [HttpPost("change-password/request-otp")]
+        public async Task<IActionResult> RequestChangePasswordOtp([FromBody] PasswordRequest request){
+            try{
+                var userID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("user_id")?.Value;
+                if (string.IsNullOrWhiteSpace(userID)) return Unauthorized();
+                await _AuthService.RequestChangePasswordOtp(request, Guid.Parse(userID));
+                return Ok(new { message = "Mã OTP đã được gửi về email của bạn." });
+            } catch (Exception e){
+                return BadRequest(new { message = e.Message });
+            }
+        }
+
+        [Authorize]
         [HttpPut("change-password")]
-        public async Task<IActionResult> ChangePassword([FromBody] PasswordRequest request){
-            var userID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                ?? User.FindFirst("user_id")?.Value;
-            if (string.IsNullOrWhiteSpace(userID)) return Unauthorized();
-            await _AuthService.ChangePassword(request, Guid.Parse(userID));
-            return Ok(new { message = "Đổi mật khẩu thành công." });
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordWithOtpRequest request){
+            try{
+                var userID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("user_id")?.Value;
+                if (string.IsNullOrWhiteSpace(userID)) return Unauthorized();
+                await _AuthService.ChangePasswordWithOtp(request, Guid.Parse(userID));
+                return Ok(new { message = "Đổi mật khẩu thành công." });
+            } catch (Exception e){
+                return BadRequest(new { message = e.Message });
+            }
         }
     }
 }

@@ -95,5 +95,19 @@ namespace Backend.Controller
                 return StatusCode(500, $"An error occurred in productController.GetFeaturedProducts {ex.Message}");
             }
         }
+
+        [HttpDelete("soft-delete-varient/{productVarientID}")]
+        public async Task<IActionResult> SoftDeleteProductVarient(int productVarientID)
+        {
+            try
+            {
+                await _productService.SoftDeleteProductVarient(productVarientID);
+                return Ok("Soft delete product varient successfully!");
+            }catch(Exception ex)
+            {
+                return StatusCode(500, $"An error occurred in productController.SoftDeleteProductVarient {ex.Message}");
+            }
+        }
+
     }
 }

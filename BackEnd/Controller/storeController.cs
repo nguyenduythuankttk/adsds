@@ -16,6 +16,20 @@ namespace Backend.Controller
             _storeService = storeService;
         }
 
+        [HttpGet("shipping-fee/{addressID}")]
+        public async Task<IActionResult> GetShippingFee(Guid addressID, [FromQuery] int? storeID = null)
+        {
+            try
+            {
+                var result = await _storeService.GetShippingFee(addressID, storeID);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
         [HttpGet("get-all")]
         public async Task<IActionResult> GetAllStore()
         {

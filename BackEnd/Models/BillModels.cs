@@ -7,7 +7,15 @@ namespace Backend.Models{
     public enum PaymentMethods
     {
         Cash,
-        Card
+        Card,
+        BankTransfer
+    }
+
+    public enum PaymentStatus
+    {
+        Pending,
+        Paid,
+        Failed
     }
     public class Bill
     {
@@ -33,10 +41,15 @@ namespace Backend.Models{
         public virtual Ticket? Ticket {get; set;}
         [Required]
         public decimal Total { get; set; }
-        [Required]
-        public decimal MoneyReceived {get; set; }
-        [Required]
-        public decimal MoneyGiveBack {get; set; }
+        public decimal? MoneyReceived {get; set; }
+        public decimal? MoneyGiveBack {get; set; }
+
+        // ── SePay / bank-transfer payment tracking ──────────────────────────
+        public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Pending;
+        [MaxLength(32)]
+        public string? PaymentReference { get; set; }
+        public DateTime? PaidAt { get; set; }
+        public long? SePayTransactionId { get; set; }
 
         public int? TableID { get; set; }
 

@@ -57,6 +57,12 @@
     var cqAddrExpandBtn = document.getElementById('cq-addr-expand-btn');
     var cqAddrArrow     = document.getElementById('cq-addr-arrow');
     var cqAddrList      = document.getElementById('cq-addr-list');
+    var cqStoreSelected  = document.getElementById('cq-store-selected');
+    var cqStoreExpandBtn = document.getElementById('cq-store-expand-btn');
+    var cqStoreArrow     = document.getElementById('cq-store-arrow');
+    var cqStoreList      = document.getElementById('cq-store-list');
+    var cqTicketSelect   = document.getElementById('cq-ticket-select');
+    var cqTicketInfo     = document.getElementById('cq-ticket-info');
 
     // ── State ────────────────────────────────────────────────────────────────
     // cart item: { varientId, name, price, qty }
@@ -69,11 +75,211 @@
     var allAddresses      = [];
     var selectedAddress   = null;
     var addrDropdownOpen  = false;
+    var allStores         = [];
+    var selectedStore     = null;
+    var storeDropdownOpen = false;
+    var userPickedStore   = false;
+    var selectedTicket    = null;
 
     var CART_KEY = 'chonlibi_cart';
 
     // ── Helpers ──────────────────────────────────────────────────────────────
     function formatPrice(num) { return num.toLocaleString('vi-VN') + ' đ'; }
+
+    function fetchShippingFee(addressID, storeID) {
+        var url = '/store/shipping-fee/' + addressID;
+        if (storeID != null) url += '?storeID=' + storeID;
+        return apiGet(url)
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .catch(function () { return null; });
+    }
+
+    function haversineKm(lat1, lon1, lat2, lon2) {
+        var R = 6371, dLat = (lat2 - lat1) * Math.PI / 180, dLon = (lon2 - lon1) * Math.PI / 180;
+        var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    function storeAddressText(store) {
+        var a = store.address || store.Address || {};
+        var parts = [];
+        if (a.streetAddress) parts.push(a.streetAddress);
+        if (a.district)      parts.push(a.district);
+        if (a.province)      parts.push(a.province);
+        return parts.join(', ');
+    }
+
+    function nearestStore(addr) {
+        if (!allStores.length) return null;
+        if (!addr || addr.latitude == null || addr.longitude == null) return allStores[0];
+        var best = null, bestDist = Infinity;
+        allStores.forEach(function (s) {
+            var sa = s.address || s.Address || {};
+            if (sa.latitude == null || sa.longitude == null) return;
+            var d = haversineKm(addr.latitude, addr.longitude, sa.latitude, sa.longitude);
+            if (d < bestDist) { bestDist = d; best = s; }
+        });
+        return best || allStores[0];
+    }
+
+    function storeDistanceKm(store) {
+        if (!selectedAddress) return null;
+        var ua = selectedAddress.address || selectedAddress.Address || selectedAddress;
+        if (ua.latitude == null || ua.longitude == null) return null;
+        var sa = store.address || store.Address || {};
+        if (sa.latitude == null || sa.longitude == null) return null;
+        return haversineKm(ua.latitude, ua.longitude, sa.latitude, sa.longitude);
+    }
+
+    function storeDirectionsUrl(store) {
+        var sa = store.address || store.Address || {};
+        if (sa.latitude == null || sa.longitude == null) return null;
+        return 'https://www.google.com/maps/dir/?api=1&destination=' + sa.latitude + ',' + sa.longitude + '&travelmode=driving';
+    }
+
+    function renderStoreSelected() {
+        if (!cqStoreSelected) return;
+        if (!allStores.length) {
+            cqStoreSelected.innerHTML = '<span class="cq-store-loading">Không tải được danh sách cửa hàng.</span>';
+            if (cqStoreExpandBtn) cqStoreExpandBtn.style.display = 'none';
+            return;
+        }
+        var s = selectedStore || allStores[0];
+        var isNearest = !userPickedStore;
+        var dist = storeDistanceKm(s);
+        var mapsUrl = storeDirectionsUrl(s);
+        cqStoreSelected.innerHTML =
+            '<div class="cq-store-name">' + (s.storeName || s.StoreName || 'Cửa hàng') +
+            (isNearest ? '<span class="cq-store-badge">Gần nhất</span>' : '') + '</div>' +
+            '<div class="cq-store-addr">' + storeAddressText(s) + '</div>' +
+            (dist !== null ? '<div class="cq-store-dist"><i class="ti-map"></i> ' + dist.toFixed(1) + ' km</div>' : '') +
+            (mapsUrl ? '<a class="cq-store-map-link" href="' + mapsUrl + '" target="_blank" onclick="event.stopPropagation()">🗺️ Chỉ đường Google Maps</a>' : '');
+        var others = allStores.filter(function (x) { return (x.storeID || x.StoreID) !== (s.storeID || s.StoreID); });
+        if (cqStoreExpandBtn) cqStoreExpandBtn.style.display = others.length ? 'flex' : 'none';
+    }
+
+    function renderStoreList() {
+        if (!cqStoreList) return;
+        var curID = selectedStore ? (selectedStore.storeID || selectedStore.StoreID) : null;
+        var others = allStores.filter(function (s) { return (s.storeID || s.StoreID) !== curID; });
+
+        others.sort(function (a, b) {
+            var da = storeDistanceKm(a);
+            var db = storeDistanceKm(b);
+            if (da === null && db === null) return 0;
+            if (da === null) return 1;
+            if (db === null) return -1;
+            return da - db;
+        });
+
+        cqStoreList.innerHTML = '';
+        others.forEach(function (s) {
+            var dist = storeDistanceKm(s);
+            var mapsUrl = storeDirectionsUrl(s);
+            var item = document.createElement('div');
+            item.className = 'cq-store-item';
+            item.innerHTML =
+                '<div class="cq-store-item-name">' + (s.storeName || s.StoreName || 'Cửa hàng') + '</div>' +
+                '<div class="cq-store-item-addr">' + storeAddressText(s) + '</div>' +
+                (dist !== null ? '<div class="cq-store-item-dist"><i class="ti-map"></i> ' + dist.toFixed(1) + ' km</div>' : '') +
+                (mapsUrl ? '<a class="cq-store-item-map-link" href="' + mapsUrl + '" target="_blank" onclick="event.stopPropagation()">🗺️ Chỉ đường</a>' : '');
+            item.addEventListener('click', function () {
+                selectedStore = s;
+                userPickedStore = true;
+                storeDropdownOpen = false;
+                cqStoreList.classList.remove('open');
+                if (cqStoreArrow) cqStoreArrow.classList.remove('open');
+                renderStoreSelected();
+                renderStoreList();
+                updateCQShipping();
+            });
+            cqStoreList.appendChild(item);
+        });
+    }
+
+    function loadStores() {
+        if (!cqStoreSelected) return;
+        cqStoreSelected.innerHTML = '<span class="cq-store-loading">Đang tải cửa hàng...</span>';
+        if (cqStoreExpandBtn) cqStoreExpandBtn.style.display = 'none';
+        apiGet('/store/get-all')
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (data) {
+                allStores = Array.isArray(data) ? data : [];
+                userPickedStore = false;
+                selectedStore = nearestStore(selectedAddress);
+                storeDropdownOpen = false;
+                if (cqStoreList) cqStoreList.classList.remove('open');
+                if (cqStoreArrow) cqStoreArrow.classList.remove('open');
+                renderStoreSelected();
+                renderStoreList();
+            })
+            .catch(function () {
+                if (cqStoreSelected) cqStoreSelected.innerHTML = '<span class="cq-store-loading">Không thể tải cửa hàng.</span>';
+            });
+    }
+
+    if (cqStoreExpandBtn) {
+        cqStoreExpandBtn.addEventListener('click', function () {
+            storeDropdownOpen = !storeDropdownOpen;
+            if (storeDropdownOpen) {
+                cqStoreList.classList.add('open');
+                if (cqStoreArrow) cqStoreArrow.classList.add('open');
+            } else {
+                cqStoreList.classList.remove('open');
+                if (cqStoreArrow) cqStoreArrow.classList.remove('open');
+            }
+        });
+    }
+
+    // ── Ticket ───────────────────────────────────────────────────────────────
+    function loadTickets() {
+        if (!cqTicketSelect) return;
+        selectedTicket = null;
+        cqTicketSelect.innerHTML = '<option value="">-- Không dùng mã giảm giá --</option>';
+        if (!isLoggedIn()) return;
+        apiGet('/ticket/my-tickets')
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (data) {
+                var now = new Date().toISOString().slice(0, 10);
+                var valid = (Array.isArray(data) ? data : []).filter(function (tk) {
+                    return !tk.usedAt && !tk.deletedAt &&
+                           (tk.startDate || '') <= now &&
+                           (tk.endDate   || '') >= now;
+                });
+                valid.forEach(function (tk) {
+                    var code    = (tk.ticketID || '').toString().slice(0, 8).toUpperCase();
+                    var discPct = Math.round((tk.discount || 0) * 100);
+                    var opt     = document.createElement('option');
+                    opt.value   = JSON.stringify(tk);
+                    opt.textContent = code + ' – Giảm ' + discPct + '% (HSD: ' + (tk.endDate || '') + ')';
+                    cqTicketSelect.appendChild(opt);
+                });
+            })
+            .catch(function () {});
+    }
+
+    function applyTicketDiscount(subtotal) {
+        if (!selectedTicket) return 0;
+        return Math.round(subtotal * (selectedTicket.discount || 0));
+    }
+
+    if (cqTicketSelect) {
+        cqTicketSelect.addEventListener('change', function () {
+            if (!this.value) {
+                selectedTicket = null;
+                if (cqTicketInfo) cqTicketInfo.style.display = 'none';
+            } else {
+                try { selectedTicket = JSON.parse(this.value); } catch (e) { selectedTicket = null; }
+                if (selectedTicket && cqTicketInfo) {
+                    var discPct  = Math.round((selectedTicket.discount || 0) * 100);
+                    cqTicketInfo.textContent = 'Giảm ' + discPct + '% — HSD: ' + (selectedTicket.endDate || '');
+                    cqTicketInfo.style.display = 'block';
+                }
+            }
+            updateCQShipping();
+        });
+    }
+
     function isLoggedIn()     { return !!localStorage.getItem('fullName'); }
 
     function saveCart() {
@@ -109,7 +315,8 @@
             sizeHTML = '<div class="card-size-list">';
             variants.forEach(function (v, i) {
                 sizeHTML += '<button class="card-size-chip' + (i === 0 ? ' selected' : '') + '"' +
-                    ' data-vid="' + v.productVarientID + '" data-price="' + v.price + '">' +
+                    ' data-vid="' + v.productVarientID + '" data-price="' + v.price + '"' +
+                    ' data-size="' + (v.size || '') + '" data-for-people="' + (v.forPeople || '') + '">' +
                     (SIZE_SHORT[v.size] || v.size) + '</button>';
             });
             sizeHTML += '</div>';
@@ -129,6 +336,7 @@
                '<span class="menu-card-price">' + formatPrice(defaultV.price) + '</span>' +
                '<button class="menu-add-btn" data-varient-id="' + defaultV.productVarientID +
                '" data-price="' + defaultV.price + '" data-name="' + escapedName +
+               '" data-size="' + (defaultV.size || '') + '" data-for-people="' + (defaultV.forPeople || '') +
                '" aria-label="Thêm ' + escapedName + ' vào giỏ"><i class="ti-plus"></i></button>' +
                '</div></div></div>';
     }
@@ -374,7 +582,7 @@
 
             upsellItems = allProducts.slice(0, 3).map(function (p) {
                 var v = activeVariants(p)[0];
-                return { varientId: v.productVarientID, name: p.productName, price: v.price, img: p.image || '' };
+                return { varientId: v.productVarientID, name: p.productName, price: v.price, img: p.image || '', variantLabel: buildVariantLabel(v.size, v.forPeople) };
             });
             if (!upsellItems.length) upsellItems = [{ varientId: null, name: 'Đang cập nhật...', price: 0, img: '' }];
             upsellIdx = 0;
@@ -434,7 +642,7 @@
         if (cqUpsellPrice) cqUpsellPrice.textContent = formatPrice(u.price);
         if (cqUpsellAdd) {
             cqUpsellAdd.onclick = function () {
-                if (u.varientId) addToCart(u.name, u.price, u.varientId);
+                if (u.varientId) addToCart(u.name, u.price, u.varientId, u.variantLabel);
             };
         }
     }
@@ -455,6 +663,14 @@
     var TYPE_LABEL_VN = { Food: 'Đồ Ăn', Combo: 'Combo', Addon: 'Món Phụ', Drink: 'Đồ Uống' };
     var SIZE_LABEL    = { Default: 'Tiêu chuẩn', S: 'Nhỏ (S)', M: 'Vừa (M)', L: 'Lớn (L)', XL: 'Cỡ XL' };
     var PEOPLE_LABEL  = { 1: '1 người', 2: '2 người (cặp đôi)', 3: '3 người (hội bạn)', 4: '4 người (gia đình)' };
+
+    function buildVariantLabel(size, forPeople) {
+        var parts = [];
+        if (forPeople) parts.push(forPeople + ' người');
+        if (size && size !== 'Default') parts.push(SIZE_LABEL[size] || size);
+        return parts.join(' · ');
+    }
+
 
     function renderPdPeople(variant) {
         if (!pdPeople || !pdPeopleText) return;
@@ -535,7 +751,8 @@
         // Add-to-cart button
         pdAddBtn.onclick = function () {
             if (!pdSelectedVariant) return;
-            addToCart(product.productName, pdSelectedVariant.price, pdSelectedVariant.productVarientID);
+            var label = buildVariantLabel(pdSelectedVariant.size, pdSelectedVariant.forPeople);
+            addToCart(product.productName, pdSelectedVariant.price, pdSelectedVariant.productVarientID, label);
             closePDModal();
         };
 
@@ -603,6 +820,46 @@
         if (menuRegErr)   menuRegErr.textContent   = '';
     }
 
+    // Nút đăng nhập / toggle slider trên header
+    var headerLoginBtn = document.getElementById('openLoginBtn');
+    if (headerLoginBtn) {
+        headerLoginBtn.addEventListener('click', function () { openAuthModal(null); });
+    }
+
+    // Header Nav Toggle (Home / User)
+    (function () {
+        var homeBtn = document.getElementById('nav-toggle-home');
+        var userBtn = document.getElementById('nav-toggle-user');
+        var thumb   = document.getElementById('nav-toggle-thumb');
+        if (!homeBtn || !userBtn) return;
+
+        // Trang hiện tại là Menu → active User side (nếu chưa login active user icon)
+        // Sau khi login sẽ cập nhật lại
+        homeBtn.classList.remove('active');
+        userBtn.classList.add('active');
+        if (thumb) thumb.classList.add('on-user');
+
+        homeBtn.addEventListener('click', function () {
+            window.location.href = 'index.html';
+        });
+
+        userBtn.addEventListener('click', function () {
+            var fullName = localStorage.getItem('fullName');
+            var role     = localStorage.getItem('role');
+            if (fullName) {
+                if (role === 'admin') {
+                    window.location.href = 'admin.html';
+                } else if (role === 'employee') {
+                    window.location.href = 'employee.html';
+                } else {
+                    window.location.href = 'user.html';
+                }
+            } else {
+                openAuthModal(null);
+            }
+        });
+    })();
+
     menuCloseLoginBtn.addEventListener('click', function () { pendingItem = null; closeAuthModal(); });
     menuLoginModal.addEventListener('click', function (e) {
         if (e.target === menuLoginModal) { pendingItem = null; closeAuthModal(); }
@@ -623,24 +880,33 @@
         if (pendingItem) {
             var item = pendingItem;
             pendingItem = null;
-            addToCart(item.name, item.price, item.varientId);
+            addToCart(item.name, item.price, item.varientId, item.variantLabel);
         }
     }
 
     function updateMenuHeader(fullName) {
-        var badge = document.getElementById('menu-user-badge');
-        if (!badge) {
-            badge = document.createElement('div');
-            badge.id = 'menu-user-badge';
-            badge.className = 'menu-user-avatar-badge';
-            badge.title = 'Tài khoản của bạn';
-            badge.onclick = function () { window.location.href = '/html/user.html'; };
-            var header = document.getElementById('header');
-            if (header) header.appendChild(badge);
-        }
+        // Ẩn nút login-btn cũ nếu tồn tại
+        var loginBtn = document.getElementById('openLoginBtn');
+        if (loginBtn) loginBtn.style.display = 'none';
+
+        // Cập nhật toggle slider: user icon → hiển avatar
+        var userBtn = document.getElementById('nav-toggle-user');
+        var thumb   = document.getElementById('nav-toggle-thumb');
+        var homeBtn = document.getElementById('nav-toggle-home');
         var initial   = fullName.charAt(0).toUpperCase();
         var shortName = fullName.split(' ').pop();
-        badge.innerHTML = '<span class="menu-user-initial">' + initial + '</span>' + shortName;
+
+        if (userBtn) {
+            userBtn.innerHTML = '<span class="user-avatar-toggle">' + initial + '</span>';
+            userBtn.title = shortName + ' — Xem tài khoản';
+            userBtn.classList.add('active');
+        }
+        if (homeBtn) homeBtn.classList.remove('active');
+        if (thumb) thumb.classList.add('on-user');
+
+        // Cập nhật Giỏ Hàng (hiện nếu đăng nhập)
+        var cartFab = document.getElementById('cart-fab');
+        if (cartFab) cartFab.style.display = '';
     }
 
     // Đăng nhập
@@ -756,15 +1022,15 @@
         updateCartTotal();
     }
 
-    function addToCart(name, price, varientId) {
+    function addToCart(name, price, varientId, variantLabel) {
         if (!isLoggedIn()) {
-            pendingItem = { name: name, price: price, varientId: varientId };
+            pendingItem = { name: name, price: price, varientId: varientId, variantLabel: variantLabel || '' };
             openAuthModal(name);
             return;
         }
         var existing = cart.find(function (i) { return i.varientId === varientId; });
         if (existing) { existing.qty++; } else {
-            cart.push({ varientId: varientId, name: name, price: price, qty: 1 });
+            cart.push({ varientId: varientId, name: name, price: price, qty: 1, variantLabel: variantLabel || '' });
         }
         saveCart();
         updateCartBadge();
@@ -808,6 +1074,8 @@
         if (addBtn) {
             addBtn.dataset.varientId = vid;
             addBtn.dataset.price     = price;
+            addBtn.dataset.size      = chip.dataset.size || '';
+            addBtn.dataset.forPeople = chip.dataset.forPeople || '';
         }
     });
 
@@ -820,7 +1088,8 @@
         var price     = parseFloat(btn.dataset.price) || 0;
         var name      = btn.dataset.name || '';
         if (!varientId) return;
-        addToCart(name, price, varientId);
+        var label = buildVariantLabel(btn.dataset.size || '', parseInt(btn.dataset.forPeople, 10) || 0);
+        addToCart(name, price, varientId, label);
         btn.style.transform = 'scale(1.4) rotate(90deg)';
         setTimeout(function () { btn.style.transform = ''; }, 300);
     });
@@ -828,11 +1097,9 @@
     // ── Address Picker ───────────────────────────────────────────────────────
     function formatAddress(a) {
         var parts = [];
-        if (a.houseNumber) parts.push('Số ' + a.houseNumber);
-        if (a.street)  parts.push(a.street);
-        if (a.ward)    parts.push(a.ward);
-        if (a.district) parts.push(a.district);
-        if (a.province) parts.push(a.province);
+        if (a.streetAddress) parts.push(a.streetAddress);
+        if (a.district)      parts.push(a.district);
+        if (a.province)      parts.push(a.province);
         return parts.join(', ');
     }
 
@@ -878,6 +1145,7 @@
                 if (cqAddrArrow) cqAddrArrow.classList.remove('open');
                 renderAddrSelected();
                 renderAddrList();
+                updateCQShipping();
             });
 
             item.querySelector('.cq-addr-set-default').addEventListener('click', function (e) {
@@ -895,6 +1163,7 @@
                         if (cqAddrArrow) cqAddrArrow.classList.remove('open');
                         renderAddrSelected();
                         renderAddrList();
+                        updateCQShipping();
                     })
                     .catch(function () {
                         btn.disabled = false;
@@ -931,6 +1200,7 @@
                 if (cqAddrArrow) cqAddrArrow.classList.remove('open');
                 renderAddrSelected();
                 renderAddrList();
+                updateCQShipping();
             })
             .catch(function () {
                 cqAddrSelected.innerHTML =
@@ -960,13 +1230,13 @@
     var addrFormError    = document.getElementById('addr-form-error');
 
     function openAddrPopup() {
-        ['addr-house-number','addr-street','addr-ward','addr-district','addr-province']
+        ['addr-street-address','addr-district','addr-province']
             .forEach(function (id) { var el = document.getElementById(id); if (el) el.value = ''; });
         if (addrFormError) addrFormError.textContent = '';
         addrPopupOverlay.classList.add('active');
         addrPopup.classList.add('open');
         document.body.style.overflow = 'hidden';
-        var first = document.getElementById('addr-street');
+        var first = document.getElementById('addr-street-address');
         if (first) setTimeout(function () { first.focus(); }, 250);
     }
 
@@ -985,13 +1255,11 @@
 
     if (addrSubmitBtn) {
         addrSubmitBtn.addEventListener('click', function () {
-            var houseNum = document.getElementById('addr-house-number').value.trim();
-            var street   = document.getElementById('addr-street').value.trim();
-            var ward     = document.getElementById('addr-ward').value.trim();
-            var district = document.getElementById('addr-district').value.trim();
-            var province = document.getElementById('addr-province').value.trim();
+            var streetAddress = document.getElementById('addr-street-address').value.trim();
+            var district      = document.getElementById('addr-district').value.trim();
+            var province      = document.getElementById('addr-province').value.trim();
 
-            if (!street || !ward || !district || !province) {
+            if (!streetAddress || !district || !province) {
                 addrFormError.textContent = 'Vui lòng điền đầy đủ các trường bắt buộc.';
                 return;
             }
@@ -1000,8 +1268,7 @@
             addrSubmitBtn.disabled = true;
             addrSubmitBtn.innerHTML = '<i class="ti-reload"></i> Đang lưu...';
 
-            var body = { Street: street, Ward: ward, District: district, Province: province, Country: 'Viet Nam' };
-            if (houseNum) body.HouseNumber = parseInt(houseNum, 10);
+            var body = { StreetAddress: streetAddress, District: district, Province: province };
 
             apiPost('/address/add', body)
                 .then(function (res) {
@@ -1025,11 +1292,15 @@
         cart.forEach(function (item, idx) {
             var el = document.createElement('div');
             el.className = 'cq-item';
+            var variantHtml = item.variantLabel
+                ? '<span class="cq-item-variant">' + item.variantLabel + '</span>'
+                : '';
             el.innerHTML = '<div class="cq-item-qty-ctrl">' +
                 '<button class="cq-qty-btn" data-action="minus" data-idx="' + idx + '" aria-label="Giảm">−</button>' +
                 '<span class="cq-qty-num">' + item.qty + '</span>' +
                 '<button class="cq-qty-btn" data-action="plus" data-idx="' + idx + '" aria-label="Tăng">+</button>' +
-                '</div><span class="cq-item-name">' + item.name + '</span>' +
+                '</div><div class="cq-item-info"><span class="cq-item-name">' + item.name + '</span>' +
+                variantHtml + '</div>' +
                 '<span class="cq-item-price">' + formatPrice(item.price * item.qty) + '</span>';
             cqItemsWrap.appendChild(el);
         });
@@ -1037,8 +1308,73 @@
         cqItemCount.textContent = totalItems + ' món';
         var subtotal = cart.reduce(function (s, i) { return s + i.price * i.qty; }, 0);
         cqSubtotal.textContent   = formatPrice(subtotal);
-        cqShipping.textContent   = '0 đ';
-        cqGrandTotal.textContent = formatPrice(subtotal);
+        updateCQShipping();
+    }
+
+    var MAX_DELIVERY_KM = 50;
+
+    function setCheckoutBlocked(blocked, message) {
+        if (!cqCheckoutBtn) return;
+        cqCheckoutBtn.disabled = blocked;
+        cqCheckoutBtn.style.opacity = blocked ? '0.45' : '';
+        cqCheckoutBtn.title = blocked ? message : '';
+        var warningEl = document.getElementById('cq-delivery-warning');
+        if (!warningEl) return;
+        if (blocked) {
+            warningEl.textContent = message;
+            warningEl.style.display = 'flex';
+        } else {
+            warningEl.style.display = 'none';
+        }
+    }
+
+    function updateCQShipping() {
+        var subtotal    = cart.reduce(function (s, i) { return s + i.price * i.qty; }, 0);
+        var distanceEl  = document.getElementById('cq-distance');
+        var discountRow = document.getElementById('cq-discount-row');
+        var discountEl  = document.getElementById('cq-discount');
+
+        var discountAmt = applyTicketDiscount(subtotal);
+        if (discountAmt > 0 && discountRow && discountEl) {
+            discountRow.style.display = '';
+            discountEl.textContent    = '-' + formatPrice(discountAmt);
+        } else if (discountRow) {
+            discountRow.style.display = 'none';
+        }
+
+        if (!userPickedStore && allStores.length) {
+            selectedStore = nearestStore(selectedAddress);
+            renderStoreSelected();
+            renderStoreList();
+        }
+
+        if (!selectedAddress) {
+            cqShipping.textContent   = '0 đ';
+            cqGrandTotal.textContent = formatPrice(subtotal - discountAmt);
+            if (distanceEl) distanceEl.textContent = '';
+            setCheckoutBlocked(false, '');
+            return;
+        }
+        cqShipping.textContent = '...';
+        if (distanceEl) distanceEl.textContent = '';
+        var currentStoreID = selectedStore ? (selectedStore.storeID || selectedStore.StoreID) : null;
+        fetchShippingFee(selectedAddress.addressID, currentStoreID).then(function (data) {
+            if (data && !data.isDeliverable) {
+                cqShipping.textContent   = 'Không hỗ trợ';
+                cqGrandTotal.textContent = formatPrice(subtotal - discountAmt);
+                if (distanceEl) distanceEl.textContent = '(' + data.distanceKm.toFixed(1) + ' km)';
+                setCheckoutBlocked(true,
+                    'Địa chỉ của bạn cách cửa hàng gần nhất ' + data.distanceKm.toFixed(1) +
+                    ' km (tối đa ' + MAX_DELIVERY_KM + ' km). Chúng tôi không thể giao hàng đến khu vực này.');
+                return;
+            }
+            var fee = data ? data.shippingFee : 0;
+            var km  = data ? data.distanceKm  : null;
+            cqShipping.textContent   = formatPrice(fee);
+            cqGrandTotal.textContent = formatPrice(subtotal - discountAmt + fee);
+            if (distanceEl) distanceEl.textContent = km != null ? '(' + km.toFixed(1) + ' km)' : '';
+            setCheckoutBlocked(false, '');
+        });
     }
 
     cqItemsWrap.addEventListener('click', function (e) {
@@ -1059,14 +1395,22 @@
         cqBackdrop.classList.add('active');
         document.body.style.overflow = 'hidden';
         loadAddresses();
+        loadStores();
+        loadTickets();
     }
     function closeCQModal() {
         cqModal.classList.remove('open');
         cqBackdrop.classList.remove('active');
         document.body.style.overflow = '';
         addrDropdownOpen = false;
-        if (cqAddrList)  cqAddrList.classList.remove('open');
-        if (cqAddrArrow) cqAddrArrow.classList.remove('open');
+        storeDropdownOpen = false;
+        selectedTicket = null;
+        if (cqTicketSelect) { cqTicketSelect.value = ''; }
+        if (cqTicketInfo)   { cqTicketInfo.style.display = 'none'; }
+        if (cqAddrList)   cqAddrList.classList.remove('open');
+        if (cqAddrArrow)  cqAddrArrow.classList.remove('open');
+        if (cqStoreList)  cqStoreList.classList.remove('open');
+        if (cqStoreArrow) cqStoreArrow.classList.remove('open');
     }
 
     cqCloseBtn.addEventListener('click', closeCQModal);
@@ -1075,35 +1419,49 @@
     // ── Checkout ─────────────────────────────────────────────────────────────
     cqCheckoutBtn.addEventListener('click', function () {
         if (cart.length === 0) return;
+        if (cqCheckoutBtn.disabled) return;
         if (!isLoggedIn()) { openAuthModal(null); return; }
 
         if (!selectedAddress) {
             alert('Bạn chưa có địa chỉ giao hàng. Vui lòng thêm địa chỉ trong trang tài khoản.');
-            window.location.href = '/html/user.html';
+            window.location.href = 'user.html';
             return;
         }
 
         var userId   = localStorage.getItem('userId');
         var products = cart.map(function (i) { return { ProductVarientID: i.varientId, qty: i.qty }; });
-        var total    = cart.reduce(function (s, i) { return s + i.price * i.qty; }, 0);
+        var paymentRadio = document.querySelector('input[name="cq-payment"]:checked');
+        var paymentMethod = paymentRadio ? paymentRadio.value : 'Cash';
 
-        apiPost('/bill/create-delivery', {
+        var storeID   = selectedStore ? (selectedStore.storeID || selectedStore.StoreID) : null;
+        var ticketID  = selectedTicket ? (selectedTicket.ticketID || selectedTicket.TicketID || null) : null;
+        var body = {
             UserID:         userId,
-            StoreID:        1,
+            StoreID:        storeID,
             AddressID:      selectedAddress.addressID,
-            PaymentMethods: 'Cash',
-            MoneyReceived:  total,
-            MoneyGiveBack:  0,
+            PaymentMethods: paymentMethod,
             products:       products
-        })
+        };
+        if (ticketID) body.TicketID = ticketID;
+        apiPost('/bill/create-delivery', body)
         .then(function (res) {
             if (!res.ok) return res.text().then(function (t) { throw new Error(t); });
+            return res.json();
+        })
+        .then(function (data) {
             closeCQModal();
-            alert('Đặt hàng thành công!\nCảm ơn bạn đã tin tưởng Chônlibi!');
             cart.length = 0;
             saveCart();
             updateCartBadge();
             renderCart();
+            // Chuyển khoản SePay: hiện QR + poll trạng thái
+            if (data && data.paymentMethods === 'BankTransfer' && data.qrUrl) {
+                showSePayQrModal(data, function () {
+                    showOrderSuccessPopup();
+                });
+            } else {
+                showOrderSuccessPopup();
+            }
         })
         .catch(function (err) {
             alert('Đặt hàng thất bại. Vui lòng thử lại.\n' + err.message);
@@ -1256,5 +1614,46 @@
     updateCartBadge();
     renderCart();
     loadAllProducts();
+
+    // ── Đọc URL param ?search= từ home page ─────────────────────────────────
+    (function () {
+        var urlParams = new URLSearchParams(window.location.search);
+        var initSearch = urlParams.get('search');
+        if (!initSearch) return;
+
+        if (searchInput) {
+            searchInput.value = initSearch;
+            var attempts = 0;
+            var checkReady = setInterval(function () {
+                attempts++;
+                if (allProducts.length > 0 || attempts > 40) {
+                    clearInterval(checkReady);
+                    var q = initSearch.trim();
+                    if (!q) return;
+                    if (gridSearch) gridSearch.innerHTML = '<p class="bs-loading"><span class="bs-spinner"></span> Đang tìm...</p>';
+                    if (sectionSearch) {
+                        sectionSearch.style.display = '';
+                        document.querySelectorAll('.menu-cat-section:not(#section-search)').forEach(function (s) {
+                            s.style.display = 'none';
+                        });
+                    }
+                    apiPost('/product/search', { Name: q })
+                        .then(function (res) { return res.ok ? res.json() : []; })
+                        .then(function (data) {
+                            var results = Array.isArray(data) ? data : [];
+                            results = results.filter(function (p) { return p.productVarient && p.productVarient.length; });
+                            showSearchResults(results);
+                        })
+                        .catch(function () {
+                            var ql = q.toLowerCase();
+                            var results = allProducts.filter(function (p) {
+                                return (p.productName || '').toLowerCase().includes(ql);
+                            });
+                            showSearchResults(results);
+                        });
+                }
+            }, 100);
+        }
+    })();
 
 })();

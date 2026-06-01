@@ -3,12 +3,14 @@ using Backend.Models.DTOs.Request;
 using Backend.Models.DTOs.Reponse;
 namespace Backend.Services.Interface{
     public interface IBillService{
-        Task <List<Bill>?> GetAllBillIn(DateOnly start, DateOnly end);
-        Task <List<Bill>?> GetUserBill(Guid userID);
+        Task <List<Bill>?> GetAllBillIn(DateOnly start, DateOnly end, int? storeID = null);
+        Task <List<BillReponse>?> GetUserBill(Guid userID);
         Task <Bill?> GetBillByID(Guid billID);
         Task CreateDineInBill(DineInBillCreateRequest request);
-        Task CreateDeliveryBill(DeliveryBillCreateRequest request);
+        Task<DeliveryBillCreateReponse> CreateDeliveryBill(DeliveryBillCreateRequest request);
         Task ChangeBill(BillChangeRequest changeRequest);
+        Task<PaymentStatusReponse?> GetPaymentStatus(Guid billID);
+        Task CancelUnpaidBill(Guid billID, Guid callerID);
         // Task SoftDeleteBill(Guid billID);
     }
 }

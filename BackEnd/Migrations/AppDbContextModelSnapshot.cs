@@ -28,21 +28,19 @@ namespace BackEnd.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
-                    b.Property<string>("Country")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
                     b.Property<string>("District")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
-                    b.Property<int?>("HouseNumber")
-                        .HasColumnType("int");
-
                     b.Property<bool>("IsDefault")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("double");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("double");
 
                     b.Property<string>("Province")
                         .IsRequired()
@@ -52,21 +50,16 @@ namespace BackEnd.Migrations
                     b.Property<int?>("StoreID")
                         .HasColumnType("int");
 
-                    b.Property<string>("Street")
+                    b.Property<string>("StreetAddress")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
 
                     b.Property<int?>("SupplierID")
                         .HasColumnType("int");
 
                     b.Property<Guid?>("UserID")
                         .HasColumnType("char(36)");
-
-                    b.Property<string>("Ward")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
 
                     b.HasKey("AddressID");
 
@@ -96,19 +89,32 @@ namespace BackEnd.Migrations
                     b.Property<Guid?>("DeliveryInfoID")
                         .HasColumnType("char(36)");
 
-                    b.Property<decimal>("MoneyGiveBack")
+                    b.Property<decimal?>("MoneyGiveBack")
                         .HasColumnType("decimal(65,30)");
 
-                    b.Property<decimal>("MoneyReceived")
+                    b.Property<decimal?>("MoneyReceived")
                         .HasColumnType("decimal(65,30)");
 
                     b.Property<string>("Note")
                         .HasColumnType("longtext");
 
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("PaymentMethods")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
+
+                    b.Property<string>("PaymentReference")
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<int>("PaymentStatus")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("SePayTransactionId")
+                        .HasColumnType("bigint");
 
                     b.Property<int>("StoreID")
                         .HasColumnType("int");
