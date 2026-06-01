@@ -80,6 +80,7 @@
     var storeDropdownOpen = false;
     var userPickedStore   = false;
     var selectedTicket    = null;
+    var currentSearchResults = null;
 
     var CART_KEY = 'chonlibi_cart';
 
@@ -305,9 +306,39 @@
         return list;
     }
 
+    // Số lượt bán của sản phẩm (robust với cả camelCase & PascalCase từ API)
+    function soldOf(p) {
+        var s = (p && p.soldCount != null) ? p.soldCount : (p ? p.SoldCount : 0);
+        return Number(s) || 0;
+    }
+
+    // Thứ tự size: Default < S < M < L < XL
+    var SIZE_RANK = { Default: 0, S: 1, M: 2, L: 3, XL: 4 };
+    function sizeRank(v) {
+        var s = v ? (v.size != null ? v.size : v.Size) : null;
+        return (s != null && SIZE_RANK[s] != null) ? SIZE_RANK[s] : 99;
+    }
+    // Biến thể sắp theo size nhỏ→lớn (cùng size thì rẻ hơn đứng trước)
+    function variantsBySize(p) {
+        return activeVariants(p).slice().sort(function (a, b) {
+            var r = sizeRank(a) - sizeRank(b);
+            return r !== 0 ? r : (a.price - b.price);
+        });
+    }
+    // Biến thể đại diện cho hiển thị card = size nhỏ nhất
+    function smallestVariant(p) {
+        return variantsBySize(p)[0];
+    }
+    // Biến thể có giá thấp nhất (dùng cho sắp xếp & lọc giá)
+    function cheapestVariant(p) {
+        var list = activeVariants(p);
+        if (!list.length) return null;
+        return list.reduce(function (min, v) { return v.price < min.price ? v : min; }, list[0]);
+    }
+
     function makeCardHTML(p) {
-        var variants    = activeVariants(p);
-        var defaultV    = variants[0];
+        var variants    = variantsBySize(p);   // size nhỏ → lớn
+        var defaultV    = variants[0];          // mặc định = size nhỏ nhất
         var escapedName = p.productName.replace(/"/g, '&quot;');
 
         var sizeHTML = '';
@@ -393,7 +424,7 @@
 
     function applyPriceFilter(products) {
         return products.filter(function (p) {
-            var minV = activeVariants(p)[0];
+            var minV = cheapestVariant(p);
             if (!minV) return false;
             return minV.price >= filterState.minPrice && minV.price <= filterState.maxPrice;
         });
@@ -417,13 +448,38 @@
     function applyFilterAndSort() {
         var sortKey = sortSelect ? sortSelect.value : 'bestseller';
 
-        // "Bán chạy" section — tổng hợp từ các loại còn bật
+        if (currentSearchResults !== null) {
+            // Nếu đang trong chế độ tìm kiếm, chỉ lọc và sắp xếp trên kết quả tìm kiếm
+            var filteredSearch = applyAllFilters(currentSearchResults);
+            var sortedSearch = applySort(filteredSearch, sortKey);
+            renderSection(sortedSearch, gridSearch);
+            updateFilterBadge();
+            return;
+        }
+
+        // "Tất cả" section — tổng hợp từ các loại còn bật
         var visibleAll = [];
         TYPE_KEYS.forEach(function (key) {
             if (filterState.types[key]) visibleAll = visibleAll.concat(allProductsByType[key]);
         });
-        visibleAll.sort(function (a, b) { return (b.soldCount || 0) - (a.soldCount || 0); });
-        renderSection(applyAllFilters(visibleAll).slice(0, 10), gridAll);
+        
+        var filteredAll = applyAllFilters(visibleAll);
+        var sortedAll = applySort(filteredAll, sortKey);
+        renderSection(sortedAll.slice(0, 10), gridAll);
+
+        // Cập nhật tiêu đề của section Tất cả cho phù hợp với cách sắp xếp
+        var titleEl = document.querySelector('#section-all .menu-section-title');
+        if (titleEl) {
+            if (sortKey === 'price-asc') {
+                titleEl.innerHTML = '<span class="cat-section-icon">🏆</span> Tất Cả (Giá Thấp → Cao)';
+            } else if (sortKey === 'price-desc') {
+                titleEl.innerHTML = '<span class="cat-section-icon">🏆</span> Tất Cả (Giá Cao → Thấp)';
+            } else if (sortKey === 'name-az') {
+                titleEl.innerHTML = '<span class="cat-section-icon">🏆</span> Tất Cả (Tên A → Z)';
+            } else {
+                titleEl.innerHTML = '<span class="cat-section-icon">🏆</span> Bán Chạy Nhất';
+            }
+        }
 
         // Các section theo loại
         TYPE_KEYS.forEach(function (key) {
@@ -445,13 +501,28 @@
     function applySort(products, sortKey) {
         var list = products.slice();
         if (sortKey === 'price-asc') {
-            list.sort(function (a, b) { return activeVariants(a)[0].price - activeVariants(b)[0].price; });
+            // Sắp xếp theo giá thấp nhất của sản phẩm (chọn phân loại rẻ nhất)
+            list.sort(function (a, b) {
+                var va = cheapestVariant(a);
+                var vb = cheapestVariant(b);
+                var pa = va ? va.price : Infinity;
+                var pb = vb ? vb.price : Infinity;
+                return pa - pb;
+            });
         } else if (sortKey === 'price-desc') {
-            list.sort(function (a, b) { return activeVariants(b)[0].price - activeVariants(a)[0].price; });
+            // Sắp xếp theo giá cao nhất của sản phẩm (chọn phân loại rẻ nhất để so sánh)
+            list.sort(function (a, b) {
+                var va = cheapestVariant(a);
+                var vb = cheapestVariant(b);
+                var pa = va ? va.price : -Infinity;
+                var pb = vb ? vb.price : -Infinity;
+                return pb - pa;
+            });
         } else if (sortKey === 'name-az') {
             list.sort(function (a, b) { return a.productName.localeCompare(b.productName, 'vi'); });
         } else {
-            list.sort(function (a, b) { return (b.soldCount || 0) - (a.soldCount || 0); });
+            // bestseller: sắp xếp theo số lượt bán (cao → thấp)
+            list.sort(function (a, b) { return soldOf(b) - soldOf(a); });
         }
         return list;
     }
@@ -581,7 +652,7 @@
             });
 
             upsellItems = allProducts.slice(0, 3).map(function (p) {
-                var v = activeVariants(p)[0];
+                var v = smallestVariant(p);
                 return { varientId: v.productVarientID, name: p.productName, price: v.price, img: p.image || '', variantLabel: buildVariantLabel(v.size, v.forPeople) };
             });
             if (!upsellItems.length) upsellItems = [{ varientId: null, name: 'Đang cập nhật...', price: 0, img: '' }];
@@ -709,10 +780,13 @@
         });
         if (!variants.length) variants = product.productVarient || [];
 
-        // Sắp xếp theo giá tăng dần
-        variants.sort(function (a, b) { return a.price - b.price; });
+        // Sắp xếp theo size nhỏ → lớn (cùng size thì giá tăng dần)
+        variants.sort(function (a, b) {
+            var r = sizeRank(a) - sizeRank(b);
+            return r !== 0 ? r : (a.price - b.price);
+        });
 
-        // Nếu đang lọc theo số người, ưu tiên variant khớp forPeople; fallback về giá thấp nhất
+        // Nếu đang lọc theo số người, ưu tiên variant khớp forPeople; fallback về size nhỏ nhất
         var targetPeople = filterState.forPeople || initCombo;
         var matched = targetPeople
             ? variants.find(function (v) { return v.forPeople === targetPeople; })
@@ -846,7 +920,9 @@
         userBtn.addEventListener('click', function () {
             var fullName = localStorage.getItem('fullName');
             var role     = localStorage.getItem('role');
-            if (fullName) {
+            // Chỉ điều hướng khi phiên còn hợp lệ; token hết hạn → mở modal đăng nhập tại chỗ
+            // (tránh nhảy sang user.html rồi bị guard đá về index = cảm giác "tự đăng xuất")
+            if (fullName && !isTokenExpired()) {
                 if (role === 'admin') {
                     window.location.href = 'admin.html';
                 } else if (role === 'employee') {
@@ -933,7 +1009,7 @@
                 } else {
                     luuThongTinKhachHang(result.data);
                 }
-                onAuthSuccess(result.data.FullName);
+                onAuthSuccess(result.data.fullName || result.data.FullName);
             })
             .catch(function () { menuLoginErr.textContent = 'Lỗi kết nối máy chủ.'; });
     });
@@ -1543,6 +1619,7 @@
     var gridSearch    = document.getElementById('grid-search');
 
     function showSearchResults(products) {
+        currentSearchResults = products;
         // Ẩn tất cả section bình thường, hiện section search
         document.querySelectorAll('.menu-cat-section:not(#section-search)').forEach(function (s) {
             s.style.display = 'none';
@@ -1553,14 +1630,16 @@
             gridSearch.innerHTML = '<p class="bs-empty">Không tìm thấy món nào phù hợp.</p>';
             return;
         }
-        renderSection(products, gridSearch);
+        applyFilterAndSort();
     }
 
     function restoreNormalView() {
+        currentSearchResults = null;
         sectionSearch.style.display = 'none';
         document.querySelectorAll('.menu-cat-section:not(#section-search)').forEach(function (s) {
             s.style.display = '';
         });
+        applyFilterAndSort();
     }
 
     if (searchInput) {

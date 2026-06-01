@@ -4,12 +4,12 @@
     var name = localStorage.getItem('fullName');
     if (!role || role !== 'employee') {
         alert('Vui lòng đăng nhập với tài khoản nhân viên!');
-        window.location.href = '/html/index.html';
+        window.location.href = 'index.html';
         return;
     }
     if (isTokenExpired()) {
         clearAuth();
-        window.location.href = '/html/index.html';
+        window.location.href = 'index.html';
         return;
     }
     var el = document.getElementById('header-name');
@@ -22,15 +22,15 @@
             : (name || 'NV').slice(0, 2).toUpperCase();
     }
 })();
-setInterval(function(){if(isTokenExpired()){clearAuth();window.location.href='/html/index.html';}},60000);
+setInterval(function(){if(isTokenExpired()){clearAuth();window.location.href='index.html';}},60000);
 
 function logout() {
     apiPost('/auth/logout').then(function () {
         clearAuth();
-        window.location.href = '/html/index.html';
+        window.location.href = 'index.html';
     }).catch(function () {
         clearAuth();
-        window.location.href = '/html/index.html';
+        window.location.href = 'index.html';
     });
 }
 

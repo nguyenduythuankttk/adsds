@@ -644,11 +644,28 @@
     // ── Products ──────────────────────────────────────────────────────────────
     var RANK_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32'];
 
+    // Thứ tự size: Default < S < M < L < XL → giá đại diện lấy theo size nhỏ nhất
+    var SIZE_RANK = { Default: 0, S: 1, M: 2, L: 3, XL: 4 };
+    function sizeRank(v) {
+        var s = v ? (v.size != null ? v.size : v.Size) : null;
+        return (s != null && SIZE_RANK[s] != null) ? SIZE_RANK[s] : 99;
+    }
+    function smallestSizeVariant(variants) {
+        var active = (variants || []).filter(function (v) {
+            return (v.isActive !== false && v.IsActive !== false) && !(v.deletedAt || v.DeletedAt);
+        });
+        if (!active.length) active = variants || [];
+        var best = active[0];
+        for (var i = 1; i < active.length; i++) {
+            // chỉ thay khi size nhỏ hơn hẳn → cùng size thì giữ phần tử đứng trước (giữ thứ tự combo modal)
+            if (sizeRank(active[i]) < sizeRank(best)) best = active[i];
+        }
+        return best;
+    }
+
     function renderProductCard(p, rank) {
         var variants = p.productVarient || p.ProductVarient || [];
-        var varient = variants.find(function (v) {
-            return (v.isActive !== false && v.IsActive !== false) && !(v.deletedAt || v.DeletedAt);
-        }) || variants[0];
+        var varient = smallestSizeVariant(variants);
         if (!varient) return '';
 
         var vid   = varient.productVarientID || varient.ProductVarientID;

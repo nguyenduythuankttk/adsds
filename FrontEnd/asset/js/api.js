@@ -10,11 +10,18 @@ function clearAuth() { localStorage.clear(); }
 
 function isTokenExpired() {
     var token = getToken();
-    if (!token) return true;
+    if (!token || token === 'undefined' || token === 'null') return true;
     try {
-        var payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        var parts = token.split('.');
+        if (parts.length < 3) return true;
+        var base64Url = parts[1];
+        var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        var padLength = (4 - (base64.length % 4)) % 4;
+        base64 += '='.repeat(padLength);
+        var payload = JSON.parse(atob(base64));
         return payload.exp * 1000 < Date.now();
     } catch (e) {
+        console.error('Error checking token expiration:', e);
         return true;
     }
 }
@@ -27,7 +34,7 @@ function apiFetch(method, path, body, noAuthRedirect) {
             clearAuth();
             if (!noAuthRedirect) {
                 alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-                window.location.href = '/html/index.html';
+                window.location.href = 'index.html';
             }
             return Promise.reject(new Error('Token expired'));
         }
@@ -37,7 +44,7 @@ function apiFetch(method, path, body, noAuthRedirect) {
     return fetch(API_BASE + path, opts).then(function (res) {
         if (res.status === 401 && !noAuthRedirect) {
             clearAuth();
-            window.location.href = '/html/index.html';
+            window.location.href = 'index.html';
             return new Promise(function() {});
         }
         return res;
@@ -50,7 +57,7 @@ function apiPut(path, body)                { return apiFetch('PUT',    path, bod
 function apiDelete(path)                   { return apiFetch('DELETE', path); }
 
 function luuThongTinNhanVien(data) {
-    setToken(data.acessToken || data.AcessToken);
+    setToken(data.acessToken || data.AcessToken || data.accessToken || data.AccessToken);
     localStorage.setItem('fullName',   data.fullName   || data.FullName   || '');
     localStorage.setItem('employeeId', data.employeeID || data.EmployeeID || '');
     localStorage.setItem('storeId',    data.storeID    || data.StoreID    || '');
@@ -59,7 +66,7 @@ function luuThongTinNhanVien(data) {
 }
 
 function luuThongTinKhachHang(data) {
-    setToken(data.acessToken || data.AcessToken);
+    setToken(data.acessToken || data.AcessToken || data.accessToken || data.AccessToken);
     localStorage.setItem('fullName', data.fullName || data.FullName || '');
     localStorage.setItem('userId',   data.userID   || data.UserID   || '');
     localStorage.setItem('role',     'user');

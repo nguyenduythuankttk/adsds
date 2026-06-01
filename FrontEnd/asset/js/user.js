@@ -2,12 +2,7 @@
     var role = localStorage.getItem('role');
     if (!role || role !== 'user') {
         alert('Vui lòng đăng nhập để tiếp tục!');
-        window.location.href = '/html/index.html';
-        return;
-    }
-    if (isTokenExpired()) {
-        clearAuth();
-        window.location.href = '/html/index.html';
+        window.location.href = 'index.html';
         return;
     }
     if (isTokenExpired()) {
@@ -30,6 +25,14 @@
     var shortName     = name.split(' ').pop();
     if (headerInitial) headerInitial.textContent = initial;
     if (headerName)    headerName.textContent    = shortName;
+
+    // Mapping header user icon to user.html
+    var headerAvatarBtn = document.getElementById('headerAvatarBtn');
+    if (headerAvatarBtn) {
+        headerAvatarBtn.addEventListener('click', function () {
+            window.location.href = 'user.html';
+        });
+    }
 
     // Cart-fab: đọc số lượng từ localStorage rồi hiện badge
     (function () {
@@ -66,10 +69,10 @@
             e.preventDefault();
             apiPost('/auth/logout').then(function () {
                 clearAuth();
-                window.location.href = '/html/index.html';
+                window.location.href = 'index.html';
             }).catch(function () {
                 clearAuth();
-                window.location.href = '/html/index.html';
+                window.location.href = 'index.html';
             });
         });
     }

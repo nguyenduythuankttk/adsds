@@ -528,7 +528,9 @@ function updateHeaderAfterLogin(name) {
     userBtn.addEventListener('click', function () {
         var fullName = localStorage.getItem('fullName');
         var role     = localStorage.getItem('role');
-        if (fullName) {
+        // Chỉ điều hướng khi phiên còn hợp lệ; token hết hạn → mở modal đăng nhập tại chỗ
+        // (tránh nhảy sang user.html rồi bị guard đá về index = cảm giác "tự đăng xuất")
+        if (fullName && !isTokenExpired()) {
             if (role === 'admin') {
                 window.location.href = 'admin.html';
             } else if (role === 'employee') {

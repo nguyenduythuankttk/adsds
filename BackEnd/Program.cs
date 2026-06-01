@@ -14,8 +14,6 @@ using System.Text.Json.Serialization;
 using Backend.Services.Interfaces;
 using Backend.Middleware;
 
-Microsoft.IdentityModel.Logging.IdentityModelEventSource.ShowPII = true;
-
 DotNetEnv.Env.TraversePath().Load();
 
 var builder = WebApplication.CreateBuilder(args);
