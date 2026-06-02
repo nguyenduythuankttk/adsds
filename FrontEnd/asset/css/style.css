@@ -18,14 +18,16 @@ a.product-card {
 #header {
     height: 55px;
     background-color: rgb(220, 77, 11);
-    z-index: 1;
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     z-index: 100;
-    
+    display: flex;
+    align-items: center;
+    padding-right: 10px;
 }
+#header > #nav { margin-right: auto; }
 
 .swiper {
     width: 100%;
@@ -624,7 +626,6 @@ a.product-card {
 
 /* ── Giao hàng button ── */
 .delivery-btn {
-    float: right;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -637,6 +638,7 @@ a.product-card {
     padding: 0 16px;
     line-height: 46px;
     height: 46px;
+    margin-left: 10px;
     transition: background-color 0.2s;
 }
 .delivery-btn:hover { background-color: #e6a600; }
@@ -644,7 +646,6 @@ a.product-card {
 
 /* ── Search  ── */
 .search-bar {
-    float: right;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -653,8 +654,7 @@ a.product-card {
     border-radius: 20px;
     padding: 0 14px;
     height: 28px;
-    margin-top: 9px;
-    margin-right: 10px;
+    margin-left: 10px;
     transition: background-color 0.2s, width 0.3s;
     width: 160px;
 }
@@ -680,7 +680,6 @@ a.product-card {
 
 /* ── Login button ── */
 .login-btn {
-    float: right;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -694,8 +693,7 @@ a.product-card {
     text-decoration: none;
     padding: 0 14px;
     height: 28px;
-    margin-top: 9px;
-    margin-right: 10px;
+    margin-left: 10px;
     border-radius: 20px;
     cursor: pointer;
     transition: background 0.2s;
@@ -719,6 +717,47 @@ a.product-card {
     cursor: pointer;
 }
 .logout-text:hover { opacity: 1; }
+
+/* ── Home / User sliding toggle ── */
+.header-nav-toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    background: rgba(255,255,255,0.15);
+    border: 1.5px solid rgba(255,255,255,0.5);
+    border-radius: 20px;
+    padding: 2px;
+    height: 32px;
+    margin-left: 10px;
+}
+.nav-toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: calc(50% - 2px);
+    height: calc(100% - 4px);
+    background: #fff;
+    border-radius: 18px;
+    transition: transform 0.25s ease;
+    z-index: 0;
+}
+.nav-toggle-thumb.on-user { transform: translateX(100%); }
+.nav-toggle-btn {
+    position: relative;
+    z-index: 1;
+    background: none;
+    border: none;
+    color: #fff;
+    width: 32px;
+    height: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    transition: color 0.2s;
+}
+.nav-toggle-btn.active { color: rgb(220, 77, 11); }
 
 /* ── Modal overlay ── */
 .modal-overlay {
