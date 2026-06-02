@@ -1,4 +1,3 @@
-using System.Security.Cryptography.X509Certificates;
 using Backend.Data;
 using Backend.Models;
 using Backend.Models.DTOs.Reponse;
@@ -32,7 +31,7 @@ namespace Backend.Services.Implementations{
 
         public async Task<List<Bill>?> GetAllBillIn(DateOnly start, DateOnly end, int? storeID = null){
             try {
-                var query = _dbcontext.Bill
+                IQueryable<Bill> query = _dbcontext.Bill
                     .AsNoTracking()
                     .Include(b => b.BillChange
                         .Where(bc => bc.Status == BillStatus.Create)
@@ -46,8 +45,7 @@ namespace Backend.Services.Implementations{
                     .Include(b => b.BillDetail)
                         .ThenInclude(bd => bd.ProductVarient)
                             .ThenInclude(pr => pr.Product)
-                    .Include(b => b.Store)
-                    .AsQueryable();
+                    .Include(b => b.Store);
 
                 if (storeID.HasValue)
                     query = query.Where(b => b.StoreID == storeID.Value);
@@ -91,7 +89,7 @@ namespace Backend.Services.Implementations{
                         TotalReviews = b.Store.TotalReviews,
                         TotalPoints = b.Store.TotalPoints,
                         SeatingCapacity = b.Store.SeatingCapacity,
-                        Address = b.Store.Address == null ? null! : new AddressResponse
+                        Address = b.Store.Address == null ? null : new AddressResponse
                         {
                             AddressID = b.Store.Address.AddressID,
                             StreetAddress = b.Store.Address.StreetAddress,
@@ -145,7 +143,7 @@ namespace Backend.Services.Implementations{
                 throw new Exception("Lỗi khi lấy hóa đơn: " + e.Message);
             }
         }
-        public async Task CreateDineInBill(DineInBillCreateRequest request){
+        public async Task<DineInBillCreateReponse> CreateDineInBill(DineInBillCreateRequest request){
             if (request.products == null || request.products.Count == 0)
                 throw new Exception("Bill must have at least one product.");
             if (request.EmployeID == null)
@@ -176,6 +174,7 @@ namespace Backend.Services.Implementations{
                     if (user == null) throw new Exception("User not found.");
                     userID = user.UserID;
                 }
+                var isBankTransfer = request.PaymentMethods == PaymentMethods.BankTransfer;
                 var bill = new Bill{
                         BillID = Guid.NewGuid(),
                         UserID = userID,
@@ -183,9 +182,9 @@ namespace Backend.Services.Implementations{
                         TableID = request.TableID,
                         PaymentMethods = request.PaymentMethods,
                         Note = request.Note,
-                        MoneyReceived = request.MoneyReceived,
-                        PaymentStatus = PaymentStatus.Paid,
-                        PaidAt = DateTime.UtcNow
+                        MoneyReceived = isBankTransfer ? null : request.MoneyReceived,
+                        PaymentStatus = isBankTransfer ? PaymentStatus.Pending : PaymentStatus.Paid,
+                        PaidAt = isBankTransfer ? null : DateTime.UtcNow
                         };
                 decimal total = 0.0m;
                 foreach (var i in request.products)
@@ -213,9 +212,18 @@ namespace Backend.Services.Implementations{
                     }
                 }
 
-                if (request.MoneyReceived < bill.Total)
-                    throw new Exception($"MoneyReceived ({request.MoneyReceived}) is less than Total ({bill.Total}).");
-                bill.MoneyGiveBack = bill.MoneyReceived - bill.Total;
+                if (isBankTransfer)
+                {
+                    bill.MoneyGiveBack = null;
+                    var prefix = string.IsNullOrWhiteSpace(_sepay.ReferencePrefix) ? "JLB" : _sepay.ReferencePrefix;
+                    bill.PaymentReference = prefix + bill.BillID.ToString("N").Substring(0, 8).ToUpper();
+                }
+                else
+                {
+                    if (request.MoneyReceived < bill.Total)
+                        throw new Exception($"MoneyReceived ({request.MoneyReceived}) is less than Total ({bill.Total}).");
+                    bill.MoneyGiveBack = bill.MoneyReceived - bill.Total;
+                }
 
                 var billChange = new BillChange
                 {
@@ -234,6 +242,28 @@ namespace Backend.Services.Implementations{
                 await IncreaseSoldCount(bill.BillDetail.ToList());
                 await ConsumeIngredients(bill.BillID, bill.BillDetail.ToList(), request.EmployeID.Value, request.StoreID);
                 await tx.CommitAsync();
+
+                var response = new DineInBillCreateReponse
+                {
+                    BillID           = bill.BillID,
+                    Total            = bill.Total,
+                    PaymentMethods   = bill.PaymentMethods,
+                    PaymentStatus    = bill.PaymentStatus,
+                    PaymentReference = bill.PaymentReference,
+                    BankAccount      = _sepay.Account,
+                    BankCode         = _sepay.Bank,
+                    TestMode         = _sepay.TestMode
+                };
+
+                if (isBankTransfer
+                    && !string.IsNullOrEmpty(_sepay.Account)
+                    && !string.IsNullOrEmpty(_sepay.Bank))
+                {
+                    var amount = ((long)bill.Total).ToString();
+                    var des    = Uri.EscapeDataString(bill.PaymentReference ?? "");
+                    response.QrUrl = $"https://qr.sepay.vn/img?acc={_sepay.Account}&bank={_sepay.Bank}&amount={amount}&des={des}";
+                }
+                return response;
             } catch (Exception e)
             {
                 await tx.RollbackAsync();
@@ -455,11 +485,11 @@ namespace Backend.Services.Implementations{
 
         // Huỷ bill chưa thanh toán (FE gọi khi countdown 3p hết, hoặc user bấm "Huỷ").
         // Idempotent: gọi lại trên bill đã Failed thì không throw — popup có thể race.
-        public async Task CancelUnpaidBill(Guid billID, Guid callerID)
+        public async Task CancelUnpaidBill(Guid billID, Guid callerID, bool isStaff = false)
         {
             var bill = await _dbcontext.Bill.FirstOrDefaultAsync(b => b.BillID == billID);
             if (bill == null) throw new Exception("Bill không tồn tại.");
-            if (bill.UserID != callerID) throw new Exception("Không có quyền huỷ bill này.");
+            if (!isStaff && bill.UserID != callerID) throw new Exception("Không có quyền huỷ bill này.");
             if (bill.PaymentStatus == PaymentStatus.Paid)
                 throw new Exception("Bill đã thanh toán, không thể huỷ.");
             if (bill.PaymentStatus == PaymentStatus.Failed) return;

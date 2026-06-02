@@ -61,8 +61,12 @@ namespace Backend.Controller {
         [Authorize(Roles = "Manager,Counter")]
         [HttpPost("create-dinein")]
         public async Task<IActionResult> CreateDineInBill([FromBody] DineInBillCreateRequest request) {
-            await _billService.CreateDineInBill(request);
-            return Ok("Tạo hóa đơn tại chỗ thành công");
+            try {
+                var result = await _billService.CreateDineInBill(request);
+                return Ok(result);
+            } catch (Exception e) {
+                return StatusCode(500, $"Error in billController.CreateDineInBill: {e.Message}");
+            }
         }
 
         [Authorize]
@@ -102,7 +106,9 @@ namespace Backend.Controller {
             try {
                 var callerID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                     ?? User.FindFirst("user_id")?.Value)!);
-                await _billService.CancelUnpaidBill(billID, callerID);
+                var role = User.FindFirst(ClaimTypes.Role)?.Value;
+                bool isStaff = role == "Manager" || role == "Counter";
+                await _billService.CancelUnpaidBill(billID, callerID, isStaff);
                 return Ok(new { success = true });
             } catch (Exception e) {
                 return StatusCode(500, new { success = false, message = e.Message });

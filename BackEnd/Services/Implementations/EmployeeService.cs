@@ -47,7 +47,7 @@ namespace Backend.Services.Implementations
                         TotalReviews = e.Store.TotalReviews,
                         TotalPoints = e.Store.TotalPoints,
                         SeatingCapacity = e.Store.SeatingCapacity,
-                        Address = new AddressResponse
+                        Address = e.Store.Address == null ? null : new AddressResponse
                         {
                             AddressID = e.Store.Address.AddressID,
                             StreetAddress = e.Store.Address.StreetAddress,
@@ -85,7 +85,7 @@ namespace Backend.Services.Implementations
                         TotalReviews = e.Store.TotalReviews,
                         TotalPoints = e.Store.TotalPoints,
                         SeatingCapacity = e.Store.SeatingCapacity,
-                        Address = new AddressResponse
+                        Address = e.Store.Address == null ? null : new AddressResponse
                         {
                             AddressID = e.Store.Address.AddressID,
                             StreetAddress = e.Store.Address.StreetAddress,
@@ -123,7 +123,7 @@ namespace Backend.Services.Implementations
                         TotalReviews = e.Store.TotalReviews,
                         TotalPoints = e.Store.TotalPoints,
                         SeatingCapacity = e.Store.SeatingCapacity,
-                        Address = new AddressResponse
+                        Address = e.Store.Address == null ? null : new AddressResponse
                         {
                             AddressID = e.Store.Address.AddressID,
                             StreetAddress = e.Store.Address.StreetAddress,

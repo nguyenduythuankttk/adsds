@@ -37,7 +37,7 @@ namespace Backend.Models.DTOs.Request{
     }
     public class BillChangeRequest{
         public Guid BillID{get; set;}
-        public Guid EmployeeID {get; set;}
+        public Guid? EmployeeID {get; set;}
         public DateTime ChangeAt {get; set;} = DateTime.UtcNow;
         public BillStatus Status {get; set;}
     }

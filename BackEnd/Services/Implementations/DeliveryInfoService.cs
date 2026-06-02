@@ -27,51 +27,68 @@ namespace Backend.Services.Implementations{
             var now   = DateTime.UtcNow;
             var today = DateOnly.FromDateTime(now);
 
+            var demand = new Dictionary<int, decimal>();
             foreach (var detail in billDetails)
             {
-                var recipeItems = recipes.Where(r => r.ProductVarientID == detail.ProductVarientID).ToList();
-                foreach (var recipe in recipeItems)
+                foreach (var recipe in recipes.Where(r => r.ProductVarientID == detail.ProductVarientID))
                 {
-                    decimal totalToConsume = recipe.QtyAfterProcess * detail.Quantity;
-                    if (totalToConsume <= 0) continue;
-
-                    var batches = await _dbcontext.InventoryBatch
-                        .Where(b => b.IngredientID == recipe.IngredientID
-                                 && b.BatchType == BatchType.Processed
-                                 && b.Status == BatchStatus.Available
-                                 && b.QuantityOnHand > 0
-                                 && b.Exp >= today
-                                 && b.Warehouse.StoreID == storeID)
-                        .OrderBy(b => b.ImportDate)
-                        .ToListAsync();
-
-                    decimal remaining = totalToConsume;
-                    foreach (var batch in batches)
-                    {
-                        if (remaining <= 0) break;
-                        var deduct = Math.Min(remaining, batch.QuantityOnHand);
-                        batch.QuantityOnHand -= deduct;
-                        if (batch.QuantityOnHand == 0)
-                            batch.Status = BatchStatus.Depleted;
-                        batch.UpdatedAt = now;
-
-                        _dbcontext.StockMovement.Add(new StockMovement
-                        {
-                            StockMovementID = Guid.NewGuid(),
-                            BatchID         = batch.BatchID,
-                            EmployeeID      = employeeID,
-                            QtyChange       = -deduct,
-                            MovementType    = StockMovementType.Consumption,
-                            ReferenceType   = StockReferenceType.Bill,
-                            ReferenceID     = billID,
-                            TimeStamp       = now,
-                        });
-                        remaining -= deduct;
-                    }
-
-                    if (remaining > 0)
-                        throw new Exception($"Không đủ nguyên liệu – IngredientID {recipe.IngredientID}: còn thiếu {remaining}.");
+                    var need = recipe.QtyAfterProcess * detail.Quantity;
+                    if (need <= 0) continue;
+                    demand[recipe.IngredientID] = demand.GetValueOrDefault(recipe.IngredientID) + need;
                 }
+            }
+            if (demand.Count == 0) return;
+
+            var ingredientIDs = demand.Keys.ToList();
+            var availableBatches = await _dbcontext.InventoryBatch
+                .Where(b => ingredientIDs.Contains(b.IngredientID)
+                         && b.BatchType == BatchType.Processed
+                         && b.Status == BatchStatus.Available
+                         && b.QuantityOnHand > 0
+                         && b.Exp >= today
+                         && b.Warehouse.StoreID == storeID)
+                .ToListAsync();
+
+            var batchesByIngredient = availableBatches
+                .GroupBy(b => b.IngredientID)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            foreach (var (ingredientID, totalToConsume) in demand)
+            {
+                if (!batchesByIngredient.TryGetValue(ingredientID, out var batches) || batches.Count == 0)
+                    throw new Exception($"Không đủ nguyên liệu – IngredientID {ingredientID}: còn thiếu {totalToConsume}.");
+
+                var sortedBatches = batches
+                    .OrderBy(b => b.Exp)
+                    .ThenBy(b => b.ImportDate)
+                    .ToList();
+
+                decimal remaining = totalToConsume;
+                foreach (var batch in sortedBatches)
+                {
+                    if (remaining <= 0) break;
+                    var deduct = Math.Min(remaining, batch.QuantityOnHand);
+                    batch.QuantityOnHand -= deduct;
+                    if (batch.QuantityOnHand == 0)
+                        batch.Status = BatchStatus.Depleted;
+                    batch.UpdatedAt = now;
+
+                    _dbcontext.StockMovement.Add(new StockMovement
+                    {
+                        StockMovementID = Guid.NewGuid(),
+                        BatchID         = batch.BatchID,
+                        EmployeeID      = employeeID,
+                        QtyChange       = -deduct,
+                        MovementType    = StockMovementType.Consumption,
+                        ReferenceType   = StockReferenceType.Bill,
+                        ReferenceID     = billID,
+                        TimeStamp       = now,
+                    });
+                    remaining -= deduct;
+                }
+
+                if (remaining > 0)
+                    throw new Exception($"Không đủ nguyên liệu – IngredientID {ingredientID}: còn thiếu {remaining}.");
             }
 
             await _dbcontext.SaveChangesAsync();

@@ -23,6 +23,7 @@ namespace Backend.Middleware
             "/api/pbl3/auth/resend-verify-email",
             "/api/pbl3/auth/forgot-password",
             "/api/pbl3/auth/reset-password",
+            "/api/pbl3/auth/verify-email",
         };
 
         public async Task InvokeAsync(HttpContext context)

@@ -32,6 +32,18 @@ namespace Backend.Models.DTOs.Reponse{
         public bool TestMode { get; set; }
     }
 
+    public class DineInBillCreateReponse{
+        public Guid BillID { get; set; }
+        public decimal Total { get; set; }
+        public PaymentMethods PaymentMethods { get; set; }
+        public PaymentStatus PaymentStatus { get; set; }
+        public string? PaymentReference { get; set; }
+        public string? QrUrl { get; set; }
+        public string? BankAccount { get; set; }
+        public string? BankCode { get; set; }
+        public bool TestMode { get; set; }
+    }
+
     public class PaymentStatusReponse{
         public Guid BillID { get; set; }
         public PaymentStatus PaymentStatus { get; set; }

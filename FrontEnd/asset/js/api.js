@@ -6,7 +6,10 @@ var API_BASE = (window.location.port === '5500' || window.location.port === '550
 function getToken()  { return localStorage.getItem('token'); }
 function setToken(t) { localStorage.setItem('token', t); }
 
-function clearAuth() { localStorage.clear(); }
+function clearAuth() {
+    var keysToRemove = ['token', 'fullName', 'userId', 'employeeId', 'storeId', 'role'];
+    keysToRemove.forEach(function (k) { localStorage.removeItem(k); });
+}
 
 function isTokenExpired() {
     var token = getToken();
@@ -185,7 +188,7 @@ function showSePayQrModal(data, onPaid) {
         if (remaining % 3 === 0 || remaining <= 0) {
             getPaymentStatus(data.billID).then(function (st) {
                 if (!st || stopped || finalized) return;
-                if (st.paymentStatus === 'Paid' || st.paymentStatus === 1) {
+                if (st.paymentStatus === 'Paid') {
                     finalized = true;
                     clearInterval(tickTimer);
                     cleanup();

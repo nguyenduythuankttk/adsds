@@ -6,6 +6,7 @@ namespace Backend.Services.Interface
     public interface IComboService
     {
         Task <Product> GetAllProductInCombo(int comboID);
+        Task <ComboDetailResponse?> GetComboDetail(int comboID);
         Task CreateNewCombo(ComboCreateRequest request);
     }
 }

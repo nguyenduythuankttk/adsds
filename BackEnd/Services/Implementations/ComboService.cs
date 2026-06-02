@@ -31,6 +31,50 @@ namespace Backend.Services.Implementations
                 throw new Exception("Error in ComboService.GetAllProductInCombo" + e.Message);
             }
         }
+        public async Task<ComboDetailResponse?> GetComboDetail(int comboID)
+        {
+            var combo = await _dbContext.Product
+                .AsNoTracking()
+                .Where(p => p.ProductID == comboID
+                         && p.ProductType == ProductType.Combo
+                         && p.DeletedAt == null)
+                .Include(p => p.ProductVarient)
+                .Include(p => p.ComboDetail!)
+                    .ThenInclude(cd => cd.Product)
+                        .ThenInclude(p => p.ProductVarient)
+                .FirstOrDefaultAsync();
+
+            if (combo == null) return null;
+
+            var comboPrice = combo.ProductVarient
+                .FirstOrDefault(v => v.Size == ProductSize.Default)?.Price
+                ?? combo.ProductVarient.FirstOrDefault()?.Price;
+
+            return new ComboDetailResponse
+            {
+                ComboID = combo.ProductID,
+                ComboName = combo.ProductName,
+                Image = combo.Image,
+                Description = combo.Description,
+                Price = comboPrice,
+                Items = (combo.ComboDetail ?? new List<ComboDetail>())
+                    .Where(cd => cd.Product != null && cd.Product.DeletedAt == null)
+                    .Select(cd => new ComboItemResponse
+                    {
+                        ProductID = cd.Product.ProductID,
+                        ProductName = cd.Product.ProductName,
+                        Image = cd.Product.Image,
+                        Description = cd.Product.Description,
+                        ProductType = cd.Product.ProductType,
+                        Qty = cd.qty,
+                        UnitPrice = cd.Product.ProductVarient
+                            .FirstOrDefault(v => v.Size == ProductSize.Default)?.Price
+                            ?? cd.Product.ProductVarient.FirstOrDefault()?.Price
+                    })
+                    .ToList()
+            };
+        }
+
         public async Task CreateNewCombo(ComboCreateRequest request)
         {
             try

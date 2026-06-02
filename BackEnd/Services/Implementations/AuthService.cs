@@ -55,7 +55,7 @@ namespace Backend.Services.Implementations{
             }
         }
 
-        private string GenerateSecureToken() => Random.Shared.Next(100000,999999).ToString();
+        private string GenerateSecureToken() => RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
 
         public async Task Register(RegisterRequest request){
             Console.WriteLine($"[Register] Called for email={request.Email}");
@@ -76,12 +76,12 @@ namespace Backend.Services.Implementations{
                     Phone = request.Phone,
                     Email = request.Email,
                     Gender = request.Gender,
-                    IsVerified = true
+                    IsVerified = false
                 };
                 Console.WriteLine($"[Register] New user created: UserName={newCustomer.UserName}, IsVerified={newCustomer.IsVerified}");
                 newCustomer.HashPassword = BCrypt.Net.BCrypt.HashPassword(request.HashPassword);
                 var token = GenerateSecureToken();
-                newCustomer.VerifiedExp = DateTime.UtcNow.AddHours(7).AddMinutes(10);
+                newCustomer.VerifiedExp = DateTime.UtcNow.AddMinutes(10);
                 newCustomer.EmailVerified = token;
                 _dbContext.User.Add(newCustomer);
                 await _dbContext.SaveChangesAsync();
@@ -111,7 +111,7 @@ namespace Backend.Services.Implementations{
 
             var token = GenerateSecureToken();
             user.EmailVerified = token;
-            user.VerifiedExp = DateTime.UtcNow.AddHours(7).AddMinutes(10);
+            user.VerifiedExp = DateTime.UtcNow.AddMinutes(10);
             await _dbContext.SaveChangesAsync();
 
             try {
@@ -148,7 +148,7 @@ namespace Backend.Services.Implementations{
             if (record == null)
                 throw new InvalidOperationException("OTP không hợp lệ.");
             Console.WriteLine($"[VerifyEmail] User found: UserName={record.UserName}, IsVerified={record.IsVerified} (before verify)");
-            if (record.VerifiedExp < DateTime.UtcNow.AddHours(7))
+            if (record.VerifiedExp < DateTime.UtcNow)
                 throw new InvalidOperationException("OTP đã hết hạn. Vui lòng nhấn gửi lại mã.");
             record.VerifiedExp = null;
             record.EmailVerified = null;
@@ -202,10 +202,6 @@ namespace Backend.Services.Implementations{
             if (usr == null || !BCrypt.Net.BCrypt.Verify(request.HashPassword, usr.HashPassword))
                 throw new InvalidOperationException("Sai tên đăng nhập hoặc mật khẩu");
 
-            // Discriminator check: block Employee accounts from using customer login
-            if (usr is Employee)
-                throw new InvalidOperationException("Tài khoản nhân viên. Vui lòng đăng nhập bằng tab Nhân viên.");
-
             Console.WriteLine($"[UserLogin] User found: UserName={usr.UserName}, IsVerified={usr.IsVerified}");
             if (!usr.IsVerified)
                 throw new InvalidOperationException("Tài khoản chưa được xác thực. Vui lòng nhập mã OTP từ email.");
@@ -227,9 +223,10 @@ namespace Backend.Services.Implementations{
             try{
                 if (string.IsNullOrEmpty(accessToken)) return;
 
+                var jwtExpiryMinutes = int.Parse(_configuration["Jwt:ExpiryMinutes"] ?? "60");
                 _dbContext.BlackListedToken.Add(new BlacklistedToken{
                     Token = accessToken,
-                    ExpiryDate = DateTime.UtcNow.AddMinutes(480)
+                    ExpiryDate = DateTime.UtcNow.AddMinutes(jwtExpiryMinutes)
                 });
 
                 await _dbContext.SaveChangesAsync();
