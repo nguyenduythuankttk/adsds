@@ -109,5 +109,35 @@ namespace Backend.Controller
             }
         }
 
+        [HttpPost("search")]
+        public async Task<IActionResult> SearchProducts([FromBody] ProductSearchRequest request)
+        {
+            try
+            {
+                var products = await _productService.SearchProducts(request);
+                return Ok(products);
+            }catch(Exception ex)
+            {
+                return StatusCode(500, $"An error occurred in productController.SearchProducts {ex.Message}");
+            }
+        }
+
+        [HttpGet("featured")]
+        public async Task<IActionResult> GetFeaturedProducts()
+        {
+            try
+            {
+                var products = await _productService.SearchProducts(new ProductSearchRequest());
+                var featured = products
+                    .Where(p => p.DeletedAt == null && p.ProductVarient.Any())
+                    .OrderByDescending(p => p.SoldCount)
+                    .Take(10)
+                    .ToList();
+                return Ok(featured);
+            }catch(Exception ex)
+            {
+                return StatusCode(500, $"An error occurred in productController.GetFeaturedProducts {ex.Message}");
+            }
+        }
     }
 }

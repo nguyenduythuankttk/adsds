@@ -185,7 +185,7 @@ namespace Backend.Services.Implementations{
                         Note = request.Note,
                         MoneyReceived = request.MoneyReceived,
                         PaymentStatus = PaymentStatus.Paid,
-                        PaidAt = DateTime.UtcNow
+                        PaidAt = DateTime.UtcNow.AddHours(7)
                         };
                 decimal total = 0.0m;
                 foreach (var i in request.products)
@@ -206,7 +206,7 @@ namespace Backend.Services.Implementations{
                 if (request.TicketID.HasValue && request.TicketID.Value != Guid.Empty)
                 {
                     var ticket = await _ticketService.GetTicketByID(request.TicketID.Value);
-                    if (ticket != null && ticket.UsedAt == null && ticket.EndDate >= DateOnly.FromDateTime(DateTime.UtcNow))
+                    if (ticket != null && ticket.UsedAt == null && ticket.EndDate >= DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7)))
                     {
                         bill.TicketID = ticket.TicketID;
                         bill.Total = Math.Round(bill.Total * (1 - ticket.Discount), 0);
@@ -222,7 +222,7 @@ namespace Backend.Services.Implementations{
                     BillID = bill.BillID,
                     Status = BillStatus.Create,
                     EmployeeID = request.EmployeID,
-                    ChangeAt = DateTime.UtcNow
+                    ChangeAt = DateTime.UtcNow.AddHours(7)
                 };
                 bill.BillChange.Add(billChange);
                 _dbcontext.Bill.Add(bill);
@@ -292,6 +292,11 @@ namespace Backend.Services.Implementations{
             if (request.products == null || request.products.Count == 0)
                 throw new Exception("Bill must have at least one product.");
 
+            var storeExists = await _dbcontext.Store
+                .AnyAsync(s => s.StoreID == request.StoreID && s.DeletedAt == null);
+            if (!storeExists)
+                throw new Exception($"Store {request.StoreID} not found.");
+
             var userExists = await _dbcontext.User
                 .AnyAsync(u => u.UserID == request.UserID);
             if (!userExists)
@@ -359,7 +364,7 @@ namespace Backend.Services.Implementations{
                 if (request.TicketID.HasValue && request.TicketID.Value != Guid.Empty)
                 {
                     var ticket = await _ticketService.GetTicketByID(request.TicketID.Value);
-                    if (ticket != null && ticket.UsedAt == null && ticket.EndDate >= DateOnly.FromDateTime(DateTime.UtcNow))
+                    if (ticket != null && ticket.UsedAt == null && ticket.EndDate >= DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7)))
                     {
                         bill.TicketID = ticket.TicketID;
                         bill.Total = Math.Round(bill.Total * (1 - ticket.Discount), 0);
@@ -371,7 +376,7 @@ namespace Backend.Services.Implementations{
                     BillID = bill.BillID,
                     Status = BillStatus.Create,
                     EmployeeID = request.EmployeID,
-                    ChangeAt = DateTime.UtcNow
+                    ChangeAt = DateTime.UtcNow.AddHours(7)
                 };
                 bill.BillChange.Add(billChange);
 
@@ -395,7 +400,7 @@ namespace Backend.Services.Implementations{
                 var deliveryLog = new DeliveryLog{
                     DeliveryID = delivery.DeliveryID,
                     Status = DeliveryStatus.Pending,
-                    ChangeAt = DateTime.UtcNow,
+                    ChangeAt = DateTime.UtcNow.AddHours(7),
                     Note = request.NoteForDelivery
                 };
                 delivery.DeliveryLog.Add(deliveryLog);
@@ -462,7 +467,7 @@ namespace Backend.Services.Implementations{
             if (bill.UserID != callerID) throw new Exception("Không có quyền huỷ bill này.");
             if (bill.PaymentStatus == PaymentStatus.Paid)
                 throw new Exception("Bill đã thanh toán, không thể huỷ.");
-            if (bill.PaymentStatus == PaymentStatus.Failed) return;
+            if (bill.PaymentStatus == PaymentStatus.Failed) return; // đã huỷ rồi
 
             bill.PaymentStatus = PaymentStatus.Failed;
             _dbcontext.BillChange.Add(new BillChange
@@ -470,7 +475,7 @@ namespace Backend.Services.Implementations{
                 BillChangeID = Guid.NewGuid(),
                 BillID = bill.BillID,
                 Status = BillStatus.Delete,
-                ChangeAt = DateTime.UtcNow,
+                ChangeAt = DateTime.UtcNow.AddHours(7),
                 EmployeeID = null
             });
             await _dbcontext.SaveChangesAsync();
@@ -508,7 +513,7 @@ namespace Backend.Services.Implementations{
                 .Where(r => productVarientIDs.Contains(r.ProductVarientID) && r.DeletedAt == null)
                 .ToListAsync();
 
-            var now = DateTime.UtcNow;
+            var now = DateTime.UtcNow.AddHours(7);
             var today = DateOnly.FromDateTime(now);
 
             var demand = new Dictionary<int, decimal>();
@@ -606,7 +611,7 @@ namespace Backend.Services.Implementations{
         //     try {
         //         var bill = await _dbcontext.Bill.FirstOrDefaultAsync(b => b.BillID == billID);
         //         if (bill == null) throw new Exception("Không tìm thấy hóa đơn");
-        //         bill.DeletedAt = DateTime.UtcNow;
+        //         bill.DeletedAt = DateTime.UtcNow.AddHours(7);
         //         _dbcontext.Bill.Update(bill);
         //         await _dbcontext.SaveChangesAsync();
         //     } catch (Exception e) {

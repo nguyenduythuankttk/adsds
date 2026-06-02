@@ -35,7 +35,7 @@ namespace Backend.Controller {
                     ?? User.FindFirst("user_id")?.Value;
                 if (string.IsNullOrWhiteSpace(userID)) return Unauthorized();
                 var bills = await _billService.GetUserBill(Guid.Parse(userID));
-                return Ok(bills ?? new List<Backend.Models.DTOs.Reponse.BillReponse>());
+                return Ok(bills ?? []);
             } catch (Exception e) {
                 return StatusCode(500, $"Error in billController.GetMyBills: {e.Message}");
             }
@@ -84,6 +84,7 @@ namespace Backend.Controller {
             }
         }
 
+        // FE poll trạng thái thanh toán (chủ yếu cho BankTransfer/SePay)
         [Authorize]
         [HttpGet("payment-status/{billID}")]
         public async Task<IActionResult> GetPaymentStatus(Guid billID) {
@@ -96,6 +97,7 @@ namespace Backend.Controller {
             }
         }
 
+        // FE gọi khi countdown 3 phút hết, hoặc user bấm "Huỷ" trên popup QR
         [Authorize]
         [HttpPost("cancel/{billID}")]
         public async Task<IActionResult> CancelUnpaidBill(Guid billID) {
@@ -109,6 +111,7 @@ namespace Backend.Controller {
             }
         }
 
+        // Nhân viên thay đổi trạng thái bill
         [Authorize(Roles = "Manager,Counter")]
         [HttpPost("change-status")]
         public async Task<IActionResult> ChangeBill([FromBody] BillChangeRequest request) {

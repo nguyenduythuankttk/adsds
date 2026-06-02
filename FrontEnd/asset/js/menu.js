@@ -671,7 +671,6 @@
         return parts.join(' · ');
     }
 
-
     function renderPdPeople(variant) {
         if (!pdPeople || !pdPeopleText) return;
         var n = variant && variant.forPeople;
@@ -820,45 +819,11 @@
         if (menuRegErr)   menuRegErr.textContent   = '';
     }
 
-    // Nút đăng nhập / toggle slider trên header
+    // Nút đăng nhập trên header mở auth modal
     var headerLoginBtn = document.getElementById('openLoginBtn');
     if (headerLoginBtn) {
         headerLoginBtn.addEventListener('click', function () { openAuthModal(null); });
     }
-
-    // Header Nav Toggle (Home / User)
-    (function () {
-        var homeBtn = document.getElementById('nav-toggle-home');
-        var userBtn = document.getElementById('nav-toggle-user');
-        var thumb   = document.getElementById('nav-toggle-thumb');
-        if (!homeBtn || !userBtn) return;
-
-        // Trang hiện tại là Menu → active User side (nếu chưa login active user icon)
-        // Sau khi login sẽ cập nhật lại
-        homeBtn.classList.remove('active');
-        userBtn.classList.add('active');
-        if (thumb) thumb.classList.add('on-user');
-
-        homeBtn.addEventListener('click', function () {
-            window.location.href = 'index.html';
-        });
-
-        userBtn.addEventListener('click', function () {
-            var fullName = localStorage.getItem('fullName');
-            var role     = localStorage.getItem('role');
-            if (fullName) {
-                if (role === 'admin') {
-                    window.location.href = 'admin.html';
-                } else if (role === 'employee') {
-                    window.location.href = 'employee.html';
-                } else {
-                    window.location.href = 'user.html';
-                }
-            } else {
-                openAuthModal(null);
-            }
-        });
-    })();
 
     menuCloseLoginBtn.addEventListener('click', function () { pendingItem = null; closeAuthModal(); });
     menuLoginModal.addEventListener('click', function (e) {
@@ -885,28 +850,25 @@
     }
 
     function updateMenuHeader(fullName) {
-        // Ẩn nút login-btn cũ nếu tồn tại
+        // Ẩn nút đăng nhập, hiện avatar badge
         var loginBtn = document.getElementById('openLoginBtn');
         if (loginBtn) loginBtn.style.display = 'none';
 
-        // Cập nhật toggle slider: user icon → hiển avatar
-        var userBtn = document.getElementById('nav-toggle-user');
-        var thumb   = document.getElementById('nav-toggle-thumb');
-        var homeBtn = document.getElementById('nav-toggle-home');
+        var badge = document.getElementById('menu-user-badge');
+        if (!badge) {
+            badge = document.createElement('button');
+            badge.id = 'menu-user-badge';
+            badge.className = 'login-btn menu-user-avatar-badge';
+            badge.title = 'Tài khoản của bạn';
+            badge.onclick = function () { window.location.href = 'user.html'; };
+            var header = document.getElementById('header');
+            if (header) header.appendChild(badge);
+        }
         var initial   = fullName.charAt(0).toUpperCase();
         var shortName = fullName.split(' ').pop();
-
-        if (userBtn) {
-            userBtn.innerHTML = '<span class="user-avatar-toggle">' + initial + '</span>';
-            userBtn.title = shortName + ' — Xem tài khoản';
-            userBtn.classList.add('active');
-        }
-        if (homeBtn) homeBtn.classList.remove('active');
-        if (thumb) thumb.classList.add('on-user');
-
-        // Cập nhật Giỏ Hàng (hiện nếu đăng nhập)
-        var cartFab = document.getElementById('cart-fab');
-        if (cartFab) cartFab.style.display = '';
+        badge.innerHTML =
+            '<span class="user-avatar-btn">' + initial + '</span>' +
+            '<span>' + shortName + '</span>';
     }
 
     // Đăng nhập
@@ -1457,10 +1419,10 @@
             // Chuyển khoản SePay: hiện QR + poll trạng thái
             if (data && data.paymentMethods === 'BankTransfer' && data.qrUrl) {
                 showSePayQrModal(data, function () {
-                    showOrderSuccessPopup();
+                    alert('Thanh toán thành công!\nCảm ơn bạn đã tin tưởng Chônlibi!');
                 });
             } else {
-                showOrderSuccessPopup();
+                alert('Đặt hàng thành công!\nCảm ơn bạn đã tin tưởng Chônlibi!');
             }
         })
         .catch(function (err) {
@@ -1614,46 +1576,5 @@
     updateCartBadge();
     renderCart();
     loadAllProducts();
-
-    // ── Đọc URL param ?search= từ home page ─────────────────────────────────
-    (function () {
-        var urlParams = new URLSearchParams(window.location.search);
-        var initSearch = urlParams.get('search');
-        if (!initSearch) return;
-
-        if (searchInput) {
-            searchInput.value = initSearch;
-            var attempts = 0;
-            var checkReady = setInterval(function () {
-                attempts++;
-                if (allProducts.length > 0 || attempts > 40) {
-                    clearInterval(checkReady);
-                    var q = initSearch.trim();
-                    if (!q) return;
-                    if (gridSearch) gridSearch.innerHTML = '<p class="bs-loading"><span class="bs-spinner"></span> Đang tìm...</p>';
-                    if (sectionSearch) {
-                        sectionSearch.style.display = '';
-                        document.querySelectorAll('.menu-cat-section:not(#section-search)').forEach(function (s) {
-                            s.style.display = 'none';
-                        });
-                    }
-                    apiPost('/product/search', { Name: q })
-                        .then(function (res) { return res.ok ? res.json() : []; })
-                        .then(function (data) {
-                            var results = Array.isArray(data) ? data : [];
-                            results = results.filter(function (p) { return p.productVarient && p.productVarient.length; });
-                            showSearchResults(results);
-                        })
-                        .catch(function () {
-                            var ql = q.toLowerCase();
-                            var results = allProducts.filter(function (p) {
-                                return (p.productName || '').toLowerCase().includes(ql);
-                            });
-                            showSearchResults(results);
-                        });
-                }
-            }, 100);
-        }
-    })();
 
 })();
