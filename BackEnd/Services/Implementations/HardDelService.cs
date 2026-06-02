@@ -43,6 +43,7 @@ public class HardDeleteService : BackgroundService {
                     del += await db.User.Where(x => !x.IsVerified && x.CreateAt < unverifiedCutoff).ExecuteDeleteAsync(token);
                     del += await db.Store.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
                     del += await db.Supplier.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
+                    del += await db.BlackListedToken.Where(x => x.ExpiryDate < DateTime.UtcNow).ExecuteDeleteAsync(token);
                     _Logger.LogInformation("HardDeleteService: xoá {Count} bản ghi", del);
                 } catch (Exception e){
                     _Logger.LogError(e, "Error in HardDeleteService");

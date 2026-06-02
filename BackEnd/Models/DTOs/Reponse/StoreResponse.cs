@@ -10,6 +10,6 @@ namespace Backend.Models.DTOs.Reponse
         public int TotalPoints { get; set; }
         public int SeatingCapacity { get; set; }
 
-        public AddressResponse Address {get; set; } = null!;
+        public AddressResponse? Address {get; set; }
     }
 }

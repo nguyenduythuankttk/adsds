@@ -57,9 +57,7 @@
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
-    margin-top: 9px;
     margin-right: 10px;
-    float: right;
     transition: background 0.2s;
 }
 

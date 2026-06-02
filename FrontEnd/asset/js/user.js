@@ -2,12 +2,7 @@
     var role = localStorage.getItem('role');
     if (!role || role !== 'user') {
         alert('Vui lòng đăng nhập để tiếp tục!');
-        window.location.href = '/html/index.html';
-        return;
-    }
-    if (isTokenExpired()) {
-        clearAuth();
-        window.location.href = '/html/index.html';
+        window.location.href = 'index.html';
         return;
     }
     if (isTokenExpired()) {
@@ -31,6 +26,14 @@
     if (headerInitial) headerInitial.textContent = initial;
     if (headerName)    headerName.textContent    = shortName;
 
+    // Mapping header user icon to user.html
+    var headerAvatarBtn = document.getElementById('headerAvatarBtn');
+    if (headerAvatarBtn) {
+        headerAvatarBtn.addEventListener('click', function () {
+            window.location.href = 'user.html';
+        });
+    }
+
     // Cart-fab: đọc số lượng từ localStorage rồi hiện badge
     (function () {
         var CART_KEY = 'chonlibi_cart';
@@ -44,9 +47,12 @@
                 total > 0 ? countEl.classList.add('visible') : countEl.classList.remove('visible');
             }
         } catch (e) {}
-        if (cartFab) cartFab.addEventListener('click', function () {
-            window.location.href = 'menu.html';
-        });
+        if (cartFab) {
+            cartFab.style.display = '';
+            cartFab.addEventListener('click', function () {
+                window.location.href = 'menu.html';
+            });
+        }
     })();
 
     loadSection('profile');
@@ -66,10 +72,10 @@
             e.preventDefault();
             apiPost('/auth/logout').then(function () {
                 clearAuth();
-                window.location.href = '/html/index.html';
+                window.location.href = 'index.html';
             }).catch(function () {
                 clearAuth();
-                window.location.href = '/html/index.html';
+                window.location.href = 'index.html';
             });
         });
     }
@@ -638,3 +644,19 @@ function confirmPasswordOtp() {
             if (btn) { btn.disabled = false; btn.textContent = 'Xác nhận đổi mật khẩu'; }
         });
 }
+
+// Header Nav Toggle (Home / User)
+(function () {
+    var homeBtn = document.getElementById('nav-toggle-home');
+    var userBtn = document.getElementById('nav-toggle-user');
+    var thumb   = document.getElementById('nav-toggle-thumb');
+    if (!homeBtn || !userBtn) return;
+
+    userBtn.classList.add('active');
+    homeBtn.classList.remove('active');
+    if (thumb) thumb.classList.add('on-user');
+
+    homeBtn.addEventListener('click', function () {
+        window.location.href = 'index.html';
+    });
+})();
