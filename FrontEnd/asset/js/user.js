@@ -47,9 +47,12 @@
                 total > 0 ? countEl.classList.add('visible') : countEl.classList.remove('visible');
             }
         } catch (e) {}
-        if (cartFab) cartFab.addEventListener('click', function () {
-            window.location.href = 'menu.html';
-        });
+        if (cartFab) {
+            cartFab.style.display = '';
+            cartFab.addEventListener('click', function () {
+                window.location.href = 'menu.html';
+            });
+        }
     })();
 
     loadSection('profile');
@@ -641,3 +644,19 @@ function confirmPasswordOtp() {
             if (btn) { btn.disabled = false; btn.textContent = 'Xác nhận đổi mật khẩu'; }
         });
 }
+
+// Header Nav Toggle (Home / User)
+(function () {
+    var homeBtn = document.getElementById('nav-toggle-home');
+    var userBtn = document.getElementById('nav-toggle-user');
+    var thumb   = document.getElementById('nav-toggle-thumb');
+    if (!homeBtn || !userBtn) return;
+
+    userBtn.classList.add('active');
+    homeBtn.classList.remove('active');
+    if (thumb) thumb.classList.add('on-user');
+
+    homeBtn.addEventListener('click', function () {
+        window.location.href = 'index.html';
+    });
+})();

@@ -25,11 +25,26 @@
             <li><a href="menu.html">Menu</a></li>
             <li><a href="#" id="nav-store-btn">Store <i class="ti-angle-down nav-arrow-down"></i></a></li>
         </ul>
+
+        <!-- Search bar -->
         <div class="search-bar">
             <i class="ti-search search-bar-icon"></i>
-            <input type="text" class="search-bar-input" placeholder="Tìm món ăn..." autocomplete="off">
+            <input type="text" id="hs-name" class="search-bar-input" placeholder="Tìm món ăn..." autocomplete="off">
         </div>
-        <button class="delivery-btn delivery-cart-btn" id="cart-fab" aria-label="Xem giỏ hàng">
+
+        <!-- Home / User sliding toggle -->
+        <div class="header-nav-toggle" id="header-nav-toggle">
+            <div class="nav-toggle-thumb" id="nav-toggle-thumb"></div>
+            <button class="nav-toggle-btn" id="nav-toggle-home" title="Trang chủ" aria-label="Trang chủ">
+                <i class="ti-home"></i>
+            </button>
+            <button class="nav-toggle-btn active" id="nav-toggle-user" title="Tài khoản" aria-label="Tài khoản">
+                <i class="ti-user"></i>
+            </button>
+        </div>
+
+        <!-- Cart button (far right) -->
+        <button class="delivery-btn delivery-cart-btn" id="cart-fab" aria-label="Xem giỏ hàng" style="display:none">
             <i class="ti-shopping-cart"></i> <span class="btn-text">Giỏ Hàng</span>
             <span class="cart-count" id="cart-count">0</span>
         </button>

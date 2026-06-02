@@ -34,7 +34,7 @@
     var cartTotal     = document.getElementById('cart-total');
     var cartOrderBtn  = document.getElementById('cart-order-btn');
     var cartToast     = document.getElementById('cart-toast');
-    var searchInput   = document.getElementById('menu-search-input');
+    var searchInput   = document.getElementById('hs-name');
     var catTabs       = document.querySelectorAll('.cat-tab');
     var sortSelect    = document.getElementById('bs-sort-select');
 
@@ -906,11 +906,9 @@
         var thumb   = document.getElementById('nav-toggle-thumb');
         if (!homeBtn || !userBtn) return;
 
-        // Trang hiện tại là Menu → active User side (nếu chưa login active user icon)
-        // Sau khi login sẽ cập nhật lại
-        homeBtn.classList.remove('active');
-        userBtn.classList.add('active');
-        if (thumb) thumb.classList.add('on-user');
+        homeBtn.classList.add('active');
+        userBtn.classList.remove('active');
+        if (thumb) thumb.classList.remove('on-user');
 
         homeBtn.addEventListener('click', function () {
             window.location.href = 'index.html';
@@ -919,8 +917,6 @@
         userBtn.addEventListener('click', function () {
             var fullName = localStorage.getItem('fullName');
             var role     = localStorage.getItem('role');
-            // Chỉ điều hướng khi phiên còn hợp lệ; token hết hạn → mở modal đăng nhập tại chỗ
-            // (tránh nhảy sang user.html rồi bị guard đá về index = cảm giác "tự đăng xuất")
             if (fullName && !isTokenExpired()) {
                 if (role === 'admin') {
                     window.location.href = 'admin.html';
@@ -930,7 +926,7 @@
                     window.location.href = 'user.html';
                 }
             } else {
-                openAuthModal(null);
+                if (menuLoginModal) menuLoginModal.classList.add('active');
             }
         });
     })();
@@ -960,25 +956,9 @@
     }
 
     function updateMenuHeader(fullName) {
-        // Ẩn nút đăng nhập, hiện avatar badge
-        var loginBtn = document.getElementById('openLoginBtn');
-        if (loginBtn) loginBtn.style.display = 'none';
-
-        var badge = document.getElementById('menu-user-badge');
-        if (!badge) {
-            badge = document.createElement('button');
-            badge.id = 'menu-user-badge';
-            badge.className = 'login-btn menu-user-avatar-badge';
-            badge.title = 'Tài khoản của bạn';
-            badge.onclick = function () { window.location.href = 'user.html'; };
-            var header = document.getElementById('header');
-            if (header) header.appendChild(badge);
-        }
-        var initial   = fullName.charAt(0).toUpperCase();
-        var shortName = fullName.split(' ').pop();
-        badge.innerHTML =
-            '<span class="user-avatar-btn">' + initial + '</span>' +
-            '<span>' + shortName + '</span>';
+        // Hiện nút Giỏ Hàng
+        var cartFab = document.getElementById('cart-fab');
+        if (cartFab) cartFab.style.display = '';
     }
 
     // Đăng nhập

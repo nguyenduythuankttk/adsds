@@ -126,5 +126,8 @@
   "menu_address": "Địa chỉ giao hàng",
   "menu_ticket": "Mã giảm giá",
   "menu_password": "Đổi mật khẩu",
-  "menu_logout": "Đăng xuất"
+  "menu_logout": "Đăng xuất",
+  "order_success_title": "Đặt Hàng Thành Công!",
+  "order_success_desc": "Cảm ơn bạn đã tin tưởng Chônlibi!<br>Đơn hàng của bạn đang được chuẩn bị và sẽ giao đến bạn trong giây lát.",
+  "btn_close": "Đóng"
 }

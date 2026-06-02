@@ -126,5 +126,8 @@
   "menu_address": "Delivery Address",
   "menu_ticket": "Discount Codes",
   "menu_password": "Change Password",
-  "menu_logout": "Logout"
+  "menu_logout": "Logout",
+  "order_success_title": "Order Placed Successfully!",
+  "order_success_desc": "Thank you for trusting Chônlibi!<br>Your order is being prepared and will be delivered to you shortly.",
+  "btn_close": "Close"
 }

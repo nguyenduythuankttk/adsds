@@ -126,5 +126,8 @@
   "menu_address": "配達住所",
   "menu_ticket": "割引コード",
   "menu_password": "パスワード変更",
-  "menu_logout": "ログアウト"
+  "menu_logout": "ログアウト",
+  "order_success_title": "ご注文ありがとうございました！",
+  "order_success_desc": "Chônlibiをご利用いただきありがとうございます！<br>ただいまご注文の準備をしております。まもなくお届けいたします。",
+  "btn_close": "閉じる"
 }

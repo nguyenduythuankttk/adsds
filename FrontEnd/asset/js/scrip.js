@@ -427,34 +427,36 @@ function updateHeaderAfterLogin(name) {
     var cartFab = document.getElementById('cart-fab');
     if (cartFab) cartFab.style.display = '';
 
-    // Đổi button thành avatar + tên + nút đăng xuất
-    btn.innerHTML =
-        '<span class="user-avatar-btn">' + initial + '</span>' +
-        '<span id="login-btn-text">' + shortName + '</span>' +
-        '<span class="logout-divider">|</span>' +
-        '<span class="logout-text" id="btn-logout-header">Đăng xuất</span>';
+    if (btn) {
+        // Đổi button thành avatar + tên + nút đăng xuất
+        btn.innerHTML =
+            '<span class="user-avatar-btn">' + initial + '</span>' +
+            '<span id="login-btn-text">' + shortName + '</span>' +
+            '<span class="logout-divider">|</span>' +
+            '<span class="logout-text" id="btn-logout-header">Đăng xuất</span>';
 
-    // Gắn sự kiện đăng xuất
-    var logoutEl = document.getElementById('btn-logout-header');
-    if (logoutEl) {
-        logoutEl.addEventListener('click', function (e) {
-            e.stopPropagation();
-            apiPost('/auth/logout').then(function () {
-                clearAuth();
-                window.location.reload();
-            }).catch(function () {
-                clearAuth();
-                window.location.reload();
+        // Gắn sự kiện đăng xuất
+        var logoutEl = document.getElementById('btn-logout-header');
+        if (logoutEl) {
+            logoutEl.addEventListener('click', function (e) {
+                e.stopPropagation();
+                apiPost('/auth/logout').then(function () {
+                    clearAuth();
+                    window.location.reload();
+                }).catch(function () {
+                    clearAuth();
+                    window.location.reload();
+                });
             });
-        });
-    }
+        }
 
-    if (role === 'admin') {
-        btn.title = 'Vào trang quản lý';
-    } else if (role === 'employee') {
-        btn.title = 'Xem trang nhân viên';
-    } else {
-        btn.title = 'Xem trang cá nhân';
+        if (role === 'admin') {
+            btn.title = 'Vào trang quản lý';
+        } else if (role === 'employee') {
+            btn.title = 'Xem trang nhân viên';
+        } else {
+            btn.title = 'Xem trang cá nhân';
+        }
     }
 }
 

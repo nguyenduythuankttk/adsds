@@ -316,6 +316,13 @@ function findStoreByManualAddress() {
             else openPanel();
         });
     }
+    var changeLocBtn = document.getElementById('changeLocationBtn');
+    if (changeLocBtn) {
+        changeLocBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            openPanel();
+        });
+    }
     if (closeBtn)   closeBtn.addEventListener('click', closePanel);
     if (backdrop)   backdrop.addEventListener('click', closePanel);
 
