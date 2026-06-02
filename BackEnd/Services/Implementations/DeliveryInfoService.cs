@@ -24,7 +24,7 @@ namespace Backend.Services.Implementations{
                 .Where(r => productVarientIDs.Contains(r.ProductVarientID) && r.DeletedAt == null)
                 .ToListAsync();
 
-            var now   = DateTime.UtcNow;
+            var now   = DateTime.UtcNow.AddHours(7);
             var today = DateOnly.FromDateTime(now);
 
             var demand = new Dictionary<int, decimal>();
@@ -130,7 +130,7 @@ namespace Backend.Services.Implementations{
                 var deliveryLog = new DeliveryLog{
                     DeliveryID = delivery.DeliveryID,
                     EmployeeID = request.EmployeeID,
-                    ChangeAt = DateTime.UtcNow,
+                    ChangeAt = DateTime.UtcNow.AddHours(7),
                     Status = DeliveryStatus.Pending,
                     Note = request.Note
                 };

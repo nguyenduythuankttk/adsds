@@ -409,10 +409,10 @@
                     saveCart(); updateCartBadge(); renderCart();
                     if (data && data.paymentMethods === 'BankTransfer' && data.qrUrl) {
                         showSePayQrModal(data, function () {
-                            showOrderSuccessPopup();
+                            alert('Thanh toán thành công!\nCảm ơn bạn đã tin tưởng Chônlibi!');
                         });
                     } else {
-                        showOrderSuccessPopup();
+                        alert('Đặt hàng thành công!\nCảm ơn bạn đã tin tưởng Chônlibi!');
                     }
                 })
                 .catch(function (err) {
@@ -745,28 +745,10 @@
         loadFeatured();
     };
 
-    // ── Header search bar: redirect to menu.html ───────────────────────────────
-    (function () {
-        var hsNameEl = document.getElementById('hs-name');
-        var searchIconEl = document.querySelector('.search-bar-icon');
-        function goToMenuSearch() {
-            var q = hsNameEl ? hsNameEl.value.trim() : '';
-            if (q) {
-                window.location.href = 'menu.html?search=' + encodeURIComponent(q);
-            } else {
-                window.location.href = 'menu.html';
-            }
-        }
-        if (hsNameEl) {
-            hsNameEl.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter') goToMenuSearch();
-            });
-        }
-        if (searchIconEl) {
-            searchIconEl.style.cursor = 'pointer';
-            searchIconEl.addEventListener('click', goToMenuSearch);
-        }
-    })();
+    ['hs-name', 'hs-min', 'hs-max'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('keydown', function (e) { if (e.key === 'Enter') window.homeSearch(); });
+    });
 
     // ── Combo Modal ───────────────────────────────────────────────────────────
     function openComboModal(people, title, comboKey) {
