@@ -147,124 +147,58 @@ function saveProfile() {
 
 // 2. LỊCH SỬ ĐƠN HÀNG
 var _statusViMap = { Create: 'Đã tạo', UnPaid: 'Chờ thanh toán', Paid: 'Đã thanh toán', Delete: 'Đã hủy' };
-var _orderSortDir = 'desc';
-
-// DateOnly "yyyy-mm-dd" -> "dd/mm/yyyy"
-function fmtDate(s) {
-    if (!s) return '';
-    var p = String(s).slice(0, 10).split('-');
-    return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : String(s);
-}
-// DateTime "yyyy-mm-ddThh:mm:ss" -> "hh:mm dd/mm/yyyy"
-function fmtDateTime(s) {
-    if (!s) return '';
-    var str  = String(s).replace('T', ' ');
-    var p    = str.slice(0, 10).split('-');
-    var time = str.slice(11, 16);
-    if (p.length !== 3) return String(s);
-    var date = p[2] + '/' + p[1] + '/' + p[0];
-    return time ? time + ' ' + date : date;
-}
-// Thời điểm tạo đơn (BillChange.Status === 'Create')
-function getOrderCreateAt(o) {
-    var changes = o.billChange || o.BillChange || [];
-    var create  = changes.slice().reverse().find(function (c) { return (c.status || c.Status) === 'Create'; });
-    var raw     = create ? (create.changeAt || create.ChangeAt) : (changes[0] && (changes[0].changeAt || changes[0].ChangeAt));
-    return raw || '';
-}
-// Tính tiền từ các dòng hàng: tạm tính = tổng tiền hàng, VAT cộng thêm.
-function computeBillTotals(o) {
-    var vat     = Number(o.vat || o.VAT || 0.1);
-    var details = o.detail || o.Detail || o.billDetail || o.BillDetail || [];
-    var subtotal = details.reduce(function (s, bd) {
-        var qty   = Number(bd.quantity || bd.Quantity || 1);
-        var price = Number(bd.price || bd.Price || 0);
-        return s + Number(bd.inlineTotal || bd.InlineTotal || qty * price);
-    }, 0);
-    if (!subtotal) {
-        var stored = Number(o.total || o.Total || 0);
-        return { subtotal: stored, vat: vat, vatAmt: 0, grandTotal: stored };
-    }
-    var vatAmt = Math.round(subtotal * vat);
-    return { subtotal: subtotal, vat: vat, vatAmt: vatAmt, grandTotal: subtotal + vatAmt };
-}
 
 function renderOrders(main) {
-    window._userOrdersMain = main;
     apiGet('/bill/my-bills').then(function (r) { return r.json(); }).then(function (d) {
-        window._userOrdersRaw = Array.isArray(d) ? d : (d.data || []);
-        _renderOrderList();
-    }).catch(function () {
-        main.innerHTML = '<p style="padding:20px;color:var(--muted)">Lỗi tải lịch sử đơn hàng.</p>';
-    });
-}
+        var orders = Array.isArray(d) ? d : (d.data || []);
+        if (!orders.length) {
+            main.innerHTML =
+                '<div class="section-card">' +
+                '<div class="section-card-header"><h2 class="section-card-title">📦 Lịch sử đơn hàng</h2></div>' +
+                '<div class="section-card-body"><p style="color:var(--muted)">Chưa có đơn hàng nào.</p></div></div>';
+            return;
+        }
+        window._userOrders = orders;
+        var rows = orders.map(function (o, idx) {
+            var changes  = o.billChange || o.BillChange || [];
+            var latest   = changes.length ? changes[0] : {};
+            var status   = latest.status || latest.Status || '';
+            var statusVi = _statusViMap[status] || status;
+            var statusClass = (status === 'Paid') ? 'badge-success'
+                : (status === 'Create' || status === 'UnPaid') ? 'badge-warning' : 'badge-danger';
 
-function setOrderSort(dir) {
-    _orderSortDir = dir === 'asc' ? 'asc' : 'desc';
-    _renderOrderList();
-}
+            var createChange = changes.slice().reverse().find(function (c) { return (c.status || c.Status) === 'Create'; }) || {};
+            var date = (createChange.changeAt || createChange.ChangeAt || '').slice(0, 10);
 
-function _renderOrderList() {
-    var main = window._userOrdersMain;
-    if (!main) return;
-    var orders = (window._userOrdersRaw || []).slice();
-    if (!orders.length) {
+            var details = o.detail || o.Detail || o.billDetail || o.BillDetail || [];
+            var items = details.map(function (bd) {
+                var pv   = bd.productVarient || bd.ProductVarient || {};
+                var prod = pv.product || pv.Product || {};
+                return (prod.productName || prod.ProductName || 'Sản phẩm') + ' ×' + (bd.quantity || bd.Quantity || 1);
+            }).join(', ');
+
+            var total  = o.total || o.Total || 0;
+            var billId = o.billID || o.BillID || '';
+            return '<div class="order-row">' +
+                '<div class="order-icon">🍗</div>' +
+                '<div class="order-info">' +
+                '<div class="order-id">#' + billId.slice(0, 8).toUpperCase() + '</div>' +
+                '<div class="order-items">' + (items || '—') + '</div>' +
+                '<div class="order-date">' + (date || '—') + '</div>' +
+                '</div>' +
+                '<div class="order-right">' +
+                '<span class="order-total">' + Number(total).toLocaleString('vi-VN') + 'đ</span>' +
+                '<span class="order-badge ' + statusClass + '">' + statusVi + '</span>' +
+                '<button class="order-detail-btn" onclick="showBillModal(' + idx + ')">Chi tiết</button>' +
+                '</div></div>';
+        }).join('');
         main.innerHTML =
             '<div class="section-card">' +
             '<div class="section-card-header"><h2 class="section-card-title">📦 Lịch sử đơn hàng</h2></div>' +
-            '<div class="section-card-body"><p style="color:var(--muted)">Chưa có đơn hàng nào.</p></div></div>';
-        return;
-    }
-    orders.sort(function (a, b) {
-        var ta = Date.parse(getOrderCreateAt(a)) || 0;
-        var tb = Date.parse(getOrderCreateAt(b)) || 0;
-        return _orderSortDir === 'asc' ? ta - tb : tb - ta;
+            '<div class="section-card-body"><div class="order-list">' + rows + '</div></div></div>';
+    }).catch(function () {
+        main.innerHTML = '<p style="padding:20px;color:var(--muted)">Lỗi tải lịch sử đơn hàng.</p>';
     });
-    window._userOrders = orders; // showBillModal(idx) maps vào mảng đã sắp xếp
-
-    var rows = orders.map(function (o, idx) {
-        var changes  = o.billChange || o.BillChange || [];
-        var latest   = changes.length ? changes[0] : {};
-        var status   = latest.status || latest.Status || '';
-        var statusVi = _statusViMap[status] || status;
-        var statusClass = (status === 'Paid') ? 'badge-success'
-            : (status === 'Create' || status === 'UnPaid') ? 'badge-warning' : 'badge-danger';
-
-        var orderedAt = fmtDateTime(getOrderCreateAt(o));
-
-        var details = o.detail || o.Detail || o.billDetail || o.BillDetail || [];
-        var items = details.map(function (bd) {
-            var pv   = bd.productVarient || bd.ProductVarient || {};
-            var prod = pv.product || pv.Product || {};
-            return (prod.productName || prod.ProductName || 'Sản phẩm') + ' ×' + (bd.quantity || bd.Quantity || 1);
-        }).join(', ');
-
-        var grandTotal = computeBillTotals(o).grandTotal;
-        var billId = o.billID || o.BillID || '';
-        return '<div class="order-row">' +
-            '<div class="order-icon">🍗</div>' +
-            '<div class="order-info">' +
-            '<div class="order-id">#' + billId.slice(0, 8).toUpperCase() + '</div>' +
-            '<div class="order-items">' + (items || '—') + '</div>' +
-            '<div class="order-date">🕒 ' + (orderedAt || '—') + '</div>' +
-            '</div>' +
-            '<div class="order-right">' +
-            '<span class="order-total">' + Number(grandTotal).toLocaleString('vi-VN') + 'đ</span>' +
-            '<span class="order-badge ' + statusClass + '">' + statusVi + '</span>' +
-            '<button class="order-detail-btn" onclick="showBillModal(' + idx + ')">Chi tiết</button>' +
-            '</div></div>';
-    }).join('');
-
-    main.innerHTML =
-        '<div class="section-card">' +
-        '<div class="section-card-header">' +
-        '<h2 class="section-card-title">📦 Lịch sử đơn hàng</h2>' +
-        '<select class="order-sort-select" onchange="setOrderSort(this.value)">' +
-        '<option value="desc"' + (_orderSortDir === 'desc' ? ' selected' : '') + '>Mới nhất trước</option>' +
-        '<option value="asc"'  + (_orderSortDir === 'asc'  ? ' selected' : '') + '>Cũ nhất trước</option>' +
-        '</select>' +
-        '</div>' +
-        '<div class="section-card-body"><div class="order-list">' + rows + '</div></div></div>';
 }
 
 function formatAddressText(a) {
@@ -281,6 +215,7 @@ function showBillModal(idx) {
     if (!o) return;
 
     var billId        = o.billID || o.BillID || '';
+    var total         = Number(o.total || o.Total || 0);
     var vat           = Number(o.vat || o.VAT || 0.1);
     var moneyReceived = Number(o.moneyReceived || o.MoneyReceived || 0);
     var moneyGiveBack = Number(o.moneyGiveBack || o.MoneyGiveBack || 0);
@@ -290,10 +225,8 @@ function showBillModal(idx) {
                       : payMethod === 'BankTransfer' ? 'Chuyển khoản / Thẻ'
                       : payMethod === 'Card' ? 'Thẻ / Chuyển khoản'
                       : payMethod;
-    var _totals       = computeBillTotals(o);
-    var subtotal      = _totals.subtotal;
-    var vatAmt        = _totals.vatAmt;
-    var total         = _totals.grandTotal;
+    var subtotal      = vat > 0 ? total / (1 + vat) : total;
+    var vatAmt        = total - subtotal;
     var tableID       = o.tableID || o.TableID || null;
 
     var store         = o.store || o.Store || null;
@@ -327,10 +260,10 @@ function showBillModal(idx) {
 
     // Status timeline (oldest → newest)
     var changes = (o.billChange || o.BillChange || []).slice().reverse();
-    var createdAt = changes.length ? fmtDateTime(changes[0].changeAt || changes[0].ChangeAt) : '—';
+    var createdAt = changes.length ? (changes[0].changeAt || changes[0].ChangeAt || '').replace('T', ' ').slice(0, 16) : '—';
     var timelineHtml = changes.map(function (bc, i) {
         var st   = bc.status || bc.Status || '';
-        var time = fmtDateTime(bc.changeAt || bc.ChangeAt);
+        var time = (bc.changeAt || bc.ChangeAt || '').replace('T', ' ').slice(0, 16);
         var isLast = i === changes.length - 1;
         return '<div class="bill-tl-step' + (isLast ? ' bill-tl-last' : '') + '">' +
             '<div class="bill-tl-dot"></div>' +
@@ -356,7 +289,7 @@ function showBillModal(idx) {
         itemsHtml +
 
         '<div class="bill-totals-block">' +
-        '<div class="bill-tot-row"><span>Tạm tính (tổng tiền hàng)</span><span>' + subtotal.toLocaleString('vi-VN') + 'đ</span></div>' +
+        '<div class="bill-tot-row"><span>Tạm tính</span><span>' + subtotal.toLocaleString('vi-VN') + 'đ</span></div>' +
         '<div class="bill-tot-row"><span>VAT (' + Math.round(vat * 100) + '%)</span><span>' + vatAmt.toLocaleString('vi-VN') + 'đ</span></div>' +
         '<div class="bill-tot-row bill-tot-final"><span>Tổng cộng</span><span>' + total.toLocaleString('vi-VN') + 'đ</span></div>' +
         (moneyReceived > 0 ? '<div class="bill-tot-row"><span>Tiền nhận</span><span>' + moneyReceived.toLocaleString('vi-VN') + 'đ</span></div>' : '') +
@@ -501,7 +434,7 @@ function renderTicket(main) {
             var badgeTxt  = isUsed ? 'Đã dùng' : isExpired ? 'Hết hạn' : 'Hiệu lực';
 
             var usedLine  = usedAt
-                ? '<div class="tk-used-time">Dùng lúc: ' + fmtDateTime(usedAt) + '</div>'
+                ? '<div class="tk-used-time">Dùng lúc: ' + String(usedAt).replace('T', ' ').slice(0, 16) + '</div>'
                 : '';
             var actionBtn = isActive
                 ? '<button class="up-btn up-btn-sm" onclick="copyCode(\'' + ticketId + '\')">Sao chép mã</button>'
@@ -514,8 +447,8 @@ function renderTicket(main) {
                 '</div>' +
                 '<div class="tk-discount">Giảm ' + discPct + '%</div>' +
                 '<div class="tk-dates">' +
-                '<span>Bắt đầu: <b>' + (startDate ? fmtDate(startDate) : '—') + '</b></span>' +
-                '<span>HSD: <b>' + (endDate ? fmtDate(endDate) : '—') + '</b></span>' +
+                '<span>Bắt đầu: <b>' + (startDate || '—') + '</b></span>' +
+                '<span>HSD: <b>' + (endDate || '—') + '</b></span>' +
                 '</div>' +
                 usedLine +
                 '<div class="ticket-footer">' + actionBtn + '</div>' +

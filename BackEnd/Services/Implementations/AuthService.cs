@@ -130,7 +130,7 @@ namespace Backend.Services.Implementations{
 
             var otp = GenerateSecureToken();
             user.PasswordEmail = otp;
-            user.PasswordEmailExp = DateTime.UtcNow.AddMinutes(1);
+            user.PasswordEmailExp = DateTime.UtcNow.AddHours(7).AddMinutes(1);
             await _dbContext.SaveChangesAsync();
 
             try {
@@ -161,7 +161,7 @@ namespace Backend.Services.Implementations{
             var user = await _dbContext.User.FirstOrDefaultAsync(u => u.PasswordEmail == request.Token);
             if (user == null)
                 throw new InvalidOperationException("Token đặt lại mật khẩu không hợp lệ");
-            if (user.PasswordEmailExp < DateTime.UtcNow)
+            if (user.PasswordEmailExp < DateTime.UtcNow.AddHours(7))
                 throw new InvalidOperationException("Token đặt lại mật khẩu đã hết hạn");
 
             user.HashPassword = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
@@ -229,7 +229,7 @@ namespace Backend.Services.Implementations{
 
                 _dbContext.BlackListedToken.Add(new BlacklistedToken{
                     Token = accessToken,
-                    ExpiryDate = DateTime.UtcNow.AddMinutes(480)
+                    ExpiryDate = DateTime.UtcNow.AddHours(7).AddMinutes(480)
                 });
 
                 await _dbContext.SaveChangesAsync();
@@ -248,7 +248,7 @@ namespace Backend.Services.Implementations{
 
             var otp = GenerateSecureToken();
             user.PasswordEmail = otp;
-            user.PasswordEmailExp = DateTime.UtcNow.AddMinutes(1);
+            user.PasswordEmailExp = DateTime.UtcNow.AddHours(7).AddMinutes(1);
             await _dbContext.SaveChangesAsync();
 
             await _emailService.SendChangePasswordOtpEmail(user.Email, otp);
@@ -260,7 +260,7 @@ namespace Backend.Services.Implementations{
 
             if (string.IsNullOrWhiteSpace(user.PasswordEmail) || user.PasswordEmail != request.otp)
                 throw new Exception("Mã OTP không hợp lệ.");
-            if (user.PasswordEmailExp == null || user.PasswordEmailExp < DateTime.UtcNow)
+            if (user.PasswordEmailExp == null || user.PasswordEmailExp < DateTime.UtcNow.AddHours(7))
                 throw new Exception("Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới.");
 
             user.HashPassword = BCrypt.Net.BCrypt.HashPassword(request.newPass);

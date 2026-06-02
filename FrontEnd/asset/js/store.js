@@ -298,7 +298,6 @@ function findStoreByManualAddress() {
     var backdrop = document.getElementById('store-panel-backdrop');
     var storeBtn = document.getElementById('nav-store-btn');
     var closeBtn = document.getElementById('store-panel-close');
->>>>>>> 4c2a19dc5465e9bc749f6abb84e5381b8bb67e06
 
     function openPanel() {
         panel.classList.add('open');

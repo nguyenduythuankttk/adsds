@@ -1,0 +1,352 @@
+Using launch settings from Properties\launchSettings.json...
+Building...
+info: Program[0]
+      Applying database migrations...
+warn: Microsoft.EntityFrameworkCore.Model[10612]
+      Navigations 'DeliveryInfo.Bill' and 'Bill.DeliveryInfo' were separated into two relationships since the [ForeignKey] attribute was specified on navigations on both sides.
+warn: Microsoft.EntityFrameworkCore.Model[10612]
+      Navigations 'Bill.DeliveryInfo' and 'DeliveryInfo.Bill' were separated into two relationships since the [ForeignKey] attribute was specified on navigations on both sides.
+warn: Microsoft.EntityFrameworkCore.Model[10612]
+      Navigations 'Bill.DeliveryInfo' and 'DeliveryInfo.Bill' were separated into two relationships since the [ForeignKey] attribute was specified on navigations on both sides.
+warn: Microsoft.EntityFrameworkCore.Model[10612]
+      Navigations 'Bill.DeliveryInfo' and 'DeliveryInfo.Bill' were separated into two relationships since the [ForeignKey] attribute was specified on navigations on both sides.
+warn: Microsoft.EntityFrameworkCore.Model[10612]
+      Navigations 'DeliveryInfo.Bill' and 'Bill.DeliveryInfo' were separated into two relationships since the [ForeignKey] attribute was specified on navigations on both sides.
+warn: Microsoft.EntityFrameworkCore.Model[10612]
+      Navigations 'DeliveryInfo.Bill' and 'Bill.DeliveryInfo' were separated into two relationships since the [ForeignKey] attribute was specified on navigations on both sides.
+warn: Microsoft.EntityFrameworkCore.Model[10612]
+      Navigations 'DeliveryInfo.Bill' and 'Bill.DeliveryInfo' were separated into two relationships since the [ForeignKey] attribute was specified on navigations on both sides.
+info: Microsoft.EntityFrameworkCore.Migrations[20411]
+      Acquiring an exclusive lock for migration application. See https://aka.ms/efcore-docs-migrations-lock for more information if this takes too long.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT GET_LOCK('__DBjolibi_EFMigrationsLock', 259200)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (5ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      CREATE TABLE IF NOT EXISTS `__EFMigrationsHistory` (
+          `MigrationId` varchar(150) CHARACTER SET utf8mb4 NOT NULL,
+          `ProductVersion` varchar(32) CHARACTER SET utf8mb4 NOT NULL,
+          CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
+      ) CHARACTER SET=utf8mb4;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (13ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='DBjolibi' AND TABLE_NAME='__EFMigrationsHistory';
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT `MigrationId`, `ProductVersion`
+      FROM `__EFMigrationsHistory`
+      ORDER BY `MigrationId`;
+info: Microsoft.EntityFrameworkCore.Migrations[20405]
+      No migrations were applied. The database is already up to date.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT RELEASE_LOCK('__DBjolibi_EFMigrationsLock')
+info: Program[0]
+      Database migrations completed successfully.
+info: HardDeleteService[0]
+      starting in 10s
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5188
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: D:\Wang\adsds\BackEnd
+info: HardDeleteService[0]
+      Hard Delete is working
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (44ms) [Parameters=[@__cutoff_0='?' (DbType = DateTime), @__cutoffDateOnly_1='?' (DbType = Date)], CommandType='Text', CommandTimeout='30']
+      DELETE `t`
+      FROM `Ticket` AS `t`
+      WHERE ((`t`.`DeletedAt` IS NOT NULL AND (`t`.`DeletedAt` < @__cutoff_0)) OR (`t`.`EndDate` < @__cutoffDateOnly_1)) OR (`t`.`UsedAt` IS NOT NULL AND (`t`.`UsedAt` < @__cutoff_0))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (4ms) [Parameters=[@__cutoff_0='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      DELETE `b`
+      FROM `Bill` AS `b`
+      WHERE `b`.`DeletedAt` IS NOT NULL AND (`b`.`DeletedAt` < @__cutoff_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[@__cutoff_0='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      DELETE `p`
+      FROM `ProductVarient` AS `p`
+      WHERE `p`.`DeletedAt` IS NOT NULL AND (`p`.`DeletedAt` < @__cutoff_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@__cutoff_0='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      DELETE `r`
+      FROM `Receipt` AS `r`
+      WHERE `r`.`DeletedAt` IS NOT NULL AND (`r`.`DeletedAt` < @__cutoff_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__cutoff_0='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      DELETE `p`
+      FROM `PurchaseOrder` AS `p`
+      WHERE `p`.`DeletedAt` IS NOT NULL AND (`p`.`DeletedAt` < @__cutoff_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__cutoff_0='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      DELETE `p`
+      FROM `Product` AS `p`
+      WHERE `p`.`DeletedAt` IS NOT NULL AND (`p`.`DeletedAt` < @__cutoff_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__cutoff_0='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      DELETE `d`
+      FROM `DiningTable` AS `d`
+      WHERE `d`.`DeletedAt` IS NOT NULL AND (`d`.`DeletedAt` < @__cutoff_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__cutoff_0='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      DELETE `w`
+      FROM `Warehouse` AS `w`
+      WHERE `w`.`DeletedAt` IS NOT NULL AND (`w`.`DeletedAt` < @__cutoff_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@__cutoff_0='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      DELETE `i`
+      FROM `Ingredient` AS `i`
+      WHERE `i`.`DeletedAt` IS NOT NULL AND (`i`.`DeletedAt` < @__cutoff_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__cutoff_0='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      DELETE `d`
+      FROM `DeliveryInfo` AS `d`
+      WHERE `d`.`DeletedAt` IS NOT NULL AND (`d`.`DeletedAt` < @__cutoff_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__cutoff_0='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      DELETE `s`
+      FROM `Shift` AS `s`
+      WHERE `s`.`DeletedAt` IS NOT NULL AND (`s`.`DeletedAt` < @__cutoff_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[@__cutoff_0='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      DELETE `u`
+      FROM `User` AS `u`
+      WHERE `u`.`DeletedAt` IS NOT NULL AND (`u`.`DeletedAt` < @__cutoff_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__cutoff_0='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      DELETE `s`
+      FROM `Store` AS `s`
+      WHERE `s`.`DeletedAt` IS NOT NULL AND (`s`.`DeletedAt` < @__cutoff_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__cutoff_0='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      DELETE `s`
+      FROM `Supplier` AS `s`
+      WHERE `s`.`DeletedAt` IS NOT NULL AND (`s`.`DeletedAt` < @__cutoff_0)
+info: HardDeleteService[0]
+      HardDeleteService: xoá 0 bản ghi
+dbug: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[9]
+      AuthenticationScheme: Bearer was not authenticated.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (4ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT `p`.`ProductID`, `p`.`DeletedAt`, `p`.`Description`, `p`.`Image`, `p`.`ProductName`, `p`.`ProductType`, `p`.`SoldCount`, `p0`.`ProductVarientID`, `p0`.`DeletedAt`, `p0`.`ForPeople`, `p0`.`IsActive`, `p0`.`Price`, `p0`.`ProductID`, `p0`.`Size`
+      FROM `Product` AS `p`
+      LEFT JOIN `ProductVarient` AS `p0` ON `p`.`ProductID` = `p0`.`ProductID`
+      ORDER BY `p`.`ProductID`
+dbug: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[9]
+      AuthenticationScheme: Bearer was not authenticated.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT `p`.`ProductID`, `p`.`DeletedAt`, `p`.`Description`, `p`.`Image`, `p`.`ProductName`, `p`.`ProductType`, `p`.`SoldCount`, `p0`.`ProductVarientID`, `p0`.`DeletedAt`, `p0`.`ForPeople`, `p0`.`IsActive`, `p0`.`Price`, `p0`.`ProductID`, `p0`.`Size`
+      FROM `Product` AS `p`
+      LEFT JOIN `ProductVarient` AS `p0` ON `p`.`ProductID` = `p0`.`ProductID`
+      WHERE `p`.`DeletedAt` IS NULL
+      ORDER BY `p`.`ProductID`
+dbug: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[9]
+      AuthenticationScheme: Bearer was not authenticated.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__request_UserName_0='?' (Size = 50)], CommandType='Text', CommandTimeout='30']
+      SELECT `u`.`UserID`, `u`.`BirthDate`, `u`.`CreateAt`, `u`.`DeletedAt`, `u`.`Discriminator`, `u`.`Email`, `u`.`EmailVerified`, `u`.`FullName`, `u`.`Gender`, `u`.`HashPassword`, `u`.`IsVerified`, `u`.`PasswordEmail`, `u`.`PasswordEmailExp`, `u`.`Phone`, `u`.`UserName`, `u`.`VerifiedExp`, `u`.`BasicSalary`, `u`.`DeleteAt`, `u`.`Role`, `u`.`StoreID`
+      FROM `User` AS `u`
+      WHERE (`u`.`Discriminator` = 'Employee') AND (`u`.`UserName` = @__request_UserName_0)
+      LIMIT 1
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[1]
+      Failed to validate the token.
+      System.ArgumentException: IDX14102: Unable to decode the header '[Security Artifact of type 'Microsoft.IdentityModel.Logging.SecurityArtifact' is hidden. For more details, see https://aka.ms/IdentityModel/SecurityArtifactLogging.]' as Base64Url encoded string.
+       ---> System.MissingMethodException: Method not found: 'Void Microsoft.IdentityModel.Tokens.Base64UrlEncoder.Decode(System.ReadOnlySpan`1<Char>, System.Span`1<Byte>)'.
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.CreateClaimSet(ReadOnlySpan`1 strSpan, Int32 startIndex, Int32 length, Boolean createHeaderClaimSet)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.CreateClaimSet(ReadOnlySpan`1 strSpan, Int32 startIndex, Int32 length, Boolean createHeaderClaimSet)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.ReadToken(ReadOnlyMemory`1 encodedTokenMemory)
+         --- End of inner exception stack trace ---
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.ReadToken(ReadOnlyMemory`1 encodedTokenMemory)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken..ctor(String jwtEncodedString)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler.ReadToken(String token, TokenValidationParameters validationParameters)
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[1]
+      Failed to validate the token.
+      System.ArgumentException: IDX14102: Unable to decode the header '[Security Artifact of type 'Microsoft.IdentityModel.Logging.SecurityArtifact' is hidden. For more details, see https://aka.ms/IdentityModel/SecurityArtifactLogging.]' as Base64Url encoded string.
+       ---> System.MissingMethodException: Method not found: 'Void Microsoft.IdentityModel.Tokens.Base64UrlEncoder.Decode(System.ReadOnlySpan`1<Char>, System.Span`1<Byte>)'.
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.CreateClaimSet(ReadOnlySpan`1 strSpan, Int32 startIndex, Int32 length, Boolean createHeaderClaimSet)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.CreateClaimSet(ReadOnlySpan`1 strSpan, Int32 startIndex, Int32 length, Boolean createHeaderClaimSet)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.ReadToken(ReadOnlyMemory`1 encodedTokenMemory)
+         --- End of inner exception stack trace ---
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.ReadToken(ReadOnlyMemory`1 encodedTokenMemory)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken..ctor(String jwtEncodedString)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler.ReadToken(String token, TokenValidationParameters validationParameters)
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[1]
+      Failed to validate the token.
+      System.ArgumentException: IDX14102: Unable to decode the header '[Security Artifact of type 'Microsoft.IdentityModel.Logging.SecurityArtifact' is hidden. For more details, see https://aka.ms/IdentityModel/SecurityArtifactLogging.]' as Base64Url encoded string.
+       ---> System.MissingMethodException: Method not found: 'Void Microsoft.IdentityModel.Tokens.Base64UrlEncoder.Decode(System.ReadOnlySpan`1<Char>, System.Span`1<Byte>)'.
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.CreateClaimSet(ReadOnlySpan`1 strSpan, Int32 startIndex, Int32 length, Boolean createHeaderClaimSet)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.CreateClaimSet(ReadOnlySpan`1 strSpan, Int32 startIndex, Int32 length, Boolean createHeaderClaimSet)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.ReadToken(ReadOnlyMemory`1 encodedTokenMemory)
+         --- End of inner exception stack trace ---
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.ReadToken(ReadOnlyMemory`1 encodedTokenMemory)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken..ctor(String jwtEncodedString)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler.ReadToken(String token, TokenValidationParameters validationParameters)
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[1]
+      Failed to validate the token.
+      System.ArgumentException: IDX14102: Unable to decode the header '[Security Artifact of type 'Microsoft.IdentityModel.Logging.SecurityArtifact' is hidden. For more details, see https://aka.ms/IdentityModel/SecurityArtifactLogging.]' as Base64Url encoded string.
+       ---> System.MissingMethodException: Method not found: 'Void Microsoft.IdentityModel.Tokens.Base64UrlEncoder.Decode(System.ReadOnlySpan`1<Char>, System.Span`1<Byte>)'.
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.CreateClaimSet(ReadOnlySpan`1 strSpan, Int32 startIndex, Int32 length, Boolean createHeaderClaimSet)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.CreateClaimSet(ReadOnlySpan`1 strSpan, Int32 startIndex, Int32 length, Boolean createHeaderClaimSet)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.ReadToken(ReadOnlyMemory`1 encodedTokenMemory)
+         --- End of inner exception stack trace ---
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.ReadToken(ReadOnlyMemory`1 encodedTokenMemory)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken..ctor(String jwtEncodedString)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler.ReadToken(String token, TokenValidationParameters validationParameters)
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[1]
+      Failed to validate the token.
+      System.ArgumentException: IDX14102: Unable to decode the header '[Security Artifact of type 'Microsoft.IdentityModel.Logging.SecurityArtifact' is hidden. For more details, see https://aka.ms/IdentityModel/SecurityArtifactLogging.]' as Base64Url encoded string.
+       ---> System.MissingMethodException: Method not found: 'Void Microsoft.IdentityModel.Tokens.Base64UrlEncoder.Decode(System.ReadOnlySpan`1<Char>, System.Span`1<Byte>)'.
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.CreateClaimSet(ReadOnlySpan`1 strSpan, Int32 startIndex, Int32 length, Boolean createHeaderClaimSet)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.CreateClaimSet(ReadOnlySpan`1 strSpan, Int32 startIndex, Int32 length, Boolean createHeaderClaimSet)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.ReadToken(ReadOnlyMemory`1 encodedTokenMemory)
+         --- End of inner exception stack trace ---
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.ReadToken(ReadOnlyMemory`1 encodedTokenMemory)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken..ctor(String jwtEncodedString)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler.ReadToken(String token, TokenValidationParameters validationParameters)
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[7]
+      Bearer was not authenticated. Failure message: IDX14102: Unable to decode the header '[Security Artifact of type 'Microsoft.IdentityModel.Logging.SecurityArtifact' is hidden. For more details, see https://aka.ms/IdentityModel/SecurityArtifactLogging.]' as Base64Url encoded string.
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[7]
+      Bearer was not authenticated. Failure message: IDX14102: Unable to decode the header '[Security Artifact of type 'Microsoft.IdentityModel.Logging.SecurityArtifact' is hidden. For more details, see https://aka.ms/IdentityModel/SecurityArtifactLogging.]' as Base64Url encoded string.
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[7]
+      Bearer was not authenticated. Failure message: IDX14102: Unable to decode the header '[Security Artifact of type 'Microsoft.IdentityModel.Logging.SecurityArtifact' is hidden. For more details, see https://aka.ms/IdentityModel/SecurityArtifactLogging.]' as Base64Url encoded string.
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[7]
+      Bearer was not authenticated. Failure message: IDX14102: Unable to decode the header '[Security Artifact of type 'Microsoft.IdentityModel.Logging.SecurityArtifact' is hidden. For more details, see https://aka.ms/IdentityModel/SecurityArtifactLogging.]' as Base64Url encoded string.
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[7]
+      Bearer was not authenticated. Failure message: IDX14102: Unable to decode the header '[Security Artifact of type 'Microsoft.IdentityModel.Logging.SecurityArtifact' is hidden. For more details, see https://aka.ms/IdentityModel/SecurityArtifactLogging.]' as Base64Url encoded string.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__token_0='?' (Size = 500)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `BlackListedToken` AS `b`
+          WHERE `b`.`Token` = @__token_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT `i`.`IngredientID`, `i`.`CostPerUnit`, `i`.`DeletedAt`, `i`.`IngredientName`, `i`.`IngredientUnit`
+      FROM `Ingredient` AS `i`
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__token_0='?' (Size = 500)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `BlackListedToken` AS `b`
+          WHERE `b`.`Token` = @__token_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__token_0='?' (Size = 500)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `BlackListedToken` AS `b`
+          WHERE `b`.`Token` = @__token_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__token_0='?' (Size = 500)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `BlackListedToken` AS `b`
+          WHERE `b`.`Token` = @__token_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__token_0='?' (Size = 500)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `BlackListedToken` AS `b`
+          WHERE `b`.`Token` = @__token_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT `p`.`ProductID`, `p`.`DeletedAt`, `p`.`Description`, `p`.`Image`, `p`.`ProductName`, `p`.`ProductType`, `p`.`SoldCount`, `p0`.`ProductVarientID`, `p0`.`DeletedAt`, `p0`.`ForPeople`, `p0`.`IsActive`, `p0`.`Price`, `p0`.`ProductID`, `p0`.`Size`
+      FROM `Product` AS `p`
+      LEFT JOIN `ProductVarient` AS `p0` ON `p`.`ProductID` = `p0`.`ProductID`
+      ORDER BY `p`.`ProductID`
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[12]
+      AuthenticationScheme: Bearer was challenged.
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[12]
+      AuthenticationScheme: Bearer was challenged.
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[1]
+      Failed to validate the token.
+      System.ArgumentException: IDX14102: Unable to decode the header '[Security Artifact of type 'Microsoft.IdentityModel.Logging.SecurityArtifact' is hidden. For more details, see https://aka.ms/IdentityModel/SecurityArtifactLogging.]' as Base64Url encoded string.
+       ---> System.MissingMethodException: Method not found: 'Void Microsoft.IdentityModel.Tokens.Base64UrlEncoder.Decode(System.ReadOnlySpan`1<Char>, System.Span`1<Byte>)'.
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.CreateClaimSet(ReadOnlySpan`1 strSpan, Int32 startIndex, Int32 length, Boolean createHeaderClaimSet)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.CreateClaimSet(ReadOnlySpan`1 strSpan, Int32 startIndex, Int32 length, Boolean createHeaderClaimSet)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.ReadToken(ReadOnlyMemory`1 encodedTokenMemory)
+         --- End of inner exception stack trace ---
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.ReadToken(ReadOnlyMemory`1 encodedTokenMemory)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken..ctor(String jwtEncodedString)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler.ReadToken(String token, TokenValidationParameters validationParameters)
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[7]
+      Bearer was not authenticated. Failure message: IDX14102: Unable to decode the header '[Security Artifact of type 'Microsoft.IdentityModel.Logging.SecurityArtifact' is hidden. For more details, see https://aka.ms/IdentityModel/SecurityArtifactLogging.]' as Base64Url encoded string.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__token_0='?' (Size = 500)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `BlackListedToken` AS `b`
+          WHERE `b`.`Token` = @__token_0)
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[12]
+      AuthenticationScheme: Bearer was challenged.
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[1]
+      Failed to validate the token.
+      System.ArgumentException: IDX14102: Unable to decode the header '[Security Artifact of type 'Microsoft.IdentityModel.Logging.SecurityArtifact' is hidden. For more details, see https://aka.ms/IdentityModel/SecurityArtifactLogging.]' as Base64Url encoded string.
+       ---> System.MissingMethodException: Method not found: 'Void Microsoft.IdentityModel.Tokens.Base64UrlEncoder.Decode(System.ReadOnlySpan`1<Char>, System.Span`1<Byte>)'.
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.CreateClaimSet(ReadOnlySpan`1 strSpan, Int32 startIndex, Int32 length, Boolean createHeaderClaimSet)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.CreateClaimSet(ReadOnlySpan`1 strSpan, Int32 startIndex, Int32 length, Boolean createHeaderClaimSet)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.ReadToken(ReadOnlyMemory`1 encodedTokenMemory)
+         --- End of inner exception stack trace ---
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.ReadToken(ReadOnlyMemory`1 encodedTokenMemory)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken..ctor(String jwtEncodedString)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler.ReadToken(String token, TokenValidationParameters validationParameters)
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[7]
+      Bearer was not authenticated. Failure message: IDX14102: Unable to decode the header '[Security Artifact of type 'Microsoft.IdentityModel.Logging.SecurityArtifact' is hidden. For more details, see https://aka.ms/IdentityModel/SecurityArtifactLogging.]' as Base64Url encoded string.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__token_0='?' (Size = 500)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `BlackListedToken` AS `b`
+          WHERE `b`.`Token` = @__token_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__phone_0='?' (Size = 10), @__phone_0_1='?' (Size = 255)], CommandType='Text', CommandTimeout='30']
+      SELECT `u`.`FullName`, `u`.`Phone`, `u`.`UserID`
+      FROM `User` AS `u`
+      WHERE (`u`.`Phone` = @__phone_0) OR (`u`.`Email` = @__phone_0_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__phone_0='?' (Size = 10)], CommandType='Text', CommandTimeout='30']
+      SELECT `g`.`Name`, `g`.`Phone`
+      FROM `GuestCustomer` AS `g`
+      WHERE `g`.`Phone` = @__phone_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__phone_0='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT `b`.`Contact`
+      FROM `Bill` AS `b`
+      WHERE (`b`.`Contact` = @__phone_0) AND `b`.`DeletedAt` IS NULL
+      LIMIT 1
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[1]
+      Failed to validate the token.
+      System.ArgumentException: IDX14102: Unable to decode the header '[Security Artifact of type 'Microsoft.IdentityModel.Logging.SecurityArtifact' is hidden. For more details, see https://aka.ms/IdentityModel/SecurityArtifactLogging.]' as Base64Url encoded string.
+       ---> System.MissingMethodException: Method not found: 'Void Microsoft.IdentityModel.Tokens.Base64UrlEncoder.Decode(System.ReadOnlySpan`1<Char>, System.Span`1<Byte>)'.
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.CreateClaimSet(ReadOnlySpan`1 strSpan, Int32 startIndex, Int32 length, Boolean createHeaderClaimSet)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.CreateClaimSet(ReadOnlySpan`1 strSpan, Int32 startIndex, Int32 length, Boolean createHeaderClaimSet)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.ReadToken(ReadOnlyMemory`1 encodedTokenMemory)
+         --- End of inner exception stack trace ---
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken.ReadToken(ReadOnlyMemory`1 encodedTokenMemory)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebToken..ctor(String jwtEncodedString)
+         at Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler.ReadToken(String token, TokenValidationParameters validationParameters)
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[7]
+      Bearer was not authenticated. Failure message: IDX14102: Unable to decode the header '[Security Artifact of type 'Microsoft.IdentityModel.Logging.SecurityArtifact' is hidden. For more details, see https://aka.ms/IdentityModel/SecurityArtifactLogging.]' as Base64Url encoded string.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__token_0='?' (Size = 500)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `BlackListedToken` AS `b`
+          WHERE `b`.`Token` = @__token_0)
+info: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[12]
+      AuthenticationScheme: Bearer was challenged.
+dbug: Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerHandler[9]
+      AuthenticationScheme: Bearer was not authenticated.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT `p`.`ProductID`, `p`.`DeletedAt`, `p`.`Description`, `p`.`Image`, `p`.`ProductName`, `p`.`ProductType`, `p`.`SoldCount`, `p0`.`ProductVarientID`, `p0`.`DeletedAt`, `p0`.`ForPeople`, `p0`.`IsActive`, `p0`.`Price`, `p0`.`ProductID`, `p0`.`Size`
+      FROM `Product` AS `p`
+      LEFT JOIN `ProductVarient` AS `p0` ON `p`.`ProductID` = `p0`.`ProductID`
+      WHERE `p`.`DeletedAt` IS NULL
+      ORDER BY `p`.`ProductID`
+^C

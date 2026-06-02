@@ -231,6 +231,11 @@ VALUES (1, 1, 1000, NULL);
 -- Ticket 005: 30% cho tran_thi_b  – hết hạn  (test ticket expired)
 -- ================================================================
 INSERT INTO Ticket (TicketID, StartDate, EndDate, Discount, DeletedAt, UsedAt, UsedBy)
+VALUES (
+  'tic00001-0000-0000-0000-000000000001',
+  '2026-01-01', '2026-12-31',
+  0.20, NULL, NULL, NULL
+);
 VALUES
   ('tic00001-0000-0000-0000-000000000001',
    '2026-01-01', '2026-12-31', 0.20, NULL, NULL, NULL),

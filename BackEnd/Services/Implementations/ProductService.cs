@@ -39,6 +39,7 @@ namespace Backend.Services.Implementations{
             if (product == null)
                 throw new Exception($"Product {request.ProductID} not found.");
 
+            // Combo: chỉ chấp nhận Size = Default và tối đa 1 varient duy nhất
             if (product.ProductType == ProductType.Combo)
             {
                 if (request.Size != ProductSize.Default)
@@ -101,7 +102,7 @@ namespace Backend.Services.Implementations{
 
             using var tx = await _dbContext.Database.BeginTransactionAsync();
             try{
-                var now = DateTime.UtcNow;
+                var now = DateTime.UtcNow.AddHours(7);
 
                 var activeVarients = product.ProductVarient
                     .Where(v => v.DeletedAt == null)
@@ -141,7 +142,7 @@ namespace Backend.Services.Implementations{
 
             using var tx = await _dbContext.Database.BeginTransactionAsync();
             try {
-                var now = DateTime.UtcNow;
+                var now = DateTime.UtcNow.AddHours(7);
 
                 // Cascade: soft-delete tất cả Recipe gắn với varient này
                 var recipes = await _dbContext.Receipe
