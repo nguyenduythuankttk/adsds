@@ -1,30 +1,39 @@
 // Mở/đóng modal đăng nhập
-document.getElementById('openLoginBtn').addEventListener('click', function (e) {
-    e.preventDefault();
+var _openLoginBtn = document.getElementById('openLoginBtn');
+if (_openLoginBtn) {
+    _openLoginBtn.addEventListener('click', function (e) {
+        e.preventDefault();
 
-    var fullName = localStorage.getItem('fullName');
-    var role     = localStorage.getItem('role');
+        var fullName = localStorage.getItem('fullName');
+        var role     = localStorage.getItem('role');
 
-    if (fullName) {
-        if (role === 'admin') {
-            window.location.href = '/html/admin.html';
-        } else if (role === 'employee') {
-            window.location.href = '/html/employee.html';
+        if (fullName) {
+            if (role === 'admin') {
+                window.location.href = '/html/admin.html';
+            } else if (role === 'employee') {
+                window.location.href = '/html/employee.html';
+            } else {
+                window.location.href = '/html/user.html';
+            }
         } else {
-            window.location.href = '/html/user.html';
+            document.getElementById('login-modal').classList.add('active');
         }
-    } else {
-        document.getElementById('login-modal').classList.add('active');
-    }
-});
+    });
+}
 
-document.getElementById('closeLoginBtn').addEventListener('click', function () {
-    document.getElementById('login-modal').classList.remove('active');
-});
+var _closeLoginBtn = document.getElementById('closeLoginBtn');
+if (_closeLoginBtn) {
+    _closeLoginBtn.addEventListener('click', function () {
+        document.getElementById('login-modal').classList.remove('active');
+    });
+}
 
-document.getElementById('login-modal').addEventListener('click', function (e) {
-    if (e.target === this) this.classList.remove('active');
-});
+var _loginModal = document.getElementById('login-modal');
+if (_loginModal) {
+    _loginModal.addEventListener('click', function (e) {
+        if (e.target === this) this.classList.remove('active');
+    });
+}
 
 // Chuyển đổi tab Đăng nhập / Đăng ký
 document.querySelectorAll('.modal-tab').forEach(function (tab) {
