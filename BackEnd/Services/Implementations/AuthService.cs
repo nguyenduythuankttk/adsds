@@ -172,7 +172,7 @@ namespace Backend.Services.Implementations{
 
         public async Task<EmployeeAuthReponse> EmployeeLogin(LoginRequest request){
             var emp = await _dbContext.Employee
-                .FirstOrDefaultAsync(e => e.UserName == request.UserName);
+                .FirstOrDefaultAsync(e => e.UserName == request.UserName && e.DeleteAt == null);
 
             if (emp == null || !BCrypt.Net.BCrypt.Verify(request.HashPassword, emp.HashPassword))
                 throw new InvalidOperationException("Sai tên đăng nhập hoặc mật khẩu");

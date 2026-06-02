@@ -37,7 +37,6 @@ namespace Backend.Services.Implementations{
                         .Where(bc => bc.Status == BillStatus.Create)
                         .OrderBy(bc => bc.ChangeAt)
                         .Take(1))
-                        .ThenInclude(bc => bc.Employee)
                     .Where(b => b.BillChange.Any(bc =>
                             bc.Status == BillStatus.Create &&
                             bc.ChangeAt >= start.ToDateTime(TimeOnly.MinValue) &&

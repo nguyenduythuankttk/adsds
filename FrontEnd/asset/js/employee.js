@@ -47,6 +47,93 @@ function toast(msg, type) {
     t._timer = setTimeout(function () { t.className = ''; }, 2800);
 }
 
+function renderDashboard() {
+    updateDashStats();
+    renderDashOrders();
+    loadInvoicesFromAPI(/*silent=*/true);
+}
+
+function updateDashStats() {
+    var count   = INVOICES.length;
+    var revenue = INVOICES.reduce(function (s, inv) { return s + inv.total; }, 0);
+    var countEl   = document.getElementById('dash-bill-count');
+    var revenueEl = document.getElementById('dash-revenue');
+    if (countEl)   countEl.textContent = count || '—';
+    if (revenueEl) revenueEl.textContent = count ? revenue.toLocaleString('vi-VN') + 'đ' : '—';
+    var lowstockEl   = document.getElementById('dash-lowstock');
+    var lowstockNote = document.getElementById('dash-lowstock-note');
+    if (lowstockEl)   lowstockEl.textContent = '—';
+    if (lowstockNote) lowstockNote.textContent = 'Chưa có dữ liệu';
+}
+
+function renderDashOrders() {
+    var body = document.getElementById('dash-orders-body');
+    if (!body) return;
+    if (!INVOICES.length) {
+        body.innerHTML = '<p style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0">Chưa có đơn hàng hôm nay.</p>';
+        return;
+    }
+    body.innerHTML = INVOICES.slice(0, 5).map(function (inv) {
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f5f5f5;font-size:13px">'
+            + '<strong style="color:var(--primary)">#' + inv.id + '</strong>'
+            + '<span style="color:var(--muted)">' + (TYPE_LABEL[inv.type] || inv.type) + '</span>'
+            + '<strong>' + inv.total.toLocaleString('vi-VN') + 'đ</strong>'
+            + '</div>';
+    }).join('');
+}
+
+function renderProcessing() {}
+function renderRecipe()    {}
+function renderViewStock() {}
+
+function onInvTypeChange() {
+    var type = (document.getElementById('inv-type') || {}).value;
+    var tableGroup = document.getElementById('inv-table-group');
+    if (tableGroup) tableGroup.style.display = type === 'dine-in' ? '' : 'none';
+    if (type === 'dine-in') loadAvailableTickets();
+}
+
+var _phoneLookupTimer = null;
+function phoneLookupDebounce(val) {
+    clearTimeout(_phoneLookupTimer);
+    var hint = document.getElementById('inv-phone-hint');
+    if (!val || val.replace(/\D/g, '').length < 10) {
+        if (hint) { hint.textContent = ''; hint.className = 'phone-hint'; }
+        return;
+    }
+    if (hint) { hint.textContent = 'Đang tra cứu...'; hint.className = 'phone-hint'; }
+    _phoneLookupTimer = setTimeout(function () {
+        apiGet('/user/get-all')
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (data) {
+                var users = Array.isArray(data) ? data : (data.data || []);
+                var phone = val.replace(/\D/g, '');
+                var found = users.find(function (u) {
+                    return (u.phone || u.Phone || '').replace(/\D/g, '') === phone;
+                });
+                if (found) {
+                    var name = found.fullName || found.FullName || '';
+                    var customerEl = document.getElementById('inv-customer');
+                    if (customerEl && !customerEl.value) customerEl.value = name;
+                    if (hint) { hint.textContent = '✓ ' + name; hint.className = 'phone-hint ok'; }
+                } else {
+                    if (hint) { hint.textContent = 'Khách mới'; hint.className = 'phone-hint muted'; }
+                }
+            })
+            .catch(function () {
+                if (hint) { hint.textContent = ''; hint.className = 'phone-hint'; }
+            });
+    }, 600);
+}
+
+function dashRequestLeave() {
+    toast('Tính năng xin nghỉ phép đang phát triển.', 'success');
+}
+
+function dashContactManager() {
+    toast('Tính năng liên hệ quản lý đang phát triển.', 'success');
+}
+
 function showTab(name) {
     document.querySelectorAll('.emp-section').forEach(function (s) { s.classList.remove('active'); });
     document.querySelectorAll('.sidebar-item').forEach(function (t) { t.classList.remove('active'); });
@@ -88,15 +175,25 @@ function stopInvoicePolling() {
     }
 }
 
-var MENU           = [];
-var INVOICES       = [];
-var INV_CART       = {};
-var TABLES         = [];
-var WAREHOUSE_LOG  = [];
+var MENU            = [];
+var MENU_RAW        = [];
+var INVOICES        = [];
+var INV_CART        = {};
+var TABLES          = [];
+var WAREHOUSE_LOG   = [];
 var STOCK_MOVEMENTS = [];
-var DELIVERIES     = [];
-var INV_POLL_TIMER = null;
-var INV_LAST_IDS   = {}; // Track BillIDs đã thấy → phát hiện bill mới
+var DELIVERIES      = [];
+var INV_POLL_TIMER  = null;
+var INV_LAST_IDS    = {};
+var INV_CURRENT_CAT = 'all';
+var MOCK_WAREHOUSE_LOG = [];
+var MOCK_PO_LIST       = [];
+var MOCK_DELIVERIES    = [];
+
+// Trả về ngày hôm nay theo giờ Việt Nam (UTC+7) dạng YYYY-MM-DD
+function todayVN() {
+    return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+}
 
 var TYPE_LABEL  = { takeaway: 'Mang về', 'dine-in': 'Tại quán', delivery: 'Giao hàng' };
 var MOVE_LABEL  = { import: 'Nhập mới', consume: 'Chế biến', waste: 'Hao hụt', adjust: 'Điều chỉnh' };
@@ -135,8 +232,8 @@ var TABLE_STATUS_CYCLE = ['Available', 'Occupied', 'Reserved'];
 function loadAvailableTickets() {
     var sel = document.getElementById('inv-ticket');
     if (!sel) return;
-    var today = new Date().toISOString().slice(0, 10);
-    var end7  = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+    var today = todayVN();
+    var end7  = new Date(Date.now() + 7 * 86400000).toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
     apiGet('/ticket/get-all/' + today + '/' + end7)
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (data) {
@@ -369,7 +466,7 @@ function createInvoice() {
 function loadInvoicesFromAPI(silent) {
     var storeId = localStorage.getItem('storeId');
     if (!storeId) return;
-    var today = new Date().toISOString().slice(0, 10);
+    var today = todayVN();
     var url   = '/bill/get-all/' + today + '/' + today + '?storeID=' + encodeURIComponent(storeId);
 
     apiGet(url).then(function (r) {
@@ -426,6 +523,8 @@ function loadInvoicesFromAPI(silent) {
 
         renderInvoices();
         updateInvStats();
+        updateDashStats();
+        renderDashOrders();
     }).catch(function () { /* im lặng - lần poll tiếp theo sẽ thử lại */ });
 }
 
@@ -450,45 +549,6 @@ function renderInvoices() {
     }).join('');
 }
 
-function loadInvoicesFromAPI() {
-    var today = dashTodayStr();
-    apiGet('/bill/get-all/' + today + '/' + today, true).then(function (r) {
-        return r.ok ? r.json() : null;
-    }).then(function (data) {
-        if (!data) { renderInvoices(); updateInvStats(); return; }
-        var bills = Array.isArray(data) ? data : (data.data || []);
-        if (!bills.length) { renderInvoices(); updateInvStats(); return; }
-        INVOICES = bills.map(function (b) {
-            var details = b.BillDetail || b.billDetail || [];
-            var items = details.map(function (d) {
-                var pv = d.ProductVarient || d.productVarient;
-                var pName = (pv && pv.Product && pv.Product.ProductName) || 'SP';
-                return pName + ' ×' + (d.Quantity || 1);
-            }).join(', ');
-            var changes = b.BillChange || b.billChange || [];
-            var createChange = changes.find(function (c) { return (c.Status || c.status) === 'Create'; });
-            var time = createChange
-                ? String(createChange.ChangeAt || createChange.changeAt || '').slice(11, 16)
-                : '--:--';
-            var typeMap = { 0: 'dine-in', 1: 'takeaway', 2: 'delivery', DineIn: 'dine-in', TakeAway: 'takeaway', Delivery: 'delivery' };
-            return {
-                id:       b.BillID || b.billID,
-                customer: (b.User && b.User.FullName) || b.Contact || 'Khách lẻ',
-                phone:    (b.User && b.User.Phone)    || b.Contact || '',
-                items:    items,
-                total:    Number(b.Total || 0),
-                type:     typeMap[b.BillType || b.billType] || 'dine-in',
-                time:     time
-            };
-        });
-        renderInvoices();
-        updateInvStats();
-    }).catch(function () {
-        renderInvoices();
-        updateInvStats();
-    });
-}
-
 function updateInvStats() {
     var count   = INVOICES.length;
     var revenue = INVOICES.reduce(function (s, inv) { return s + inv.total; }, 0);
@@ -496,6 +556,30 @@ function updateInvStats() {
     var revenueEl = document.getElementById('stat-inv-revenue');
     if (countEl)   countEl.textContent   = count;
     if (revenueEl) revenueEl.textContent = revenue.toLocaleString('vi-VN') + 'đ';
+}
+
+function loadAvailableTables() {
+    var storeId = localStorage.getItem('storeId');
+    var sel = document.getElementById('inv-table');
+    if (!sel) return;
+    apiGet('/diningtable/get-all?storeID=' + storeId)
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            var tables = Array.isArray(data) ? data : (data.data || []);
+            if (tables.length) TABLES = tables;
+            sel.innerHTML = '<option value="">-- Chọn bàn --</option>';
+            tables.filter(function (t) {
+                return (t.Status || t.status || '').toLowerCase() === 'available';
+            }).forEach(function (t) {
+                var opt = document.createElement('option');
+                opt.value = t.TableID || t.id;
+                opt.textContent = 'Bàn ' + (t.TableNumber || t.TableID);
+                sel.appendChild(opt);
+            });
+        })
+        .catch(function () {
+            sel.innerHTML = '<option value="">-- Không tải được bàn --</option>';
+        });
 }
 
 // SƠ ĐỒ BÀN
@@ -862,7 +946,7 @@ function renderStockMove() {
 // GIAO HÀNG
 function renderDelivery() {
     var start = '2020-01-01';
-    var end   = new Date().toISOString().slice(0, 10);
+    var end   = todayVN();
     apiGet('/delivery/get-all/' + start + '/' + end).then(function (r) { return r.json(); }).then(function (data) {
         var fromApi = Array.isArray(data) ? data : (data.data || []);
         DELIVERIES = fromApi.length ? fromApi : MOCK_DELIVERIES;

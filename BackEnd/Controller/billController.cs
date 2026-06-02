@@ -15,7 +15,7 @@ namespace Backend.Controller {
             _billService = billService;
         }
 
-        [Authorize(Roles = "Manager,Counter")]
+        [Authorize(Roles = "Manager,Counter,Dining,Kitchen")]
         [HttpGet("get-all/{start}/{end}")]
         public async Task<IActionResult> GetAllBillIn(DateOnly start, DateOnly end, [FromQuery] int? storeID = null) {
             try {

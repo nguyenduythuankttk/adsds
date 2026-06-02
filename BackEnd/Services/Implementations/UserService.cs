@@ -21,9 +21,9 @@ namespace Backend.Services.Implementations
         }
 
         //Get all User
-        public async Task<List<UserResponse>?> GetAllUsers() => 
+        public async Task<List<UserResponse>?> GetAllUsers() =>
             await _dbContext.User
-                .Where(u => u.DeletedAt == null)
+                .Where(u => !(u is Employee) && u.DeletedAt == null)
                 .AsNoTracking()
                 .Include(u => u.Addresses)
                 .Select(u => new UserResponse
@@ -129,8 +129,8 @@ namespace Backend.Services.Implementations
                 throw new Exception($"An error occured while deleting user: {ex.Message}");
             }
         }
-        public async Task <int> GetQtyUser() =>
-        await _dbContext.User.Where(u => u.DeletedAt == null).CountAsync();
+        public async Task<int> GetQtyUser() =>
+            await _dbContext.User.Where(u => !(u is Employee) && u.DeletedAt == null).CountAsync();
             
     }
 }

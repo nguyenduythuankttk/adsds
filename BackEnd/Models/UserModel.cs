@@ -20,7 +20,7 @@ namespace Backend.Models {
         public string UserName {get; set;}  = null!;
         [Required,MaxLength(255)]
         public string HashPassword {get; set;} = null!;
-        public DateOnly BirthDate {get; set;} 
+        public DateOnly? BirthDate {get; set;} 
         public DateTime CreateAt {get; set;} = DateTime.UtcNow;
         public string? Email {get; set;}
         [Required, Phone, MaxLength(10)]

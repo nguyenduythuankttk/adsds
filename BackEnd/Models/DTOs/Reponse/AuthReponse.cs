@@ -8,7 +8,7 @@ namespace Backend.Models.DTOs.Reponse{
         public string EmployeeName {get; set;} = null!;
         public int StoreID {get; set;}
         public RoleType Role {get; set;}
-        public DateOnly BirthDate {get; set;}
+        public DateOnly? BirthDate {get; set;}
         public string? Email {get; set;}
         public string Phone {get; set;} = null!;
         public string FullName {get; set;} = null!;
@@ -18,7 +18,7 @@ namespace Backend.Models.DTOs.Reponse{
     public class UserAuthReponse : AuthReponse{
         public Guid UserID {get; set;}
         public string UserName {get; set;}  = null!;
-        public DateOnly BirthDate {get; set;} 
+        public DateOnly? BirthDate {get; set;} 
         public string? Email {get; set;}
         public string Phone {get; set;} = null!;
         public string FullName {get; set;} = null!;

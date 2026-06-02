@@ -31,7 +31,7 @@ using System.Collections.Generic;
                     TotalReviews = s.TotalReviews,
                     TotalPoints = s.TotalPoints,
                     SeatingCapacity = s.SeatingCapacity,
-                    Address = new AddressResponse
+                    Address = s.Address == null ? null : new AddressResponse
                     {
                         AddressID = s.Address.AddressID,
                         StreetAddress = s.Address.StreetAddress,
@@ -57,7 +57,7 @@ using System.Collections.Generic;
                     TotalReviews = s.TotalReviews,
                     TotalPoints = s.TotalPoints,
                     SeatingCapacity = s.SeatingCapacity,
-                    Address = new AddressResponse
+                    Address = s.Address == null ? null : new AddressResponse
                     {
                         AddressID = s.Address.AddressID,
                         StreetAddress = s.Address.StreetAddress,
