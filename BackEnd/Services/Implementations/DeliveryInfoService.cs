@@ -99,7 +99,8 @@ namespace Backend.Services.Implementations{
                 .Include(di => di.User)
                 .Include(di => di.Address)
                 .Include(di => di.Bill)
-                .Include(di => di.DeliveryLog.OrderByDescending(l => l.ChangeAt).Take(1))
+                .Include(di => di.DeliveryLog)
+                    .ThenInclude(l => l.Employee)
                 .Where(di => di.DeliveryLog.Any() &&
                              di.DeliveryLog.Min(l => l.ChangeAt) >= start &&
                              di.DeliveryLog.Min(l => l.ChangeAt) <= end)

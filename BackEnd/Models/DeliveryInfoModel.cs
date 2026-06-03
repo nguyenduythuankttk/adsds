@@ -21,7 +21,6 @@ namespace Backend.Models {
         public string? Note { get; set; }
         public DateTime? DeletedAt { get; set; }
 
-        [JsonIgnore]
         public virtual ICollection<DeliveryLog> DeliveryLog { get; set; } = new List<DeliveryLog>();
     }
 }
