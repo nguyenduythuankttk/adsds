@@ -29,6 +29,25 @@
 })();
 setInterval(function(){if(isTokenExpired()){clearAuth();window.location.href='index.html';}},60000);
 
+(function startClock() {
+    var days = ['CN','T2','T3','T4','T5','T6','T7'];
+    function tick() {
+        var now = new Date();
+        var hh = String(now.getHours()).padStart(2,'0');
+        var mm = String(now.getMinutes()).padStart(2,'0');
+        var ss = String(now.getSeconds()).padStart(2,'0');
+        var dd = String(now.getDate()).padStart(2,'0');
+        var mo = String(now.getMonth()+1).padStart(2,'0');
+        var day = days[now.getDay()];
+        var clockEl = document.getElementById('dash-clock');
+        var dateEl  = document.getElementById('dash-date');
+        if (clockEl) clockEl.textContent = hh+':'+mm+':'+ss;
+        if (dateEl)  dateEl.textContent  = day+' '+dd+'/'+mo;
+    }
+    tick();
+    setInterval(tick, 1000);
+})();
+
 function logout() {
     apiPost('/auth/logout').then(function () {
         clearAuth();
