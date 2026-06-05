@@ -10,9 +10,9 @@ namespace Backend.Services.Implementations{
         public DiningTableService (AppDbContext dbContext){
             _dbContext = dbContext;
         }
-        public async Task <List<DiningTable>?> GetAllTablesInStore(int storeID) 
+        public async Task <List<DiningTable>?> GetAllTablesInStore(int storeID)
             => await _dbContext.DiningTable
-                    .Where(d => d.StoreID == storeID)
+                    .Where(d => d.StoreID == storeID && d.DeletedAt == null)
                     .ToListAsync();
         public async Task <DiningTable?> GetTableByID (int ID)
             => await _dbContext.DiningTable
@@ -20,9 +20,10 @@ namespace Backend.Services.Implementations{
         public async Task UpdateTable(int tableID, TableUpdateRequest request){
             try{
                 var table = await _dbContext.DiningTable
-                            .FirstOrDefaultAsync(t => t.TableID ==tableID);
+                            .FirstOrDefaultAsync(t => t.TableID == tableID && t.DeletedAt == null);
                 if (table != null){
-                    table.Capacity = request.Capacity;
+                    if (request.Capacity.HasValue) table.Capacity = request.Capacity.Value;
+                    if (request.Status.HasValue) table.Status = request.Status.Value;
                     await _dbContext.SaveChangesAsync();
                 }
                 else{

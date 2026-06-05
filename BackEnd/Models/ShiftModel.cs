@@ -16,6 +16,6 @@ namespace Backend.Models {
         public DateTime? CheckIn {get; set;} 
         public DateTime? CheckOut {get; set;}
         public DateTime? DeletedAt { get; set; }
-
+        public virtual ICollection<ShiftTask> ShiftTasks { get; set; } = new List<ShiftTask>();
     }
 }

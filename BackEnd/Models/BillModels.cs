@@ -22,10 +22,10 @@ namespace Backend.Models{
         [Key] //khóa chính
         public Guid BillID { get; set; }
 
-        public Guid UserID { get; set; }
+        public Guid? UserID { get; set; }
 
         [ForeignKey("UserID")]
-        public virtual User User { get; set; } = null!;
+        public virtual User? User { get; set; }
 
         public int StoreID { get; set; }
 
@@ -66,8 +66,6 @@ namespace Backend.Models{
         public virtual ICollection<BillDetail> BillDetail { get; set; } = new List<BillDetail>();
 
         public virtual ICollection<BillChange> BillChange { get; set; } = new List<BillChange>();
-        public Guid? DeliveryInfoID {get; set;}
-        [ForeignKey("DeliveryInfoID")]
         [JsonIgnore]
         public virtual DeliveryInfo? DeliveryInfo { get; set; }
     }

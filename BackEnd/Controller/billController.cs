@@ -23,7 +23,7 @@ namespace Backend.Controller {
                 if (bills == null || bills.Count == 0) return Ok(new List<Bill>());
                 return Ok(bills);
             } catch (Exception e) {
-                return StatusCode(500, $"Error in billController.GetAllBillIn: {e.Message}");
+                return StatusCode(500, new { message = e.Message });
             }
         }
 
@@ -58,14 +58,16 @@ namespace Backend.Controller {
             return Ok(bill);
         }
 
-        [Authorize(Roles = "Manager,Counter")]
+        [Authorize(Roles = "Manager,Counter,Dining")]
         [HttpPost("create-dinein")]
         public async Task<IActionResult> CreateDineInBill([FromBody] DineInBillCreateRequest request) {
             try {
                 var result = await _billService.CreateDineInBill(request);
                 return Ok(result);
+            } catch (InvalidOperationException e) {
+                return BadRequest(new { message = e.Message });
             } catch (Exception e) {
-                return StatusCode(500, $"Error in billController.CreateDineInBill: {e.Message}");
+                return StatusCode(500, new { message = e.Message });
             }
         }
 
@@ -83,8 +85,10 @@ namespace Backend.Controller {
             try {
                 var result = await _billService.CreateDeliveryBill(request);
                 return Ok(result);
+            } catch (InvalidOperationException e) {
+                return BadRequest(new { message = e.Message });
             } catch (Exception e) {
-                return StatusCode(500, $"Error in billController.CreateDeliveryBill: {e.Message}");
+                return StatusCode(500, new { message = e.Message });
             }
         }
 
@@ -97,7 +101,7 @@ namespace Backend.Controller {
                 if (status == null) return NotFound("Không tìm thấy hóa đơn");
                 return Ok(status);
             } catch (Exception e) {
-                return StatusCode(500, $"Error in billController.GetPaymentStatus: {e.Message}");
+                return StatusCode(500, new { message = e.Message });
             }
         }
 

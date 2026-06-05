@@ -39,6 +39,7 @@ namespace Backend.Data {
         public DbSet<BlacklistedToken> BlackListedToken {get; set;}
         public DbSet<EmailVerificationToken> EmailVerificationToken {get; set;}
         public DbSet<ComboDetail> ComboDetail {get; set;}
+        public DbSet<ShiftTask> ShiftTask {get; set;}
 
         protected override void OnModelCreating(ModelBuilder modelBuilder) {
             base.OnModelCreating(modelBuilder);
