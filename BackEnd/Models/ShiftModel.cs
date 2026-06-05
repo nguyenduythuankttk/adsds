@@ -26,6 +26,6 @@ namespace Backend.Models {
         public DateTime? CheckOut {get; set;}
         public ShiftStatus Status {get; set;} = ShiftStatus.Scheduled;
         public DateTime? DeletedAt { get; set; }
-
+        public virtual ICollection<ShiftTask> ShiftTasks { get; set; } = new List<ShiftTask>();
     }
 }

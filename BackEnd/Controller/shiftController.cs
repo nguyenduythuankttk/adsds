@@ -4,111 +4,124 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
-namespace Backend.Controller
-{
+namespace Backend.Controller {
     [ApiController]
     [Route("api/pbl3/[controller]")]
-    public class shiftController : ControllerBase
-    {
+    public class shiftController : ControllerBase {
         private readonly IShiftService _shiftService;
+        private readonly IShiftTaskService _taskService;
 
-        public shiftController(IShiftService shiftService)
-        {
+        public shiftController(IShiftService shiftService, IShiftTaskService taskService) {
             _shiftService = shiftService;
+            _taskService = taskService;
         }
 
-        [HttpGet("by-date/{date}")]
-        public async Task<IActionResult> GetByDate(DateOnly date)
-        {
-            return Ok(await _shiftService.GetAllShiftIn(date));
-        }
+        // ── SHIFT ─────────────────────────────────────────────────────────
 
-        [HttpGet("get/{shiftID}")]
-        public async Task<IActionResult> GetByID(Guid shiftID)
-        {
-            var s = await _shiftService.GetShiftByID(shiftID);
-            if (s == null) return NotFound("Không tìm thấy ca");
-            return Ok(s);
-        }
-
-        [HttpGet("by-store/{storeID}/{start}/{end}")]
-        public async Task<IActionResult> GetByStore(int storeID, DateOnly start, DateOnly end)
-        {
-            return Ok(await _shiftService.GetShiftsByStore(storeID, start, end));
-        }
-
-        [HttpGet("by-employee/{employeeID}/{start}/{end}")]
-        public async Task<IActionResult> GetByEmployee(Guid employeeID, DateOnly start, DateOnly end)
-        {
-            return Ok(await _shiftService.GetShiftsByEmployee(employeeID, start, end));
-        }
-
-        // Admin phân ca cho nhân viên trong cửa hàng của mình. storeID nằm trên URL
-        // để chặn ngay trường hợp gán nhầm nhân viên của cửa hàng khác.
         [Authorize(Roles = "Manager")]
-        [HttpPost("assign/{storeID}")]
-        public async Task<IActionResult> Assign(int storeID, [FromBody] ShiftAssignRequest request)
-        {
-            try
-            {
-                var res = await _shiftService.AssignShift(storeID, request);
-                return Ok(res);
+        [HttpGet("get-all/{date}")]
+        public async Task<IActionResult> GetAllShifts(DateOnly date) {
+            try {
+                var shifts = await _shiftService.GetAllShiftIn(date);
+                return Ok(shifts ?? []);
+            } catch (Exception e) {
+                return StatusCode(500, new { message = e.Message });
             }
-            catch (Exception e)
-            {
-                return BadRequest(new { message = e.Message });
+        }
+
+        [Authorize(Roles = "Manager,Dining,Kitchen,Counter")]
+        [HttpGet("my-shift")]
+        public async Task<IActionResult> GetMyShift() {
+            try {
+                var empID = GetCallerID();
+                if (empID == null) return Unauthorized();
+                var today = DateOnly.FromDateTime(DateTime.Now);
+                var shifts = await _shiftService.GetAllShiftIn(today);
+                var mine = shifts?.FirstOrDefault(s => s.EmployeeID == empID.Value && s.DeletedAt == null);
+                if (mine == null) return Ok(null);
+                return Ok(mine);
+            } catch (Exception e) {
+                return StatusCode(500, new { message = e.Message });
             }
         }
 
         [Authorize(Roles = "Manager")]
-        [HttpPut("update/{shiftID}")]
-        public async Task<IActionResult> Update(Guid shiftID, [FromBody] ShiftUpdateRequest request)
-        {
-            try
-            {
-                await _shiftService.UpdateShift(request, shiftID);
-                return Ok("Cập nhật ca thành công");
-            }
-            catch (Exception e)
-            {
-                return BadRequest(new { message = e.Message });
+        [HttpPost("add")]
+        public async Task<IActionResult> AddShift([FromBody] ShiftCreateRequest request) {
+            try {
+                await _shiftService.AddShift(request);
+                return Ok(new { message = "Tạo ca thành công" });
+            } catch (Exception e) {
+                return StatusCode(500, new { message = e.Message });
             }
         }
 
         [Authorize(Roles = "Manager")]
         [HttpDelete("delete/{shiftID}")]
-        public async Task<IActionResult> Delete(Guid shiftID)
-        {
-            try
-            {
+        public async Task<IActionResult> DeleteShift(Guid shiftID) {
+            try {
                 await _shiftService.SoftDeleteShift(shiftID);
-                return Ok("Xóa ca thành công");
-            }
-            catch (Exception e)
-            {
-                return BadRequest(new { message = e.Message });
+                return Ok(new { message = "Đã xóa ca" });
+            } catch (Exception e) {
+                return StatusCode(500, new { message = e.Message });
             }
         }
 
-        // Cho nhân viên tự bấm check-in / check-out từ giao diện employee.
-        [Authorize]
-        [HttpPost("check-in")]
-        public async Task<IActionResult> CheckIn()
-        {
-            var idStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                ?? User.FindFirst("user_id")?.Value;
-            if (string.IsNullOrEmpty(idStr)) return Unauthorized();
-            return Ok(await _shiftService.CheckInForEmployee(Guid.Parse(idStr)));
+        // ── SHIFT TASK ─────────────────────────────────────────────────────
+
+        [Authorize(Roles = "Manager,Dining,Kitchen,Counter")]
+        [HttpGet("task/by-shift/{shiftID}")]
+        public async Task<IActionResult> GetTasksByShift(Guid shiftID) {
+            try {
+                var tasks = await _taskService.GetTasksByShiftID(shiftID);
+                return Ok(tasks);
+            } catch (Exception e) {
+                return StatusCode(500, new { message = e.Message });
+            }
         }
 
-        [Authorize]
-        [HttpPost("check-out")]
-        public async Task<IActionResult> CheckOut()
-        {
-            var idStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                ?? User.FindFirst("user_id")?.Value;
-            if (string.IsNullOrEmpty(idStr)) return Unauthorized();
-            return Ok(await _shiftService.CheckOutForEmployee(Guid.Parse(idStr)));
+        [Authorize(Roles = "Manager")]
+        [HttpPost("task/add")]
+        public async Task<IActionResult> AddTask([FromBody] ShiftTaskCreateRequest request) {
+            try {
+                var empID = GetCallerID();
+                if (empID == null) return Unauthorized();
+                var task = await _taskService.AddTask(request, empID.Value);
+                return Ok(new { message = "Tạo nhiệm vụ thành công", data = task.TaskID });
+            } catch (Exception e) {
+                return StatusCode(500, new { message = e.Message });
+            }
+        }
+
+        [Authorize(Roles = "Manager,Dining,Kitchen,Counter")]
+        [HttpPatch("task/{taskID}/complete")]
+        public async Task<IActionResult> CompleteTask(Guid taskID) {
+            try {
+                var empID = GetCallerID();
+                if (empID == null) return Unauthorized();
+                await _taskService.CompleteTask(taskID, empID.Value);
+                return Ok(new { message = "Đã đánh dấu hoàn thành" });
+            } catch (Exception e) {
+                return StatusCode(500, new { message = e.Message });
+            }
+        }
+
+        [Authorize(Roles = "Manager")]
+        [HttpDelete("task/{taskID}")]
+        public async Task<IActionResult> DeleteTask(Guid taskID) {
+            try {
+                await _taskService.DeleteTask(taskID);
+                return Ok(new { message = "Đã xóa nhiệm vụ" });
+            } catch (Exception e) {
+                return StatusCode(500, new { message = e.Message });
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        private Guid? GetCallerID() {
+            var raw = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                   ?? User.FindFirst("user_id")?.Value;
+            return Guid.TryParse(raw, out var id) ? id : null;
         }
     }
 }

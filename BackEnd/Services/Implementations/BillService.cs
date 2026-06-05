@@ -145,23 +145,23 @@ namespace Backend.Services.Implementations{
         }
         public async Task<DineInBillCreateReponse> CreateDineInBill(DineInBillCreateRequest request){
             if (request.products == null || request.products.Count == 0)
-                throw new Exception("Bill must have at least one product.");
+                throw new InvalidOperationException("Vui lòng chọn ít nhất 1 món.");
             if (request.EmployeID == null)
-                throw new Exception("EmployeeID is required.");
+                throw new InvalidOperationException("EmployeeID là bắt buộc.");
 
             var storeExists = await _dbcontext.Store
                 .AnyAsync(s => s.StoreID == request.StoreID && s.DeletedAt == null);
             if (!storeExists)
-                throw new Exception($"Store {request.StoreID} not found.");
+                throw new InvalidOperationException($"Không tìm thấy cửa hàng ID {request.StoreID}.");
 
             if (request.TableID.HasValue)
             {
                 var table = await _dbcontext.DiningTable
                     .FirstOrDefaultAsync(t => t.TableID == request.TableID && t.DeletedAt == null);
                 if (table == null)
-                    throw new Exception($"Table {request.TableID} not found.");
+                    throw new InvalidOperationException($"Không tìm thấy bàn số {request.TableID}.");
                 if (table.Status == TableStatus.Occupied)
-                    throw new Exception($"Table {request.TableID} is currently occupied.");
+                    throw new InvalidOperationException($"Bàn {request.TableID} đang có khách.");
             }
 
             using var tx = await _dbcontext.Database.BeginTransactionAsync();
@@ -171,8 +171,7 @@ namespace Backend.Services.Implementations{
                     userID = null;
                 else{
                     var user = await _userService.GetUserByContact(request.contact);
-                    if (user == null) throw new Exception("User not found.");
-                    userID = user.UserID;
+                    userID = user?.UserID;
                 }
                 var isBankTransfer = request.PaymentMethods == PaymentMethods.BankTransfer;
                 var bill = new Bill{
@@ -266,10 +265,13 @@ namespace Backend.Services.Implementations{
                     response.QrUrl = $"https://qr.sepay.vn/img?acc={storeAcc}&bank={storeBank}&amount={amount}&des={des}";
                 }
                 return response;
+            } catch (InvalidOperationException) {
+                await tx.RollbackAsync();
+                throw;
             } catch (Exception e)
             {
                 await tx.RollbackAsync();
-                throw new Exception("Error in BillService.CreateDineinBill: " + e.Message);
+                throw new Exception("Lỗi tạo hóa đơn tại quán: " + e.Message);
             }
         }
         private static double HaversineKm(double lat1, double lon1, double lat2, double lon2)
@@ -476,9 +478,12 @@ namespace Backend.Services.Implementations{
                     response.QrUrl = $"https://qr.sepay.vn/img?acc={storeAcc}&bank={storeBank}&amount={amount}&des={des}";
                 }
                 return response;
+            } catch (InvalidOperationException) {
+                await tx.RollbackAsync();
+                throw;
             } catch (Exception e) {
                 await tx.RollbackAsync();
-                throw new Exception("Error in BillService.CreateDeliveryBill: " + e.Message);
+                throw new Exception("Lỗi tạo đơn giao hàng: " + e.Message);
             }
         }
 
@@ -592,7 +597,7 @@ namespace Backend.Services.Implementations{
             foreach (var (ingredientID, totalToConsume) in demand)
             {
                 if (!batchesByIngredient.TryGetValue(ingredientID, out var batches) || batches.Count == 0)
-                    throw new Exception($"Insufficient stock for IngredientID {ingredientID}: short by {totalToConsume}.");
+                    throw new InvalidOperationException($"Không đủ nguyên liệu (ID {ingredientID}): cần {totalToConsume} đơn vị nhưng không có lô đã sơ chế.");
 
                 var sortedBatches = batches
                     .OrderBy(b => b.Exp)
@@ -625,7 +630,7 @@ namespace Backend.Services.Implementations{
                 }
 
                 if (remaining > 0)
-                    throw new Exception($"Insufficient stock for IngredientID {ingredientID}: short by {remaining}.");
+                    throw new InvalidOperationException($"Không đủ nguyên liệu (ID {ingredientID}): thiếu {remaining} đơn vị.");
             }
 
             await _dbcontext.SaveChangesAsync();

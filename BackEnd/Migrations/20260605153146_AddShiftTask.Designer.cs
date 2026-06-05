@@ -4,6 +4,7 @@ using Backend.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BackEnd.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260605153146_AddShiftTask")]
+    partial class AddShiftTask
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -74,43 +77,6 @@ namespace BackEnd.Migrations
                     b.ToTable("Address");
                 });
 
-            modelBuilder.Entity("Backend.Models.BankAccount", b =>
-                {
-                    b.Property<int>("BankAccountID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("BankAccountID"));
-
-                    b.Property<string>("AccountHolderName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("AccountNumber")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("varchar(30)");
-
-                    b.Property<string>("BankCode")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("StoreID")
-                        .HasColumnType("int");
-
-                    b.HasKey("BankAccountID");
-
-                    b.HasIndex("StoreID")
-                        .IsUnique();
-
-                    b.ToTable("BankAccount");
-                });
-
             modelBuilder.Entity("Backend.Models.Bill", b =>
                 {
                     b.Property<Guid>("BillID")
@@ -122,6 +88,9 @@ namespace BackEnd.Migrations
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("DeliveryInfoID")
+                        .HasColumnType("char(36)");
 
                     b.Property<decimal?>("MoneyGiveBack")
                         .HasColumnType("decimal(65,30)");
@@ -862,11 +831,6 @@ namespace BackEnd.Migrations
                     b.Property<Guid>("EmployeeID")
                         .HasColumnType("char(36)");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
                     b.Property<DateTime>("TimeIn")
                         .HasColumnType("datetime(6)");
 
@@ -1244,17 +1208,6 @@ namespace BackEnd.Migrations
                     b.Navigation("Supplier");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Backend.Models.BankAccount", b =>
-                {
-                    b.HasOne("Backend.Models.Store", "Store")
-                        .WithOne("BankAccount")
-                        .HasForeignKey("Backend.Models.BankAccount", "StoreID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Store");
                 });
 
             modelBuilder.Entity("Backend.Models.Bill", b =>
@@ -1837,8 +1790,6 @@ namespace BackEnd.Migrations
                 {
                     b.Navigation("Address")
                         .IsRequired();
-
-                    b.Navigation("BankAccount");
 
                     b.Navigation("DiningTable");
 
