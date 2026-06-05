@@ -10,10 +10,12 @@ namespace Backend.Services.Interface
         Task<Receipt?> GetReceiptByID(Guid receiptID);
         Task<List<Receipt>?> GetReceiptByPO(Guid pOID);
         Task<List<Receipt>?> GetReceiptByStore(int storeID);
+        Task<List<ReceiptListResponse>> GetReceiptsByStoreInRange(int storeID, DateOnly start, DateOnly end);
         Task<List<Receipt>?> GetReceiptByEmployee(Guid employeeID);
         Task<List<Receipt>?> GetReceiptBySupplier(int supplierID);
         Task<ReceiptPrefillResponse> GetPrefilledFromPO(Guid poId);
         Task<ReceiptCreateResponse> CreateReceipt(ReceiptCreateRequest request);
+        Task<ReceiptCreateResponse> CreateDirectReceipt(int storeID, DirectReceiptCreateRequest request);
         Task<ConfirmReceiptResponse> ConfirmReceipt(ConfirmReceiptRequest request);
         // TODO – SoftDeleteReceipt
         // Trước khi xoá cần kiểm tra: receipt này đã tạo InventoryBatch chưa?

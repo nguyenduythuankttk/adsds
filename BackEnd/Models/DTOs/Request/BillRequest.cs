@@ -1,3 +1,4 @@
+using Backend.Helpers;
 using Backend.Models;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -38,7 +39,7 @@ namespace Backend.Models.DTOs.Request{
     public class BillChangeRequest{
         public Guid BillID{get; set;}
         public Guid? EmployeeID {get; set;}
-        public DateTime ChangeAt {get; set;} = DateTime.UtcNow;
+        public DateTime ChangeAt {get; set;} = VnTime.Now;
         public BillStatus Status {get; set;}
     }
 }

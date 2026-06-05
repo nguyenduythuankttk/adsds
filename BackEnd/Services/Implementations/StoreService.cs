@@ -1,4 +1,5 @@
 using Backend.Data;
+using Backend.Helpers;
 using Backend.Models;
 using Backend.Models.DTOs.Reponse;
 using Backend.Models.DTOs.Request;
@@ -119,7 +120,7 @@ using System.Collections.Generic;
 
             try
             {
-                store.DeletedAt = DateTime.Now;
+                store.DeletedAt = VnTime.Now;
                 await _dbContext.SaveChangesAsync();
             }catch(Exception ex)
             {

@@ -1,4 +1,5 @@
 using Backend.Data;
+using Backend.Helpers;
 using Backend.Models;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
@@ -39,7 +40,9 @@ namespace Backend.Services.Implementations
                 IngredientID = request.IngredientID,
                 ProductVarientID = request.ProductVarientID,
                 QtyBeforeProcess = request.QtyBeforeProcess,
-                QtyAfterProcess = request.QtyAfterProcess
+                QtyAfterProcess = request.QtyAfterProcess,
+                IsConsumable = request.IsConsumable,
+                BatchSize = request.BatchSize
             };
 
             await _dbContext.Receipe.AddAsync(recipe);
@@ -53,7 +56,9 @@ namespace Backend.Services.Implementations
                 IngredientID = item.IngredientID,
                 ProductVarientID = request.ProductVarientID,
                 QtyBeforeProcess = item.QtyBeforeProcess,
-                QtyAfterProcess = item.QtyAfterProcess
+                QtyAfterProcess = item.QtyAfterProcess,
+                IsConsumable = item.IsConsumable,
+                BatchSize = item.BatchSize
             });
 
             await _dbContext.Receipe.AddRangeAsync(recipes);
@@ -86,7 +91,7 @@ namespace Backend.Services.Implementations
             if (recipe == null)
                 throw new KeyNotFoundException($"Recipe not found for Ingredient {ingredientID} and Product Varient {productVarientID}");
 
-            recipe.DeletedAt = DateTime.UtcNow;
+            recipe.DeletedAt = VnTime.Now;
             _dbContext.Receipe.Update(recipe);
             await _dbContext.SaveChangesAsync();
         }

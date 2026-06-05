@@ -1,4 +1,5 @@
 using Backend.Data;
+using Backend.Helpers;
 using Backend.Models;
 using Backend.Services.Interface;
 using Microsoft.EntityFrameworkCore;
@@ -53,7 +54,7 @@ namespace Backend.Services.Implementations{
                 var table = await _dbContext.DiningTable
                                 .FirstOrDefaultAsync(t => t.TableID == tableID);
                 if (table == null) throw new Exception("Not Found Table");
-                table.DeletedAt = DateTime.UtcNow;
+                table.DeletedAt = VnTime.Now;
                 _dbContext.DiningTable.Update(table);
                 await _dbContext.SaveChangesAsync();
             } catch (Exception e){

@@ -47,5 +47,19 @@ namespace Backend.Controller
         {
             return Ok(await _batchService.GetAvailableProcessedBatches(ingredientID));
         }
+
+        [HttpGet("by-store/{storeID}")]
+        public async Task<IActionResult> GetByStore(int storeID)
+        {
+            return Ok(await _batchService.GetBatchesByStore(storeID));
+        }
+
+        // Báo cáo tồn kho toàn store: dùng cho màn hình "Kiểm Tra Kho" của admin.
+        [HttpGet("store-report/{storeID}")]
+        public async Task<IActionResult> GetStoreReport(int storeID)
+        {
+            try { return Ok(await _batchService.GetStoreInventoryReport(storeID)); }
+            catch (Exception e) { return BadRequest(new { message = e.Message }); }
+        }
     }
 }

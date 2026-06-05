@@ -27,6 +27,10 @@ builder.Services.AddScoped<Backend.Services.Interface.IGeocodingService, Backend
 builder.Services.AddControllers()
     .AddJsonOptions(options => {
         options.JsonSerializerOptions.Converters.Add(new Backend.Converters.DateOnlyJsonConverter());
+        // DateTime BE lưu theo giờ VN (VnTime.Now). Gắn offset +07:00 khi serialize
+        // để FE parse đúng zone bất kể browser timezone.
+        options.JsonSerializerOptions.Converters.Add(new Backend.Converters.DateTimeJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(new Backend.Converters.NullableDateTimeJsonConverter());
         // Cho phép frontend gửi/nhận enum dưới dạng string ("Cash", "Male", "Create"...)
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
         // Tránh lỗi vòng lặp tuần hoàn (Product → ProductVarient → Product → ...)
@@ -95,6 +99,7 @@ builder.Services.AddScoped<IStoreService, StoreService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IIngredientService, IngredientService>();
 builder.Services.AddScoped<IWareHouseService, WarehouseService>();
+builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 builder.Services.AddScoped<IBillService, BillService>();
 builder.Services.AddScoped<ISePayService, SePayService>();
 builder.Services.Configure<SePayOptions>(builder.Configuration.GetSection(SePayOptions.SectionName));

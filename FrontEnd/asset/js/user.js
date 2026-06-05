@@ -422,7 +422,7 @@ function renderTicket(main) {
                 '<div class="section-card-body"><p style="color:var(--muted)">Chưa có mã giảm giá nào.</p></div></div>';
             return;
         }
-        var today = new Date().toISOString().slice(0, 10);
+        var today = vnTodayISO();
         var cards = tickets.map(function (t) {
             var ticketId  = String(t.ticketID || t.TicketID || '');
             var code      = ticketId.replace(/-/g, '').slice(0, 8).toUpperCase();
@@ -657,6 +657,11 @@ function confirmPasswordOtp() {
     if (thumb) thumb.classList.add('on-user');
 
     homeBtn.addEventListener('click', function () {
-        window.location.href = 'index.html';
+        var role = localStorage.getItem('role');
+        if ((role === 'admin' || role === 'employee') && !isTokenExpired()) {
+            window.location.href = role === 'admin' ? 'admin.html' : 'employee.html';
+        } else {
+            window.location.href = 'index.html';
+        }
     });
 })();

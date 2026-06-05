@@ -65,6 +65,9 @@
             <a class="sidebar-item" data-section="inventory" id="nav-inventory">
                 <i class="ti-package"></i><span>Lô Hàng & Kho</span>
             </a>
+            <a class="sidebar-item" data-section="receipts" id="nav-receipts">
+                <i class="ti-clipboard"></i><span>Phiếu Nhập</span>
+            </a>
         </div>
 
         <div class="sidebar-group">
@@ -95,7 +98,7 @@
         </div>
 
         <div class="sidebar-group">
-            <a class="sidebar-item sidebar-home" href="index.html">
+            <a class="sidebar-item sidebar-home" href="admin.html">
                 <i class="ti-arrow-left"></i><span>Về Trang Chủ</span>
             </a>
         </div>
@@ -338,6 +341,33 @@
             </div>
         </section>
 
+        <!--PHIẾU NHẬP-->
+        <section class="adm-section" id="section-receipts">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Phiếu Nhập Kho</div>
+                    <div class="page-sub">Lập phiếu nhập trực tiếp · Theo dõi nguyên liệu nhập theo cửa hàng</div>
+                </div>
+                <button class="btn-primary" id="btn-add-receipt"><i class="ti-plus"></i> Lập Phiếu Nhập</button>
+            </div>
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
+                <label style="font-size:13px;color:var(--muted)">Từ ngày:</label>
+                <input type="date" id="receipt-filter-start" class="search-input" style="width:160px;">
+                <label style="font-size:13px;color:var(--muted)">Đến ngày:</label>
+                <input type="date" id="receipt-filter-end" class="search-input" style="width:160px;">
+                <button class="btn-primary" id="btn-filter-receipt" style="padding:8px 18px;"><i class="ti-filter"></i> Lọc</button>
+            </div>
+            <div class="panel">
+                <div class="panel-header"><div class="panel-title">Danh Sách Phiếu Nhập</div></div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead><tr><th>Mã Phiếu</th><th>Ngày Nhập</th><th>NCC</th><th>Nhân Viên</th><th>Số Dòng</th><th>Tổng Tiền</th><th>Trạng Thái</th></tr></thead>
+                        <tbody id="receipt-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
         <!--NHÂN VIÊN-->
         <section class="adm-section" id="section-employees">
             <div class="page-header">
@@ -461,7 +491,7 @@
                 <div class="panel-header"><div class="panel-title">Lịch Sử Biến Động</div></div>
                 <div class="tbl-wrap">
                     <table>
-                        <thead><tr><th>Nguyên Liệu</th><th>Cửa Hàng</th><th>Loại</th><th>Số Lượng</th><th>Đơn Vị</th><th>Lý Do</th><th>Nhân Viên</th><th>Ngày</th></tr></thead>
+                        <thead><tr><th>Nguyên Liệu</th><th>Mã Lô</th><th>Loại</th><th>Số Lượng</th><th>Đơn Vị</th><th>Lý Do / Ghi Chú</th><th>Nhân Viên</th><th>Ngày</th><th style="text-align:center">Chi tiết</th></tr></thead>
                         <tbody id="sm-tbody"></tbody>
                     </table>
                 </div>
@@ -490,6 +520,7 @@
 <div class="toast-container" id="toast-container"></div>
 
 <script src="/asset/js/api.js"></script>
+<script src="/asset/js/datetime.js"></script>
 <script src="/asset/js/admin.js"></script>
 </body>
 </html>

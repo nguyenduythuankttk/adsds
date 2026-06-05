@@ -1,4 +1,5 @@
 using Backend.Data;
+using Backend.Helpers;
 using Backend.Models;
 using Backend.Models.DTOs.Reponse;
 using Backend.Models.DTOs.Request;
@@ -128,7 +129,7 @@ namespace Backend.Services.Implementations
 
             try
             {
-                supplier.DeletedAt = DateTime.Now;
+                supplier.DeletedAt = VnTime.Now;
                 await _dbcontext.SaveChangesAsync();
             }catch(Exception ex)
             {

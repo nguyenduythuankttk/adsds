@@ -5,11 +5,14 @@ using Backend.Models.DTOs.Request;
 
 namespace Backend.Services.Interface{
     public interface IShiftService{
-        Task<List<Shift>?> GetAllShiftIn(DateOnly date);
-        //Task<List<Shift>?> GetShiftByEmployee (DateOnly date);
-        Task<Shift?> GetShiftByID (Guid ID);
-        Task AddShift (ShiftCreateRequest request);
-        Task UpdateShift (ShiftUpdateRequest request, Guid shiftID);
+        Task<List<ShiftResponse>> GetAllShiftIn(DateOnly date);
+        Task<ShiftResponse?> GetShiftByID(Guid ID);
+        Task<List<ShiftResponse>> GetShiftsByStore(int storeID, DateOnly start, DateOnly end);
+        Task<List<ShiftResponse>> GetShiftsByEmployee(Guid employeeID, DateOnly start, DateOnly end);
+        Task<ShiftResponse> AssignShift(int storeID, ShiftAssignRequest request);
+        Task UpdateShift(ShiftUpdateRequest request, Guid shiftID);
         Task SoftDeleteShift(Guid ID);
+        Task<ShiftCheckInResponse> CheckInForEmployee(Guid employeeID);
+        Task<ShiftCheckInResponse> CheckOutForEmployee(Guid employeeID);
     }
 }

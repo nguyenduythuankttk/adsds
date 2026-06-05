@@ -21,9 +21,7 @@ namespace Backend.Models{
         public DateTime? DeletedAt { get; set; }
         [JsonIgnore]
         public virtual Receipt? Receipt{get; set;}
-        [JsonIgnore]
         public virtual ICollection<PODetail> PODetail { get; set; } = new List<PODetail>();
-        [JsonIgnore]
         public virtual ICollection<POApproval> POApproval { get; set; } = new List<POApproval>();
 
     }

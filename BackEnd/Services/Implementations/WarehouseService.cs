@@ -1,4 +1,5 @@
 using Backend.Data;
+using Backend.Helpers;
 using Backend.Models;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
@@ -58,7 +59,7 @@ namespace Backend.Services.Implementations
                 ?? throw new Exception($"Warehouse {warehouseID} not found.");
             if (wh.DeletedAt != null)
                 throw new Exception($"Warehouse {warehouseID} is already deleted.");
-            wh.DeletedAt = DateTime.UtcNow;
+            wh.DeletedAt = VnTime.Now;
             await _dbcontext.SaveChangesAsync();
         }
     }

@@ -10,5 +10,12 @@ namespace Backend.Services.Interface
         /// Luôn KHÔNG throw để controller có thể trả 200 OK cho SePay (idempotency / không cho retry vô hạn).
         /// </summary>
         Task<bool> HandleIncomingTransaction(SePayWebhookPayload payload);
+
+        /// <summary>
+        /// Chủ động kiểm tra 1 bill đã nhận được tiền chưa (khi user bấm "Tôi đã chuyển khoản").
+        /// Query SePay userapi tìm giao dịch khớp PaymentReference + số tiền; nếu thấy thì đánh
+        /// dấu bill Paid (dùng chung logic với webhook). Trả về true nếu bill đã/được xác nhận Paid.
+        /// </summary>
+        Task<bool> VerifyBillPaymentAsync(Guid billID);
     }
 }

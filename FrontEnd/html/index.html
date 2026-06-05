@@ -289,23 +289,30 @@
                 <button class="form-submit" id="btn-forgot-send">Gửi mã OTP</button>
                 <button type="button" id="btn-back-login" style="width:100%;margin-top:8px;padding:10px;background:none;border:1.5px solid #ddd;border-radius:10px;color:#888;font-size:13px;font-weight:700;cursor:pointer">Quay lại đăng nhập</button>
             </div>
-            <!-- Forgot password – nhập OTP + mật khẩu mới -->
+            <!-- Forgot password – Bước 1: nhập OTP -->
             <div class="modal-panel" id="panel-forgot-otp">
-                <p style="text-align:center;margin-bottom:14px;color:#666;font-size:13px">Mã OTP đã được gửi đến email của bạn.<br>Nhập mã và mật khẩu mới bên dưới.</p>
-                <div class="form-group"><label>Mã OTP (6 chữ số)</label><input type="text" id="forgot-otp-input" placeholder="123456" maxlength="6" style="text-align:center;letter-spacing:4px;font-size:1.3rem"></div>
+                <p style="text-align:center;margin-bottom:14px;color:#666;font-size:13px">Mã OTP đã được gửi đến email của bạn.<br>Nhập mã 6 chữ số để tiếp tục.</p>
+                <div class="form-group"><label>Mã OTP (6 chữ số)</label><input type="text" id="forgot-otp-input" placeholder="------" maxlength="6" inputmode="numeric" pattern="\d{6}" autocomplete="one-time-code" style="text-align:center;letter-spacing:4px;font-size:1.3rem"></div>
+                <p id="forgot-otp-countdown" style="text-align:center;font-size:0.9rem;color:#888;margin-bottom:4px">Mã hết hạn sau: <span id="forgot-otp-timer">1:00</span></p>
+                <p id="forgot-otp-error" class="form-error"></p>
+                <button class="form-submit" id="btn-forgot-otp-next">Tiếp tục</button>
+                <button type="button" id="btn-forgot-resend" style="display:none;width:100%;margin-top:8px;padding:10px;background:#888;border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer">Gửi lại mã OTP</button>
+            </div>
+            <!-- Forgot password – Bước 2: nhập mật khẩu mới -->
+            <div class="modal-panel" id="panel-forgot-newpw">
+                <p style="text-align:center;margin-bottom:14px;color:#666;font-size:13px">Xác thực OTP thành công.<br>Nhập mật khẩu mới cho tài khoản của bạn.</p>
                 <div class="form-group"><label>Mật khẩu mới</label><div class="pw-input-wrap"><input type="password" id="forgot-new-pw" placeholder="Tối thiểu 6 ký tự"><button type="button" class="pw-toggle" onclick="togglePw('forgot-new-pw',this)">👁</button></div></div>
                 <div class="form-group"><label>Xác nhận mật khẩu mới</label><div class="pw-input-wrap"><input type="password" id="forgot-confirm-pw" placeholder="Nhập lại mật khẩu mới"><button type="button" class="pw-toggle" onclick="togglePw('forgot-confirm-pw',this)">👁</button></div></div>
-                <p id="forgot-otp-countdown" style="text-align:center;font-size:0.9rem;color:#888;margin-bottom:4px">Mã hết hạn sau: <span id="forgot-otp-timer">60</span> giây</p>
-                <p id="forgot-otp-error" class="form-error"></p>
+                <p id="forgot-newpw-error" class="form-error"></p>
                 <button class="form-submit" id="btn-forgot-reset">Đặt lại mật khẩu</button>
-                <button type="button" id="btn-forgot-resend" style="display:none;width:100%;margin-top:8px;padding:10px;background:#888;border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer">Gửi lại mã OTP</button>
+                <button type="button" id="btn-forgot-newpw-back" style="width:100%;margin-top:8px;padding:10px;background:none;border:1.5px solid #ddd;border-radius:10px;color:#888;font-size:13px;font-weight:700;cursor:pointer">Quay lại nhập OTP</button>
             </div>
             <div class="modal-panel" id="panel-otp">
                 <button id="btn-cancel-otp" style="position:absolute;top:14px;right:48px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#888;line-height:1" title="Huỷ xác thực">✕</button>
                 <p style="text-align:center;margin-bottom:14px;color:var(--muted,#666)">Mã OTP đã được gửi đến email của bạn.<br>Vui lòng nhập mã để xác thực tài khoản.</p>
                 <div class="form-group">
                     <label>Mã OTP (6 chữ số)</label>
-                    <input type="text" id="otp-input" placeholder="123456" maxlength="6" style="text-align:center;letter-spacing:4px;font-size:1.4rem">
+                    <input type="text" id="otp-input" placeholder="------" maxlength="6" inputmode="numeric" pattern="\d{6}" autocomplete="one-time-code" style="text-align:center;letter-spacing:4px;font-size:1.4rem">
                 </div>
                 <p id="otp-countdown" style="text-align:center;font-size:0.9rem;color:var(--muted,#888);margin-bottom:4px">Mã hết hạn sau: <span id="otp-timer">60</span> giây</p>
                 <p id="otp-error" class="form-error"></p>
@@ -484,6 +491,7 @@
     </div>
 
     <script src="/asset/js/api.js"></script>
+    <script src="/asset/js/datetime.js"></script>
     <script src="/asset/js/scrip.js"></script>
     <script src="/asset/js/order-success-popup.js"></script>
     <script src="/asset/js/home-product.js"></script>

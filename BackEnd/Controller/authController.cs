@@ -72,11 +72,9 @@ namespace Backend.Controller
         [HttpPost("resend-verify-email")]
         public async Task<IActionResult> ResendVerifyEmail([FromBody] ForgotPasswordRequest request){
             var emailSent = await _AuthService.ResendVerificationEmail(request.Email);
-            return Ok(new {
-                message = emailSent
-                    ? "Email xác thực đã được gửi lại."
-                    : "Không thể gửi email. Vui lòng kiểm tra cấu hình email."
-            });
+            if (!emailSent)
+                return StatusCode(500, new { message = "Không thể gửi email. Vui lòng thử lại sau." });
+            return Ok(new { message = "Email xác thực đã được gửi lại." });
         }
 
         [HttpGet("verify-email")]
@@ -94,11 +92,9 @@ namespace Backend.Controller
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request){
             var emailSent = await _AuthService.ForgotPassword(request.Email);
-            return Ok(new {
-                message = emailSent
-                    ? "Email đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư."
-                    : "Không thể gửi email. Vui lòng kiểm tra cấu hình email."
-            });
+            if (!emailSent)
+                return StatusCode(500, new { message = "Không thể gửi email. Vui lòng thử lại sau." });
+            return Ok(new { message = "Email đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư." });
         }
 
         [HttpPost("reset-password")]

@@ -2,6 +2,7 @@ using Backend.Models;
 using Backend.Models.DTOs.Reponse;
 using Backend.Models.DTOs.Request;
 using Backend.Data;
+using Backend.Helpers;
 using Backend.Services.Interface;
 using Microsoft.EntityFrameworkCore;
 
@@ -56,6 +57,11 @@ namespace Backend.Services.Implementations
             if (request.ReceiptLines == null || request.ReceiptLines.Count == 0)
                 throw new Exception("Receipt must have at least one item.");
 
+            var existingReceipt = await _dbContext.Receipt
+                .AnyAsync(r => r.POID == request.POID && r.DeletedAt == null);
+            if (existingReceipt)
+                throw new Exception("Phiếu nhập cho đơn hàng PO này đã được tạo.");
+
             var po = await _dbContext.PurchaseOrder
                 .Include(p => p.POApproval.OrderByDescending(a => a.LastUpdated).Take(1))
                 .Include(p => p.PODetail)
@@ -98,7 +104,7 @@ namespace Backend.Services.Implementations
                     SupplierID  = po.SupplierID,
                     StoreID     = po.StoreID,
                     EmployeeID  = request.EmployeeID,
-                    DateReceive = DateTime.UtcNow,
+                    DateReceive = VnTime.Now,
                 };
 
                 var details = request.ReceiptLines.Select(i => new ReceiptDetail
@@ -136,6 +142,145 @@ namespace Backend.Services.Implementations
             {
                 await transaction.RollbackAsync();
                 throw new Exception($"CreateReceipt failed: {e.Message}");
+            }
+        }
+
+        // Admin/Manager tạo phiếu nhập trực tiếp không qua PO. Khác với CreateReceipt:
+        //   - Không validate IngredientID theo PODetail (admin tự chọn nguyên liệu).
+        //   - Bắt buộc EmployeeID + SupplierID + tất cả Ingredient phải tồn tại.
+        //   - Bắt buộc EmployeeID phải thuộc storeID truyền vào → chống admin store A
+        //     ghi nhận phiếu cho store B.
+        public async Task<ReceiptCreateResponse> CreateDirectReceipt(int storeID, DirectReceiptCreateRequest request)
+        {
+            if (request.ReceiptLines == null || request.ReceiptLines.Count == 0)
+                throw new Exception("Phiếu nhập phải có ít nhất một dòng nguyên liệu.");
+
+            var emp = await _dbContext.Employee
+                .AsNoTracking()
+                .FirstOrDefaultAsync(e => e.UserID == request.EmployeeID && e.DeleteAt == null)
+                ?? throw new Exception("Nhân viên không tồn tại.");
+            if (emp.StoreID != storeID)
+                throw new Exception("Nhân viên không thuộc cửa hàng này.");
+
+            var supplier = await _dbContext.Supplier
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.SupplierID == request.SupplierID && s.DeletedAt == null)
+                ?? throw new Exception("Nhà cung cấp không tồn tại.");
+
+            var ingredientIDs = request.ReceiptLines.Select(l => l.IngredientID).Distinct().ToList();
+            var validIngredients = await _dbContext.Ingredient
+                .AsNoTracking()
+                .Where(i => ingredientIDs.Contains(i.IngredientID) && i.DeletedAt == null)
+                .Select(i => new { i.IngredientID, i.IngredientName })
+                .ToListAsync();
+            if (validIngredients.Count != ingredientIDs.Count) {
+                var missing = ingredientIDs.Except(validIngredients.Select(x => x.IngredientID));
+                throw new Exception($"Nguyên liệu không tồn tại: {string.Join(", ", missing)}");
+            }
+
+            foreach (var line in request.ReceiptLines)
+            {
+                if (line.Quantity <= 0)
+                    throw new Exception($"Nguyên liệu {line.IngredientID}: Số lượng phải > 0.");
+                if (line.GoodQuantity < 0 || line.GoodQuantity > line.Quantity)
+                    throw new Exception($"Nguyên liệu {line.IngredientID}: Số lượng tốt phải nằm trong khoảng [0, Số lượng].");
+                if (line.UnitPrice <= 0)
+                    throw new Exception($"Nguyên liệu {line.IngredientID}: Đơn giá phải > 0.");
+            }
+
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            try
+            {
+                var confirmedAt = VnTime.Now;
+                var warehouse = await _dbContext.Warehouse
+                    .FirstOrDefaultAsync(w => w.StoreID == storeID && w.DeletedAt == null)
+                    ?? throw new Exception("Không tìm thấy kho hàng cho cửa hàng này.");
+
+                var receipt = new Receipt
+                {
+                    ReceiptID   = Guid.NewGuid(),
+                    POID        = null,
+                    SupplierID  = request.SupplierID,
+                    StoreID     = storeID,
+                    EmployeeID  = request.EmployeeID,
+                    DateReceive = confirmedAt,
+                    ConfirmedAt = confirmedAt
+                };
+
+                var details = request.ReceiptLines.Select(i => new ReceiptDetail
+                {
+                    GoodsReceiptID = receipt.ReceiptID,
+                    IngredientID   = i.IngredientID,
+                    Quantity       = i.Quantity,
+                    GoodQuantity   = i.GoodQuantity,
+                    UnitPrice      = i.UnitPrice
+                }).ToList();
+
+                _dbContext.Receipt.Add(receipt);
+                _dbContext.ReceiptDetail.AddRange(details);
+
+                // Auto-confirm direct receipts: Create InventoryBatch and StockMovement records
+                foreach (var detail in details)
+                {
+                    var batchCode = $"BT-{detail.IngredientID}-{confirmedAt:yyyyMMdd}";
+                    var batch = new InventoryBatch
+                    {
+                        BatchID          = Guid.NewGuid(),
+                        IngredientID     = detail.IngredientID,
+                        GoodsReceiptID   = receipt.ReceiptID,
+                        WarehouseID      = warehouse.WarehouseID,
+                        BatchType        = BatchType.Raw,
+                        Status           = BatchStatus.Available,
+                        QuantityOriginal = detail.GoodQuantity,
+                        QuantityOnHand   = detail.GoodQuantity,
+                        UnitCost         = detail.UnitPrice,
+                        ImportDate       = confirmedAt,
+                        Mfd              = DateOnly.FromDateTime(confirmedAt),
+                        Exp              = DateOnly.FromDateTime(confirmedAt.AddDays(30)),
+                        BatchCode        = batchCode,
+                    };
+
+                    _dbContext.InventoryBatch.Add(batch);
+
+                    _dbContext.StockMovement.Add(new StockMovement
+                    {
+                        StockMovementID = Guid.NewGuid(),
+                        BatchID         = batch.BatchID,
+                        EmployeeID      = request.EmployeeID,
+                        QtyChange       = detail.GoodQuantity,
+                        MovementType    = StockMovementType.PurchaseReceipt,
+                        ReferenceType   = StockReferenceType.GoodsReceipt,
+                        ReferenceID     = receipt.ReceiptID,
+                        TimeStamp       = confirmedAt,
+                    });
+                }
+
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                var ingNameMap = validIngredients.ToDictionary(x => x.IngredientID, x => x.IngredientName);
+                return new ReceiptCreateResponse
+                {
+                    ReceiptID   = receipt.ReceiptID,
+                    POID        = null,
+                    SupplierID  = receipt.SupplierID,
+                    StoreID     = receipt.StoreID,
+                    EmployeeID  = receipt.EmployeeID,
+                    DateReceive = receipt.DateReceive,
+                    ReceiptDetailLines = details.Select(d => new ReceiptDetailSaved
+                    {
+                        IngredientID = d.IngredientID,
+                        IngredientName = ingNameMap.GetValueOrDefault(d.IngredientID),
+                        Quantity     = d.Quantity,
+                        GoodQuantity = d.GoodQuantity,
+                        UnitPrice    = d.UnitPrice
+                    }).ToList()
+                };
+            }
+            catch (Exception e)
+            {
+                await transaction.RollbackAsync();
+                throw new Exception($"CreateDirectReceipt failed: {e.Message}");
             }
         }
 
@@ -190,6 +335,33 @@ namespace Backend.Services.Implementations
                     .ThenInclude(c => c.Address)
                 .ToListAsync();
 
+        // List phẳng cho admin: chỉ trả về trường cần hiển thị, không nạp entity con
+        // để tránh lỗi tuần hoàn và vượt size payload.
+        public async Task<List<ReceiptListResponse>> GetReceiptsByStoreInRange(int storeID, DateOnly start, DateOnly end) {
+            var s = start.ToDateTime(TimeOnly.MinValue);
+            var e = end.ToDateTime(TimeOnly.MaxValue);
+            return await _dbContext.Receipt
+                .AsNoTracking()
+                .Where(r => r.StoreID == storeID && r.DeletedAt == null
+                    && r.DateReceive >= s && r.DateReceive <= e)
+                .OrderByDescending(r => r.DateReceive)
+                .Select(r => new ReceiptListResponse {
+                    ReceiptID = r.ReceiptID,
+                    POID = r.POID,
+                    StoreID = r.StoreID,
+                    StoreName = r.Store != null ? r.Store.StoreName : null,
+                    SupplierID = r.SupplierID,
+                    SupplierName = r.Supplier != null ? r.Supplier.SupplierName : null,
+                    EmployeeID = r.EmployeeID,
+                    EmployeeName = r.Employee != null ? r.Employee.FullName : null,
+                    DateReceive = r.DateReceive,
+                    ConfirmedAt = r.ConfirmedAt,
+                    LineCount = r.ReceiptDetail.Count,
+                    TotalAmount = r.ReceiptDetail.Sum(d => d.GoodQuantity * d.UnitPrice)
+                })
+                .ToListAsync();
+        }
+
         public async Task<List<Receipt>?> GetReceiptByEmployee(Guid employeeID) =>
             await _dbContext.Receipt
                 .AsNoTracking()
@@ -239,7 +411,7 @@ namespace Backend.Services.Implementations
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                var confirmedAt = DateTime.UtcNow;
+                var confirmedAt = VnTime.Now;
 
                 foreach (var detail in receipt.ReceiptDetail)
                 {

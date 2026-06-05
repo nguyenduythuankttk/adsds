@@ -1,4 +1,5 @@
 using Backend.Data;
+using Backend.Helpers;
 using Backend.Models;
 using Backend.Models.DTOs.Reponse;
 using Backend.Models.DTOs.Request;
@@ -17,15 +18,18 @@ namespace Backend.Services.Implementations{
         private readonly IPasswordHasher<User> _passwordHasher;
         private readonly IConfiguration _configuration;
         private readonly IEmailService _emailService;
+        private readonly IShiftService _shiftService;
 
         public AuthService(AppDbContext dbContext,
                            IPasswordHasher<User> passwordHasher,
                            IConfiguration configuration,
-                           IEmailService emailService){
+                           IEmailService emailService,
+                           IShiftService shiftService){
             _dbContext = dbContext;
             _passwordHasher = passwordHasher;
             _configuration = configuration;
             _emailService = emailService;
+            _shiftService = shiftService;
         }
 
         private string GenerateAcessToken(User user){
@@ -45,6 +49,7 @@ namespace Backend.Services.Implementations{
                     issuer: issuer,
                     audience: audience,
                     claims: claims,
+                    // JWT spec: 'exp' so với UtcNow (ValidateLifetime trong Program.cs). KHÔNG đổi sang VnTime.
                     expires: DateTime.UtcNow.AddMinutes(expiryMinutes),
                     signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256)
                 );
@@ -81,7 +86,7 @@ namespace Backend.Services.Implementations{
                 Console.WriteLine($"[Register] New user created: UserName={newCustomer.UserName}, IsVerified={newCustomer.IsVerified}");
                 newCustomer.HashPassword = BCrypt.Net.BCrypt.HashPassword(request.HashPassword);
                 var token = GenerateSecureToken();
-                newCustomer.VerifiedExp = DateTime.UtcNow.AddMinutes(10);
+                newCustomer.VerifiedExp = VnTime.Now.AddMinutes(10);
                 newCustomer.EmailVerified = token;
                 _dbContext.User.Add(newCustomer);
                 await _dbContext.SaveChangesAsync();
@@ -111,7 +116,7 @@ namespace Backend.Services.Implementations{
 
             var token = GenerateSecureToken();
             user.EmailVerified = token;
-            user.VerifiedExp = DateTime.UtcNow.AddMinutes(10);
+            user.VerifiedExp = VnTime.Now.AddMinutes(10);
             await _dbContext.SaveChangesAsync();
 
             try {
@@ -130,7 +135,7 @@ namespace Backend.Services.Implementations{
 
             var otp = GenerateSecureToken();
             user.PasswordEmail = otp;
-            user.PasswordEmailExp = DateTime.UtcNow.AddHours(7).AddMinutes(1);
+            user.PasswordEmailExp = VnTime.Now.AddMinutes(1);
             await _dbContext.SaveChangesAsync();
 
             try {
@@ -148,7 +153,7 @@ namespace Backend.Services.Implementations{
             if (record == null)
                 throw new InvalidOperationException("OTP không hợp lệ.");
             Console.WriteLine($"[VerifyEmail] User found: UserName={record.UserName}, IsVerified={record.IsVerified} (before verify)");
-            if (record.VerifiedExp < DateTime.UtcNow)
+            if (record.VerifiedExp < VnTime.Now)
                 throw new InvalidOperationException("OTP đã hết hạn. Vui lòng nhấn gửi lại mã.");
             record.VerifiedExp = null;
             record.EmailVerified = null;
@@ -161,7 +166,7 @@ namespace Backend.Services.Implementations{
             var user = await _dbContext.User.FirstOrDefaultAsync(u => u.PasswordEmail == request.Token);
             if (user == null)
                 throw new InvalidOperationException("Token đặt lại mật khẩu không hợp lệ");
-            if (user.PasswordEmailExp < DateTime.UtcNow.AddHours(7))
+            if (user.PasswordEmailExp < VnTime.Now)
                 throw new InvalidOperationException("Token đặt lại mật khẩu đã hết hạn");
 
             user.HashPassword = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
@@ -179,6 +184,15 @@ namespace Backend.Services.Implementations{
 
             var accessToken = GenerateAcessToken(emp);
 
+            // Đối chiếu ca làm hôm nay → nếu có và chưa check-in thì ghi nhận luôn,
+            // trả về trạng thái (OnTime/Late/Absent) để FE hiển thị cho nhân viên thấy.
+            ShiftCheckInResponse? shiftStatus = null;
+            try {
+                shiftStatus = await _shiftService.CheckInForEmployee(emp.UserID);
+            } catch (Exception ex) {
+                Console.WriteLine($"[EmployeeLogin] shift check-in failed: {ex.Message}");
+            }
+
             return new EmployeeAuthReponse{
                 AcessToken = accessToken,
                 EmployeeID = emp.UserID,
@@ -189,7 +203,8 @@ namespace Backend.Services.Implementations{
                 Role = emp.Role,
                 FullName = emp.FullName,
                 BirthDate = emp.BirthDate,
-                BasicSalary = emp.BasicSalary
+                BasicSalary = emp.BasicSalary,
+                CurrentShift = shiftStatus
             };
         }
 
@@ -226,7 +241,7 @@ namespace Backend.Services.Implementations{
                 var jwtExpiryMinutes = int.Parse(_configuration["Jwt:ExpiryMinutes"] ?? "60");
                 _dbContext.BlackListedToken.Add(new BlacklistedToken{
                     Token = accessToken,
-                    ExpiryDate = DateTime.UtcNow.AddMinutes(jwtExpiryMinutes)
+                    ExpiryDate = VnTime.Now.AddMinutes(jwtExpiryMinutes)
                 });
 
                 await _dbContext.SaveChangesAsync();
@@ -245,7 +260,7 @@ namespace Backend.Services.Implementations{
 
             var otp = GenerateSecureToken();
             user.PasswordEmail = otp;
-            user.PasswordEmailExp = DateTime.UtcNow.AddHours(7).AddMinutes(1);
+            user.PasswordEmailExp = VnTime.Now.AddMinutes(1);
             await _dbContext.SaveChangesAsync();
 
             await _emailService.SendChangePasswordOtpEmail(user.Email, otp);
@@ -257,7 +272,7 @@ namespace Backend.Services.Implementations{
 
             if (string.IsNullOrWhiteSpace(user.PasswordEmail) || user.PasswordEmail != request.otp)
                 throw new Exception("Mã OTP không hợp lệ.");
-            if (user.PasswordEmailExp == null || user.PasswordEmailExp < DateTime.UtcNow.AddHours(7))
+            if (user.PasswordEmailExp == null || user.PasswordEmailExp < VnTime.Now)
                 throw new Exception("Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới.");
 
             user.HashPassword = BCrypt.Net.BCrypt.HashPassword(request.newPass);

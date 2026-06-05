@@ -1,4 +1,5 @@
 using Backend.Models;
+using Backend.Models.DTOs.Reponse;
 using Backend.Models.DTOs.Request;
 
 namespace Backend.Services.Interface
@@ -10,5 +11,7 @@ namespace Backend.Services.Interface
         Task<List<InventoryBatch>> GetBatchesByIngredient(int ingredientID);
         Task<List<InventoryBatch>> GetAvailableRawBatches(int? ingredientID = null);
         Task<List<InventoryBatch>> GetAvailableProcessedBatches(int? ingredientID = null);
+        Task<List<InventoryBatchResponse>> GetBatchesByStore(int storeID);
+        Task<StoreInventoryReport> GetStoreInventoryReport(int storeID);
     }
 }

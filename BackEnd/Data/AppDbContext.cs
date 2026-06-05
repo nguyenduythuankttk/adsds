@@ -39,6 +39,7 @@ namespace Backend.Data {
         public DbSet<BlacklistedToken> BlackListedToken {get; set;}
         public DbSet<EmailVerificationToken> EmailVerificationToken {get; set;}
         public DbSet<ComboDetail> ComboDetail {get; set;}
+        public DbSet<BankAccount> BankAccount {get; set;}
 
         protected override void OnModelCreating(ModelBuilder modelBuilder) {
             base.OnModelCreating(modelBuilder);
@@ -339,11 +340,22 @@ namespace Backend.Data {
                 .Property(x => x.Status)
                 .HasConversion<string>().HasMaxLength(20).IsRequired();
 
+            modelBuilder.Entity<Shift>()
+                .Property(x => x.Status)
+                .HasConversion<string>().HasMaxLength(20).IsRequired();
+
             modelBuilder.Entity<Bill>()
                 .HasOne(b => b.Table)
                 .WithOne(t => t.Bill)
                 .HasForeignKey<Bill>(b => b.TableID)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // 1-1: Store ↔ BankAccount (StoreID là FK duy nhất ở BankAccount).
+            modelBuilder.Entity<Store>()
+                .HasOne(s => s.BankAccount)
+                .WithOne(b => b.Store)
+                .HasForeignKey<BankAccount>(b => b.StoreID)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

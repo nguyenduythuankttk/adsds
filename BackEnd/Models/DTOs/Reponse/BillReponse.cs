@@ -29,6 +29,7 @@ namespace Backend.Models.DTOs.Reponse{
         public string? QrUrl { get; set; }
         public string? BankAccount { get; set; }
         public string? BankCode { get; set; }
+        public string? BankAccountName { get; set; }
         public bool TestMode { get; set; }
     }
 
@@ -41,6 +42,7 @@ namespace Backend.Models.DTOs.Reponse{
         public string? QrUrl { get; set; }
         public string? BankAccount { get; set; }
         public string? BankCode { get; set; }
+        public string? BankAccountName { get; set; }
         public bool TestMode { get; set; }
     }
 

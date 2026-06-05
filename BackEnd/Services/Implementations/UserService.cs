@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Backend.Data;
+using Backend.Helpers;
 using Backend.Models;
 using Backend.Models.DTOs;
 using Backend.Models.DTOs.Reponse;
@@ -121,7 +122,7 @@ namespace Backend.Services.Implementations
 
             try
             {
-                user.DeletedAt = DateTime.Now;
+                user.DeletedAt = VnTime.Now;
                 await _dbContext.SaveChangesAsync();
             }catch(Exception ex)
             {

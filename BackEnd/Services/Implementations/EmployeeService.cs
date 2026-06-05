@@ -1,4 +1,5 @@
 using Backend.Data;
+using Backend.Helpers;
 using Backend.Models;
 using Backend.Models.DTOs.Request;
 using Backend.Models.DTOs.Reponse;
@@ -151,7 +152,7 @@ namespace Backend.Services.Implementations
                     Role = request.Role,
                     StoreID = request.StoreID,
                     BasicSalary = request.BasicSalary,
-                    CreateAt = DateTime.UtcNow
+                    CreateAt = VnTime.Now
                 };
 
                 _dbContext.Employee.Add(employee);
@@ -221,7 +222,7 @@ namespace Backend.Services.Implementations
 
             try
             {
-                employee.DeleteAt = DateTime.UtcNow;
+                employee.DeleteAt = VnTime.Now;
                 await _dbContext.SaveChangesAsync();
             }
             catch (Exception ex)

@@ -22,10 +22,10 @@ namespace Backend.Models{
         [Key] //khóa chính
         public Guid BillID { get; set; }
 
-        public Guid UserID { get; set; }
+        public Guid? UserID { get; set; }
 
         [ForeignKey("UserID")]
-        public virtual User User { get; set; } = null!;
+        public virtual User? User { get; set; } = null!;
 
         public int StoreID { get; set; }
 

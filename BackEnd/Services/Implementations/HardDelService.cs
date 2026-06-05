@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Backend.Data;
+using Backend.Helpers;
 
 public class HardDeleteService : BackgroundService {
     private readonly IServiceProvider _ServiceProvider;
@@ -20,7 +21,7 @@ public class HardDeleteService : BackgroundService {
             using (var scope = _ServiceProvider.CreateScope()){
                 try {
                     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                    var cutoff = DateTime.UtcNow.AddHours(7).AddDays(-30);
+                    var cutoff = VnTime.Now.AddDays(-30);
                     var cutoffDateOnly = DateOnly.FromDateTime(cutoff);
                     var del = 0;
                     del += await db.Ticket.Where(x =>
@@ -39,11 +40,11 @@ public class HardDeleteService : BackgroundService {
                     del += await db.DeliveryInfo.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
                     del += await db.Shift.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
                     del += await db.User.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
-                    var unverifiedCutoff = DateTime.UtcNow.AddHours(7).AddDays(-1);
+                    var unverifiedCutoff = VnTime.Now.AddDays(-1);
                     del += await db.User.Where(x => !x.IsVerified && x.CreateAt < unverifiedCutoff).ExecuteDeleteAsync(token);
                     del += await db.Store.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
                     del += await db.Supplier.Where(x => x.DeletedAt != null && x.DeletedAt < cutoff).ExecuteDeleteAsync(token);
-                    del += await db.BlackListedToken.Where(x => x.ExpiryDate < DateTime.UtcNow).ExecuteDeleteAsync(token);
+                    del += await db.BlackListedToken.Where(x => x.ExpiryDate < VnTime.Now).ExecuteDeleteAsync(token);
                     _Logger.LogInformation("HardDeleteService: xoá {Count} bản ghi", del);
                 } catch (Exception e){
                     _Logger.LogError(e, "Error in HardDeleteService");

@@ -7,7 +7,7 @@ function getToken()  { return localStorage.getItem('token'); }
 function setToken(t) { localStorage.setItem('token', t); }
 
 function clearAuth() {
-    var keysToRemove = ['token', 'fullName', 'userId', 'employeeId', 'storeId', 'role'];
+    var keysToRemove = ['token', 'fullName', 'userId', 'employeeId', 'storeId', 'role', 'shiftStatus'];
     keysToRemove.forEach(function (k) { localStorage.removeItem(k); });
 }
 
@@ -66,6 +66,13 @@ function luuThongTinNhanVien(data) {
     localStorage.setItem('storeId',    data.storeID    || data.StoreID    || '');
     var role = (data.role || data.Role || '');
     localStorage.setItem('role', role === 'Manager' ? 'admin' : 'employee');
+    // Lưu trạng thái ca lúc đăng nhập để màn dashboard hiển thị banner đúng giờ/trễ/vắng.
+    var cs = data.currentShift || data.CurrentShift;
+    if (cs) {
+        localStorage.setItem('shiftStatus', JSON.stringify(cs));
+    } else {
+        localStorage.removeItem('shiftStatus');
+    }
 }
 
 function luuThongTinKhachHang(data) {
@@ -86,6 +93,15 @@ function getPaymentStatus(billId) {
 function cancelBill(billId) {
     return apiPost('/bill/cancel/' + encodeURIComponent(billId), {})
         .then(function (r) { return r.ok; })
+        .catch(function () { return false; });
+}
+
+// User bấm "Tôi đã chuyển khoản" → backend query SePay xem tiền đã về chưa.
+// Trả về true nếu đã nhận được tiền (bill Paid), false nếu chưa.
+function verifyPayment(billId) {
+    return apiPost('/bill/verify-payment/' + encodeURIComponent(billId), {})
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { return !!(j && j.paid); })
         .catch(function () { return false; });
 }
 
@@ -118,6 +134,7 @@ function showSePayQrModal(data, onPaid) {
         + '<div style="margin-top:12px;padding:12px;background:#f5f5f5;border-radius:8px;text-align:left;font-size:13px;">'
         +   '<div><strong>Ngân hàng:</strong> ' + (data.bankCode || '') + '</div>'
         +   '<div><strong>Số tài khoản:</strong> ' + (data.bankAccount || '') + '</div>'
+        +   (data.bankAccountName ? '<div><strong>Chủ tài khoản:</strong> ' + data.bankAccountName + '</div>' : '')
         +   '<div><strong>Số tiền:</strong> ' + amount + ' đ</div>'
         +   '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
         +     '<strong>Nội dung CK:</strong> <code id="sepay-ref-code">' + ref + '</code>'
@@ -128,7 +145,10 @@ function showSePayQrModal(data, onPaid) {
         + '<div id="sepay-status" style="margin-top:12px;font-size:14px;color:#e67e22;">'
         +   'Còn lại <strong id="sepay-countdown">03:00</strong> để thanh toán'
         + '</div>'
-        + '<button id="sepay-cancel-btn" style="margin-top:14px;padding:10px 18px;border:none;border-radius:6px;'
+        + '<div id="sepay-verify-msg" style="margin-top:8px;font-size:13px;display:none;"></div>'
+        + '<button id="sepay-confirm-btn" style="margin-top:14px;padding:10px 18px;border:none;border-radius:6px;'
+        +   'background:#27ae60;color:#fff;cursor:pointer;font-size:14px;width:100%;">Tôi đã chuyển khoản</button>'
+        + '<button id="sepay-cancel-btn" style="margin-top:8px;padding:10px 18px;border:none;border-radius:6px;'
         +   'background:#e74c3c;color:#fff;cursor:pointer;font-size:14px;width:100%;">Huỷ đơn</button>';
     overlay.appendChild(box);
     document.body.appendChild(overlay);
@@ -174,6 +194,42 @@ function showSePayQrModal(data, onPaid) {
         });
     });
 
+    // User bấm "Tôi đã chuyển khoản" → backend query SePay xem tiền đã về chưa.
+    // Về rồi → chấp nhận (onPaid); chưa → báo lỗi, giữ popup để thanh toán lại.
+    var confirmBtn = box.querySelector('#sepay-confirm-btn');
+    var verifyMsg = box.querySelector('#sepay-verify-msg');
+    var checking = false;
+    confirmBtn.addEventListener('click', function () {
+        if (finalized || stopped || checking) return;
+        checking = true;
+        confirmBtn.disabled = true;
+        confirmBtn.style.opacity = '0.6';
+        confirmBtn.style.cursor = 'default';
+        confirmBtn.textContent = 'Đang kiểm tra...';
+        if (verifyMsg) verifyMsg.style.display = 'none';
+
+        verifyPayment(data.billID).then(function (paid) {
+            checking = false;
+            if (finalized || stopped) return; // popup đã đóng (poll/huỷ) trong lúc chờ
+            if (paid) {
+                finalized = true;
+                cleanup();
+                if (typeof onPaid === 'function') onPaid();
+                return;
+            }
+            // Chưa nhận được tiền → cho user thanh toán lại
+            confirmBtn.disabled = false;
+            confirmBtn.style.opacity = '1';
+            confirmBtn.style.cursor = 'pointer';
+            confirmBtn.textContent = 'Tôi đã chuyển khoản';
+            if (verifyMsg) {
+                verifyMsg.style.color = '#e74c3c';
+                verifyMsg.textContent = 'Chưa nhận được tiền. Vui lòng quét QR thanh toán lại rồi bấm xác nhận.';
+                verifyMsg.style.display = 'block';
+            }
+        });
+    });
+
     // Countdown 3 phút (180s) — tick 1s update UI; poll status mỗi 3s
     var SECONDS_TOTAL = 180;
     var remaining = SECONDS_TOTAL;
@@ -210,3 +266,23 @@ function showSePayQrModal(data, onPaid) {
 
     return cleanup;
 }
+
+(function checkUserRedirect() {
+    var role = localStorage.getItem('role');
+    var token = localStorage.getItem('token');
+    if ((role === 'admin' || role === 'employee') && token && !isTokenExpired()) {
+        var pathname = window.location.pathname;
+        if (pathname.indexOf('admin.html') !== -1 || pathname.indexOf('employee.html') !== -1) {
+            return;
+        }
+        var targetPage = role === 'admin' ? 'admin.html' : 'employee.html';
+        if (pathname.indexOf('/html/') !== -1) {
+            var basePath = pathname.substring(0, pathname.indexOf('/html/') + 6);
+            window.location.replace(basePath + targetPage);
+        } else {
+            var lastSlash = pathname.lastIndexOf('/');
+            var basePath = pathname.substring(0, lastSlash + 1);
+            window.location.replace(basePath + 'html/' + targetPage);
+        }
+    }
+})();

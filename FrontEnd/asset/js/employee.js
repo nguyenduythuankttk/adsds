@@ -29,6 +29,19 @@
 })();
 setInterval(function(){if(isTokenExpired()){clearAuth();window.location.href='index.html';}},60000);
 
+// Đồng hồ header: cập nhật giờ (HH:MM:SS) và ngày mỗi giây.
+(function startClock(){
+    function tick(){
+        var now = new Date();
+        var c = document.getElementById('dash-clock');
+        var d = document.getElementById('dash-date');
+        if (c) c.textContent = now.toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+        if (d) d.textContent = now.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    tick();
+    setInterval(tick, 1000);
+})();
+
 function logout() {
     apiPost('/auth/logout').then(function () {
         clearAuth();
@@ -88,9 +101,7 @@ function renderDashOrders() {
 function pNum(n)  { return Number(n || 0).toLocaleString('vi-VN'); }
 function pDateTime(s) {
     if (!s) return '—';
-    var d = new Date(s);
-    if (isNaN(d)) return s;
-    return d.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return fmtVnDateTime(s) || s;
 }
 function pAsArray(d) { return Array.isArray(d) ? d : (d && d.data ? d.data : []); }
 
@@ -293,85 +304,232 @@ function submitProcessing() {
 // ════════════════════════════════════════════════════════════
 // CÔNG THỨC (Recipe)
 // ════════════════════════════════════════════════════════════
+var RECIPE_INGREDIENTS = [];
+var RECIPE_ROW_SEQ = 0;
+
 function renderRecipe() {
     // Dropdown sản phẩm (ProductVarient)
     var pSel = document.getElementById('recipe-product');
     apiGet('/product/get-all').then(function (r) { return r.ok ? r.json() : []; }).then(function (d) {
         var prods = pAsArray(d);
-        var opts = [];
+        var opts = ['<option value="">-- Chọn sản phẩm --</option>'];
         prods.forEach(function (p) {
             (p.productVarient || p.ProductVarient || []).forEach(function (v) {
                 if (!v) return;
                 opts.push('<option value="' + v.productVarientID + '">' + p.productName + ' - ' + v.size + '</option>');
             });
         });
-        if (pSel) pSel.innerHTML = opts.length ? opts.join('') : '<option value="">-- Không có sản phẩm --</option>';
+        if (pSel) pSel.innerHTML = opts.join('');
     }).catch(function () { if (pSel) pSel.innerHTML = '<option value="">-- Lỗi tải --</option>'; });
 
-    // Dropdown nguyên liệu
-    var iSel = document.getElementById('recipe-ingredient');
+    // Tải danh sách nguyên liệu và lưu vào global
+    var container = document.getElementById('recipe-ingredients-container');
+    if (container) container.innerHTML = '';
+    
     apiGet('/ingredient/get-all').then(function (r) { return r.ok ? r.json() : []; }).then(function (d) {
-        var ings = pAsArray(d);
-        if (iSel) iSel.innerHTML = ings.length
-            ? ings.map(function (i) { return '<option value="' + i.ingredientID + '">' + i.ingredientName + ' (' + i.ingredientUnit + ')</option>'; }).join('')
-            : '<option value="">-- Không có nguyên liệu --</option>';
-    }).catch(function () { if (iSel) iSel.innerHTML = '<option value="">-- Lỗi tải --</option>'; });
+        RECIPE_INGREDIENTS = pAsArray(d);
+        addRecipeIngredientRow(); // Thêm sẵn 1 dòng mặc định
+    }).catch(function () {
+        RECIPE_INGREDIENTS = [];
+        toast('Lỗi tải danh sách nguyên liệu', 'error');
+    });
 
     loadRecipes();
 }
 
-function loadRecipes() {
-    var tb = document.getElementById('recipe-tbody');
-    if (tb) tb.innerHTML = '<tr><td colspan="6" class="tbl-empty">Đang tải...</td></tr>';
-    apiGet('/recipe/get-all').then(function (r) { return r.ok ? r.json() : []; }).then(function (d) {
-        var list = pAsArray(d);
-        if (!tb) return;
-        if (!list.length) { tb.innerHTML = '<tr><td colspan="6" class="tbl-empty">Chưa có công thức</td></tr>'; return; }
-        tb.innerHTML = list.map(function (rc) {
-            var pv   = rc.productVarient || {};
-            var prod = pv.product || {};
-            var ing  = rc.ingredient || {};
-            var pName = (prod.productName ? prod.productName + ' - ' + (pv.size || '') : ('PV#' + rc.productVarientID));
-            var consumable = rc.isConsumable || rc.IsConsumable;
-            var batchSize  = rc.batchSize !== undefined ? rc.batchSize : (rc.BatchSize !== undefined ? rc.BatchSize : 1);
-            return '<tr>'
-                + '<td style="font-weight:600">' + pName + '</td>'
-                + '<td>' + (ing.ingredientName || ('#' + rc.ingredientID)) + '</td>'
-                + '<td><strong>' + pNum(rc.qtyAfterProcess) + '</strong> ' + (ing.ingredientUnit || '') + '</td>'
-                + '<td>' + pNum(batchSize) + '</td>'
-                + '<td>' + (consumable ? '<span class="badge badge-pending">Tiêu hao</span>' : '<span class="badge badge-active">Định lượng</span>') + '</td>'
-                + '<td><button class="btn btn-sm" style="color:var(--red)" onclick="deleteRecipe(' + rc.ingredientID + ',' + rc.productVarientID + ')"><i class="ti-trash"></i></button></td>'
-                + '</tr>';
-        }).join('');
-    }).catch(function () { if (tb) tb.innerHTML = '<tr><td colspan="6" class="tbl-empty">Lỗi tải dữ liệu</td></tr>'; });
+function addRecipeIngredientRow() {
+    var container = document.getElementById('recipe-ingredients-container');
+    if (!container) return;
+    var id = ++RECIPE_ROW_SEQ;
+    
+    var ingOpts = '<option value="">-- Chọn nguyên liệu --</option>' + RECIPE_INGREDIENTS.map(function (i) {
+        return '<option value="' + i.ingredientID + '">' + i.ingredientName + ' (' + i.ingredientUnit + ')' + '</option>';
+    }).join('');
+    
+    var row = document.createElement('div');
+    row.className = 'recipe-ing-row';
+    row.id = 'recipe-ing-row-' + id;
+    row.style.cssText = 'border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:10px;background:#fafafa';
+    row.innerHTML = 
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+        '  <strong style="font-size:12px;color:var(--primary)">Dòng #' + id + '</strong>' +
+        '  <button class="btn btn-sm" style="color:var(--red);padding:2px 8px;background:none;border:none;cursor:pointer" onclick="removeRecipeIngredientRow(' + id + ')"><i class="ti-trash"></i></button>' +
+        '</div>' +
+        '<div class="form-row-2">' +
+        '  <div class="form-group"><label>Nguyên liệu *</label><select class="rec-ing-sel">' + ingOpts + '</select></div>' +
+        '  <div class="form-group"><label>QtyAfterProcess *</label><input type="number" class="rec-qty-after" step="0.001" min="0.001" placeholder="1"></div>' +
+        '</div>' +
+        '<div class="form-row-2" style="margin-top:8px">' +
+        '  <div class="form-group"><label>BatchSize</label><input type="number" class="rec-batch-size" step="0.001" min="0.001" value="1"></div>' +
+        '  <div class="form-group">' +
+        '    <label style="visibility:hidden">&nbsp;</label>' +
+        '    <div style="display:flex;align-items:center;height:38px">' +
+        '      <label style="display:flex;align-items:center;gap:6px;text-transform:none;cursor:pointer;font-weight:600;font-size:12px;margin:0">' +
+        '        <input type="checkbox" class="rec-consumable" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)">' +
+        '        Tiêu hao (IsConsumable)' +
+        '      </label>' +
+        '    </div>' +
+        '  </div>' +
+        '</div>';
+    container.appendChild(row);
 }
 
-function addRecipe() {
-    var pv  = parseInt((document.getElementById('recipe-product') || {}).value, 10);
-    var ing = parseInt((document.getElementById('recipe-ingredient') || {}).value, 10);
-    var qtyAfter = parseFloat((document.getElementById('recipe-qty-after') || {}).value);
-    if (!pv || !ing) { toast('Chọn sản phẩm và nguyên liệu', 'error'); return; }
-    if (!qtyAfter || qtyAfter <= 0) { toast('Nhập QtyAfterProcess hợp lệ', 'error'); return; }
-    var body = { IngredientID: ing, ProductVarientID: pv, QtyBeforeProcess: 0, QtyAfterProcess: qtyAfter };
-    apiPost('/recipe/add', body)
+function removeRecipeIngredientRow(id) {
+    var el = document.getElementById('recipe-ing-row-' + id);
+    if (el) el.remove();
+}
+
+function submitBulkRecipe() {
+    var pv = parseInt((document.getElementById('recipe-product') || {}).value, 10);
+    if (!pv) { toast('Vui lòng chọn sản phẩm', 'error'); return; }
+    
+    var rows = document.querySelectorAll('#recipe-ingredients-container .recipe-ing-row');
+    if (!rows.length) { toast('Vui lòng thêm ít nhất 1 nguyên liệu', 'error'); return; }
+    
+    var items = [];
+    var valid = true;
+    
+    Array.prototype.forEach.call(rows, function (row) {
+        var ingId = parseInt(row.querySelector('.rec-ing-sel').value, 10);
+        var qtyAfter = parseFloat(row.querySelector('.rec-qty-after').value);
+        var batchSize = parseFloat(row.querySelector('.rec-batch-size').value) || 1;
+        var isConsumable = row.querySelector('.rec-consumable').checked;
+        
+        if (!ingId || isNaN(qtyAfter) || qtyAfter <= 0) {
+            valid = false;
+            return;
+        }
+        
+        items.push({
+            IngredientID: ingId,
+            QtyBeforeProcess: 0,
+            QtyAfterProcess: qtyAfter,
+            BatchSize: batchSize,
+            IsConsumable: isConsumable
+        });
+    });
+    
+    if (!valid) {
+        toast('Vui lòng nhập đầy đủ và hợp lệ các trường có dấu *', 'error');
+        return;
+    }
+    
+    var body = {
+        ProductVarientID: pv,
+        Items: items
+    };
+    
+    apiPost('/recipe/add-bulk', body)
         .then(function (r) {
             if (!r.ok) return r.text().then(function (t) { throw new Error(t || ('HTTP ' + r.status)); });
             return r.text();
         })
         .then(function () {
-            toast('Thêm công thức thành công!', 'success');
-            var q = document.getElementById('recipe-qty-after'); if (q) q.value = '';
+            toast('Lưu công thức thành công!', 'success');
+            var container = document.getElementById('recipe-ingredients-container');
+            if (container) container.innerHTML = '';
+            addRecipeIngredientRow(); // Add one default row back
             loadRecipes();
         })
-        .catch(function (e) { toast('Lỗi thêm công thức: ' + (e.message || ''), 'error'); });
+        .catch(function (e) {
+            toast('Lỗi lưu công thức: ' + (e.message || ''), 'error');
+        });
+}
+
+function loadRecipes() {
+    var tb = document.getElementById('recipe-tbody');
+    if (tb) tb.innerHTML = '<tr><td colspan="3" class="tbl-empty">Đang tải...</td></tr>';
+    apiGet('/recipe/get-all').then(function (r) { return r.ok ? r.json() : []; }).then(function (d) {
+        var list = pAsArray(d);
+        if (!tb) return;
+        if (!list.length) { tb.innerHTML = '<tr><td colspan="3" class="tbl-empty">Chưa có công thức</td></tr>'; return; }
+        
+        // Group by productVarientID
+        var grouped = {};
+        list.forEach(function (rc) {
+            var pvId = rc.productVarientID;
+            if (!grouped[pvId]) {
+                grouped[pvId] = {
+                    productVarientID: pvId,
+                    name: '',
+                    items: []
+                };
+            }
+            grouped[pvId].items.push(rc);
+        });
+        
+        var html = '';
+        Object.keys(grouped).forEach(function (pvId) {
+            var group = grouped[pvId];
+            var firstItem = group.items[0];
+            var pv = firstItem.productVarient || {};
+            var prod = pv.product || {};
+            var pName = (prod.productName ? prod.productName + ' - ' + (pv.size || '') : ('PV#' + pvId));
+            group.name = pName;
+            
+            var subRowsHtml = group.items.map(function (rc) {
+                var ing = rc.ingredient || {};
+                var consumable = rc.isConsumable || rc.IsConsumable;
+                var batchSize = rc.batchSize !== undefined ? rc.batchSize : (rc.BatchSize !== undefined ? rc.BatchSize : 1);
+                return '<tr>'
+                    + '<td style="font-weight:600">' + (ing.ingredientName || ('#' + rc.ingredientID)) + '</td>'
+                    + '<td><strong>' + pNum(rc.qtyAfterProcess) + '</strong> ' + (ing.ingredientUnit || '') + '</td>'
+                    + '<td>' + pNum(batchSize) + '</td>'
+                    + '<td>' + (consumable ? '<span class="badge badge-pending" style="background:#fef3c7;color:#d97706">Tiêu hao</span>' : '<span class="badge badge-active" style="background:#d1fae5;color:#065f46">Định lượng</span>') + '</td>'
+                    + '<td><button class="btn btn-sm" style="color:var(--red);background:none;border:none;cursor:pointer;padding:2px 8px" onclick="event.stopPropagation(); deleteRecipe(' + rc.ingredientID + ',' + rc.productVarientID + ')"><i class="ti-trash"></i></button></td>'
+                    + '</tr>';
+            }).join('');
+            
+            html += '<tr class="recipe-group-row" onclick="toggleRecipeDetail(this)" style="cursor:pointer">'
+                + '  <td style="font-weight:600;display:flex;align-items:center;gap:10px">'
+                + '    <span class="toggle-icon"><i class="ti-angle-right"></i></span> '
+                + '    ' + pName
+                + '  </td>'
+                + '  <td>' + group.items.length + ' nguyên liệu</td>'
+                + '  <td></td>'
+                + '</tr>'
+                + '<tr class="recipe-detail-row" style="display:none;background:#fcfcfc">'
+                + '  <td colspan="3" style="padding:10px 20px">'
+                + '    <div style="border:1px solid #eee;border-radius:8px;background:#fff;overflow:hidden">'
+                + '      <table class="sub-table" style="width:100%;border-collapse:collapse;font-size:12px">'
+                + '        <thead>'
+                + '          <tr style="background:#fafafa;border-bottom:1px solid #eee">'
+                + '            <th style="padding:8px 12px;text-align:left;color:#666">Nguyên liệu</th>'
+                + '            <th style="padding:8px 12px;text-align:left;color:#666">Qty/Đơn</th>'
+                + '            <th style="padding:8px 12px;text-align:left;color:#666">BatchSize</th>'
+                + '            <th style="padding:8px 12px;text-align:left;color:#666">Loại</th>'
+                + '            <th style="padding:8px 12px;width:50px"></th>'
+                + '          </tr>'
+                + '        </thead>'
+                + '        <tbody>' + subRowsHtml + '</tbody>'
+                + '      </table>'
+                + '    </div>'
+                + '  </td>'
+                + '</tr>';
+        });
+        
+        tb.innerHTML = html;
+    }).catch(function () { if (tb) tb.innerHTML = '<tr><td colspan="3" class="tbl-empty">Lỗi tải dữ liệu</td></tr>'; });
+}
+
+function toggleRecipeDetail(row) {
+    row.classList.toggle('expanded');
+    var nextRow = row.nextElementSibling;
+    if (nextRow && nextRow.classList.contains('recipe-detail-row')) {
+        if (nextRow.style.display === 'none') {
+            nextRow.style.display = '';
+        } else {
+            nextRow.style.display = 'none';
+        }
+    }
 }
 
 function deleteRecipe(ingredientID, productVarientID) {
-    if (!confirm('Xoá công thức này?')) return;
+    if (!confirm('Xoá nguyên liệu này khỏi công thức?')) return;
     apiDelete('/recipe/Delete/' + ingredientID + '/' + productVarientID)
         .then(function (r) {
             if (!r.ok) throw new Error('HTTP ' + r.status);
-            toast('Đã xoá công thức', 'success');
+            toast('Đã xoá nguyên liệu khỏi công thức', 'success');
             loadRecipes();
         })
         .catch(function (e) { toast('Lỗi xoá: ' + (e.message || ''), 'error'); });
@@ -834,19 +992,41 @@ function setReceivedExact() {
     setReceived(updateInvTotal());
 }
 
+function onPaymentMethodChange(val) {
+    var cashSection = document.getElementById('cash-payment-section');
+    if (cashSection) {
+        cashSection.style.display = val === 'BankTransfer' ? 'none' : '';
+    }
+}
+
 function createInvoice() {
     var customer   = document.getElementById('inv-customer').value.trim();
     var phone      = document.getElementById('inv-phone').value.trim();
     var type       = document.getElementById('inv-type').value;
     var tableNo    = document.getElementById('inv-table').value.trim();
-    var received   = parseInt(document.getElementById('inv-received').value) || 0;
     var storeId    = localStorage.getItem('storeId');
     var employeeId = localStorage.getItem('employeeId');
 
     if (!Object.keys(INV_CART).length) { toast('Vui lòng chọn ít nhất 1 món!', 'error'); return; }
 
+    var paymentMethod = 'Cash';
+    var pmRadio = document.querySelector('input[name="inv-payment-method"]:checked');
+    if (pmRadio) {
+        paymentMethod = pmRadio.value;
+    }
+
     var total  = updateInvTotal();
-    var change = received >= total ? received - total : 0;
+    var received = 0;
+    var change = 0;
+
+    if (paymentMethod === 'Cash') {
+        received = parseInt(document.getElementById('inv-received').value) || 0;
+        if (received < total) {
+            toast('Số tiền khách đưa không đủ!', 'error');
+            return;
+        }
+        change = received - total;
+    }
 
     var products = Object.keys(INV_CART).map(function (id) {
         return { ProductVarientID: parseInt(id, 10), qty: INV_CART[id] };
@@ -866,21 +1046,38 @@ function createInvoice() {
         TableID:        tableId,
         contact:        phone || null,
         customerName:   customer || null,
-        PaymentMethods: 'Cash',
-        MoneyReceived:  received,
-        MoneyGiveBack:  change,
+        PaymentMethods: paymentMethod,
+        MoneyReceived:  paymentMethod === 'BankTransfer' ? 0 : received,
+        MoneyGiveBack:  paymentMethod === 'BankTransfer' ? 0 : change,
         products:       products,
         EmployeID:      employeeId
     };
     if (ticketId) body.TicketID = ticketId;
 
     apiPost('/bill/create-dinein', body).then(function (r) {
-        if (!r.ok) return r.json().then(function (d) { throw new Error(d.message || 'Lỗi tạo hóa đơn'); });
+        if (!r.ok) {
+            return r.text().then(function (t) {
+                var errMsg = 'Lỗi tạo hóa đơn';
+                try {
+                    var parsed = JSON.parse(t);
+                    errMsg = parsed.message || parsed.Message || t;
+                } catch (e) {
+                    errMsg = t;
+                }
+                throw new Error(errMsg);
+            });
+        }
         return r.json();
-    }).then(function () {
+    }).then(function (data) {
         if (type === 'dine-in' && tableId) {
-            var t = TABLES.find(function (t) { return (t.TableID || t.id) == tableId; });
-            if (t) t.Status = 'Occupied';
+            var t = TABLES.find(function (t) {
+                var id = t.TableID || t.tableID || t.tableId || t.id || t.ID;
+                return id == tableId;
+            });
+            if (t) {
+                if (t.Status !== undefined) t.Status = 'Occupied';
+                if (t.status !== undefined) t.status = 'Occupied';
+            }
         }
 
         INV_CART = {};
@@ -894,7 +1091,22 @@ function createInvoice() {
         loadAvailableTables();
         renderInvMenu();
         loadInvoicesFromAPI(/*silent=*/false);
-        toast('Xuất hóa đơn thành công!');
+
+        // Reset payment method selector to cash
+        var defaultPm = document.querySelector('input[name="inv-payment-method"][value="Cash"]');
+        if (defaultPm) {
+            defaultPm.checked = true;
+            onPaymentMethodChange('Cash');
+        }
+
+        if (data && data.paymentMethods === 'BankTransfer' && data.qrUrl) {
+            showSePayQrModal(data, function () {
+                toast('Thanh toán chuyển khoản thành công!');
+                loadInvoicesFromAPI(/*silent=*/false);
+            });
+        } else {
+            toast('Xuất hóa đơn thành công!');
+        }
     }).catch(function (err) {
         toast(err.message || 'Lỗi tạo hóa đơn!', 'error');
     });
@@ -928,9 +1140,7 @@ function loadInvoicesFromAPI(silent) {
             var changes = b.billChange || b.BillChange || [];
             var createChange = changes.find(function (c) { return (c.status || c.Status) === 'Create'; }) || changes[0] || {};
             var createdAt    = createChange.changeAt || createChange.ChangeAt || '';
-            var timeStr      = createdAt
-                ? new Date(createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-                : '';
+            var timeStr      = createdAt ? fmtVnTime(createdAt) : '';
             return {
                 id:       String(billId).slice(0, 8).toUpperCase(),
                 billID:   billId,
@@ -1008,11 +1218,14 @@ function loadAvailableTables() {
             if (tables.length) TABLES = tables;
             sel.innerHTML = '<option value="">-- Chọn bàn --</option>';
             tables.filter(function (t) {
-                return (t.Status || t.status || '').toLowerCase() === 'available';
+                var status = t.Status || t.status || '';
+                return status.toLowerCase() === 'available';
             }).forEach(function (t) {
                 var opt = document.createElement('option');
-                opt.value = t.TableID || t.id;
-                opt.textContent = 'Bàn ' + (t.TableNumber || t.TableID);
+                var id = t.TableID || t.tableID || t.tableId || t.id || t.ID;
+                var num = t.TableNumber || t.tableNumber || t.num || id;
+                opt.value = id;
+                opt.textContent = 'Bàn ' + num;
                 sel.appendChild(opt);
             });
         })
@@ -1039,17 +1252,22 @@ function renderTablesLocal() {
     grid.innerHTML = TABLES.map(function (t) {
         var status    = t.Status || t.status || 'Available';
         var statusKey = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
-        var tableId   = t.TableID || t.id;
+        var tableId   = t.TableID || t.tableID || t.tableId || t.id || t.ID;
+        var tableNum  = t.TableNumber || t.tableNumber || t.num || tableId;
+        var capacity  = t.SeatingCapacity || t.seatingCapacity || t.Capacity || t.capacity || 0;
         return '<div class="table-card ' + status.toLowerCase() + '" onclick="cycleTableStatus(\'' + tableId + '\')">'
-            + '<div class="tc-num">B' + (t.TableNumber || t.num || tableId) + '</div>'
-            + '<div class="tc-cap"><i class="ti-user"></i> ' + (t.SeatingCapacity || t.capacity || 0) + ' người</div>'
+            + '<div class="tc-num">B' + tableNum + '</div>'
+            + '<div class="tc-cap"><i class="ti-user"></i> ' + capacity + ' người</div>'
             + '<div class="tc-status">' + (TABLE_STATUS_LABEL[statusKey] || TABLE_STATUS_LABEL[status] || status) + '</div>'
             + '</div>';
     }).join('');
 }
 
 function cycleTableStatus(tableId) {
-    var t = TABLES.find(function (t) { return (t.TableID || t.id) == tableId; });
+    var t = TABLES.find(function (t) {
+        var id = t.TableID || t.tableID || t.tableId || t.id || t.ID;
+        return id == tableId;
+    });
     if (!t) return;
     var status    = t.Status || t.status || 'Available';
     var statusKey = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
@@ -1058,9 +1276,11 @@ function cycleTableStatus(tableId) {
 
     apiPut('/diningtable/update', { tableID: tableId, status: newStatus }).then(function (r) {
         if (!r.ok) throw new Error();
-        t.Status = newStatus;
+        if (t.Status !== undefined) t.Status = newStatus;
+        if (t.status !== undefined) t.status = newStatus;
         renderTablesLocal();
-        toast('Bàn B' + (t.TableNumber || t.num || tableId) + ' → ' + (TABLE_STATUS_LABEL[newStatus] || newStatus));
+        var tableNum = t.TableNumber || t.tableNumber || t.num || tableId;
+        toast('Bàn B' + tableNum + ' → ' + (TABLE_STATUS_LABEL[newStatus] || newStatus));
     }).catch(function () {
         toast('Lỗi cập nhật trạng thái bàn!', 'error');
     });
@@ -1122,13 +1342,17 @@ function loadOrderedPOs() {
         if (!ordered.length) ordered = MOCK_PO_LIST;
         if (tbody) tbody.innerHTML = ordered.map(function (po) {
             var poId     = po.POID || po.poid;
-            var supplier = (po.Supplier && (po.Supplier.Name || po.Supplier.name)) || '—';
+            var supplierObj = po.Supplier || po.supplier;
+            var supplier = (supplierObj && (supplierObj.SupplierName || supplierObj.supplierName || supplierObj.Name || supplierObj.name)) || '—';
             var details  = po.PODetail || po.poDetail || [];
             var items    = details.map(function (d) {
-                return (d.Ingredient && (d.Ingredient.Name || d.Ingredient.name)) || ('NL ' + d.IngredientID);
+                var ing = d.Ingredient || d.ingredient;
+                var ingId = d.IngredientID || d.ingredientID || '—';
+                return (ing && (ing.IngredientName || ing.ingredientName || ing.Name || ing.name)) || ('NL ' + ingId);
             }).join(', ') || '—';
             var total = po.Total || po.total || 0;
-            var tax   = po.TaxRate !== undefined ? (po.TaxRate * 100).toFixed(0) + '%' : '—';
+            var taxRate = po.TaxRate !== undefined ? po.TaxRate : po.taxRate;
+            var tax   = taxRate !== undefined ? (taxRate * 100).toFixed(0) + '%' : '—';
             return '<tr>'
                 + '<td><strong style="color:var(--primary)">' + String(poId).slice(0, 8) + '...</strong></td>'
                 + '<td><strong>' + supplier + '</strong></td>'
@@ -1142,13 +1366,17 @@ function loadOrderedPOs() {
     }).catch(function () {
         if (tbody) tbody.innerHTML = MOCK_PO_LIST.map(function (po) {
             var poId     = po.POID || po.poid;
-            var supplier = (po.Supplier && (po.Supplier.Name || po.Supplier.name)) || '—';
+            var supplierObj = po.Supplier || po.supplier;
+            var supplier = (supplierObj && (supplierObj.SupplierName || supplierObj.supplierName || supplierObj.Name || supplierObj.name)) || '—';
             var details  = po.PODetail || po.poDetail || [];
             var items    = details.map(function (d) {
-                return (d.Ingredient && (d.Ingredient.Name || d.Ingredient.name)) || ('NL ' + d.IngredientID);
+                var ing = d.Ingredient || d.ingredient;
+                var ingId = d.IngredientID || d.ingredientID || '—';
+                return (ing && (ing.IngredientName || ing.ingredientName || ing.Name || ing.name)) || ('NL ' + ingId);
             }).join(', ') || '—';
             var total = po.Total || po.total || 0;
-            var tax   = po.TaxRate !== undefined ? (po.TaxRate * 100).toFixed(0) + '%' : '—';
+            var taxRate = po.TaxRate !== undefined ? po.TaxRate : po.taxRate;
+            var tax   = taxRate !== undefined ? (taxRate * 100).toFixed(0) + '%' : '—';
             return '<tr>'
                 + '<td><strong style="color:var(--primary)">' + String(poId).slice(-8) + '</strong></td>'
                 + '<td><strong>' + supplier + '</strong></td>'
@@ -1169,14 +1397,16 @@ function whSelectPO(poId) {
     }).then(function (data) {
         WH_PO_DATA       = data;
         WH_PO_DATA._poId = poId;
-        renderWhStep2(data);
-        whGoStep(2);
+        loadWhWarehouses(function () {
+            renderWhStep2(data);
+            whGoStep(2);
+        });
     }).catch(function (err) { toast(err.message || 'Lỗi tải thông tin PO!', 'error'); });
 }
 
 function renderWhStep2(data) {
     var info     = document.getElementById('wh-po-info');
-    var lines    = data.Items || data.items || [];
+    var lines    = data.PODetailLines || data.poDetailLines || data.Items || data.items || [];
     var supplier = data.SupplierName || data.supplierName
         || (data.Supplier && (data.Supplier.Name || data.Supplier.name)) || '—';
     if (info) info.innerHTML = '<strong>PO:</strong> ' + String(WH_PO_DATA._poId).slice(0, 8)
@@ -1190,24 +1420,68 @@ function renderWhStep2(data) {
         container.innerHTML = '<p style="color:var(--muted);padding:10px">Không có nguyên liệu nào trong PO này.</p>';
         return;
     }
-    container.innerHTML = lines.map(function (item, i) {
+
+    var tableHeader = '<div class="tbl-wrap"><table><thead><tr>'
+        + '<th>Nguyên liệu</th>'
+        + '<th>SL yêu cầu</th>'
+        + '<th>SL thực nhận</th>'
+        + '<th>SL tốt (GoodQty)</th>'
+        + '<th>Đơn giá (đ/kg)</th>'
+        + '<th>Đưa vào kho</th>'
+        + '<th style="text-align:right">Thành tiền</th>'
+        + '</tr></thead><tbody>';
+
+    var tableRows = lines.map(function (item, i) {
         var ingId   = item.IngredientID || item.ingredientID;
         var ingName = (item.Ingredient && (item.Ingredient.Name || item.Ingredient.name))
             || item.IngredientName || item.ingredientName || ('Nguyên liệu ' + ingId);
-        var qty = item.Quantity || item.quantity || 0;
-        var up  = item.UnitPriceExpected || item.unitPriceExpected || 0;
-        return '<div class="receipt-line">'
-            + '<div class="receipt-line-title">' + ingName
-            + ' <span style="font-weight:400;color:var(--muted);font-size:12px">(ID: ' + ingId + ')</span></div>'
-            + '<div class="form-row-3">'
-            + '<div class="form-group"><label>SL thực nhận *</label>'
-            + '<input type="number" id="rl-qty-' + i + '" value="' + qty + '" step="0.1" min="0"></div>'
-            + '<div class="form-group"><label>SL tốt (GoodQty) *</label>'
-            + '<input type="number" id="rl-gq-' + i + '" value="' + qty + '" step="0.1" min="0"></div>'
-            + '<div class="form-group"><label>Đơn giá thực (đ/kg) *</label>'
-            + '<input type="number" id="rl-up-' + i + '" value="' + up + '" min="0"></div>'
-            + '</div></div>';
+        var qtyExpected = item.QuantityExpected || item.quantityExpected || item.Quantity || item.quantity || 0;
+        var up  = item.UnitPriceExpected || item.unitPriceExpected || item.UnitPrice || item.unitPrice || 0;
+        var lineTotal = qtyExpected * up;
+
+        var whOptions = WH_WAREHOUSES.map(function (w) {
+            return '<option value="' + (w.WarehouseID || w.warehouseID) + '">'
+                + (w.Name || w.name || 'Kho ' + (w.WarehouseID || w.warehouseID)) + '</option>';
+        }).join('') || '<option value="">-- Không có kho --</option>';
+
+        return '<tr>'
+            + '<td><strong>' + ingName + '</strong> <span style="font-size:11px;color:var(--muted)">(ID: ' + ingId + ')</span></td>'
+            + '<td>' + qtyExpected + '</td>'
+            + '<td><input type="number" id="rl-qty-' + i + '" value="' + qtyExpected + '" step="0.1" min="0" oninput="updateWhReceiptTotals()" style="width:100px;padding:6px;border:1px solid var(--border);border-radius:4px;"></td>'
+            + '<td><input type="number" id="rl-gq-' + i + '" value="' + qtyExpected + '" step="0.1" min="0" style="width:100px;padding:6px;border:1px solid var(--border);border-radius:4px;"></td>'
+            + '<td><input type="number" id="rl-up-' + i + '" value="' + up + '" min="0" readonly style="background:#f3f4f6;cursor:not-allowed;width:120px;padding:6px;border:1px solid var(--border);border-radius:4px;"></td>'
+            + '<td><select id="rl-wh-' + i + '" style="padding:6px;border:1px solid var(--border);border-radius:4px;">' + whOptions + '</select></td>'
+            + '<td style="text-align:right;font-weight:700;color:var(--primary)" id="rl-total-' + i + '">' + parseInt(lineTotal).toLocaleString('vi-VN') + 'đ</td>'
+            + '</tr>';
     }).join('');
+
+    var tableFooter = '</tbody></table></div>'
+        + '<div style="margin-top:15px;text-align:right;font-size:16px;">'
+        + '<strong>Tổng tiền phải trả: <span id="wh-receipt-grand-total" style="color:var(--primary);font-size:18px">0đ</span></strong>'
+        + '</div>';
+
+    container.innerHTML = tableHeader + tableRows + tableFooter;
+    updateWhReceiptTotals();
+}
+
+function updateWhReceiptTotals() {
+    var lines = WH_RECEIPT_LINES_DATA;
+    var grandTotal = 0;
+    lines.forEach(function (item, i) {
+        var up = item.UnitPriceExpected || item.unitPriceExpected || item.UnitPrice || item.unitPrice || 0;
+        var qtyInput = document.getElementById('rl-qty-' + i);
+        var qty = parseFloat(qtyInput ? qtyInput.value : 0) || 0;
+        var lineTotal = qty * up;
+        grandTotal += lineTotal;
+        var totalEl = document.getElementById('rl-total-' + i);
+        if (totalEl) {
+            totalEl.textContent = parseInt(lineTotal).toLocaleString('vi-VN') + 'đ';
+        }
+    });
+    var grandEl = document.getElementById('wh-receipt-grand-total');
+    if (grandEl) {
+        grandEl.textContent = parseInt(grandTotal).toLocaleString('vi-VN') + 'đ';
+    }
 }
 
 function submitCreateReceipt() {
@@ -1227,7 +1501,18 @@ function submitCreateReceipt() {
 
     apiPost('/receipt/create', { POID: poId, EmployeeID: empId, ReceiptLines: receiptLines })
         .then(function (r) {
-            if (!r.ok) return r.json().then(function (d) { throw new Error(d.message || 'Lỗi tạo phiếu nhập'); });
+            if (!r.ok) {
+                return r.text().then(function (t) {
+                    var errMsg = 'Lỗi tạo phiếu nhập';
+                    try {
+                        var parsed = JSON.parse(t);
+                        errMsg = parsed.message || parsed.Message || t;
+                    } catch (e) {
+                        errMsg = t;
+                    }
+                    throw new Error(errMsg);
+                });
+            }
             return r.json();
         }).then(function (d) {
             WH_RECEIPT_ID = d.ReceiptID || d.receiptID || (d.data && (d.data.ReceiptID || d.data.receiptID));
@@ -1254,7 +1539,7 @@ function renderWhStep3() {
     var lines     = WH_RECEIPT_LINES_DATA;
     var container = document.getElementById('wh-confirm-lines');
     if (!container) return;
-    var dateStamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    var dateStamp = vnTodayISO().replace(/-/g, '');
     container.innerHTML = lines.map(function (item, i) {
         var ingId   = item.IngredientID || item.ingredientID;
         var ingName = (item.Ingredient && (item.Ingredient.Name || item.Ingredient.name))
@@ -1297,7 +1582,18 @@ function submitConfirmReceipt() {
 
     apiPost('/receipt/confirm', { ReceiptID: WH_RECEIPT_ID, EmployeeID: empId, Lines: confirmLines })
         .then(function (r) {
-            if (!r.ok) return r.json().then(function (d) { throw new Error(d.message || 'Lỗi xác nhận'); });
+            if (!r.ok) {
+                return r.text().then(function (t) {
+                    var errMsg = 'Lỗi xác nhận';
+                    try {
+                        var parsed = JSON.parse(t);
+                        errMsg = parsed.message || parsed.Message || t;
+                    } catch (e) {
+                        errMsg = t;
+                    }
+                    throw new Error(errMsg);
+                });
+            }
             return r.json();
         }).then(function () {
             toast('Xác nhận nhập kho thành công! Batch đã được tạo.');
@@ -1330,34 +1626,77 @@ function renderWhHistoryLocal() {
     tbody.innerHTML = WAREHOUSE_LOG.map(function (r) {
         var id     = r.ReceiptID || r.receiptID || '—';
         var poId   = r.POID      || r.poid      || '—';
-        var emp    = (r.Employee && (r.Employee.FullName || r.Employee.fullName)) || '—';
+        var empObj = r.Employee  || r.employee;
+        var emp    = (empObj && (empObj.FullName || empObj.fullName)) || '—';
         var date   = r.DateReceive || r.dateReceive || '—';
-        var status = r.Status     || r.status     || '—';
-        var badgeCls = status === 'Confirmed' ? 'badge-green' : 'badge-yellow';
+        var confirmedAt = r.ConfirmedAt || r.confirmedAt;
+        var status = r.Status     || r.status     || (confirmedAt ? 'Confirmed' : 'Pending');
+        var statusText = status === 'Confirmed' ? 'Đã xác nhận' : 'Chờ xác nhận';
+        var badgeCls   = status === 'Confirmed' ? 'badge-green' : 'badge-yellow';
         return '<tr>'
             + '<td style="color:var(--primary);font-weight:700;font-size:12px">' + String(id).slice(0, 12) + '...</td>'
             + '<td style="font-size:12px;color:var(--muted)">' + String(poId).slice(0, 12) + '...</td>'
             + '<td>' + emp + '</td>'
             + '<td style="font-size:12px;color:var(--muted)">' + String(date).slice(0, 10) + '</td>'
-            + '<td><span class="badge ' + badgeCls + '">' + status + '</span></td>'
+            + '<td><span class="badge ' + badgeCls + '">' + statusText + '</span></td>'
             + '</tr>';
     }).join('');
 }
 
 // BIẾN ĐỘNG KHO (local only – không có API endpoint)
+var SM_INGREDIENTS = [];
+
+// Nạp danh sách nguyên liệu vào dropdown #sm-item (thay cho nhập text).
+function loadStockMoveIngredients() {
+    var sel = document.getElementById('sm-item');
+    if (!sel) return;
+    function fill(list) {
+        SM_INGREDIENTS = list || [];
+        if (!SM_INGREDIENTS.length) {
+            sel.innerHTML = '<option value="">-- Chưa có nguyên liệu --</option>';
+            return;
+        }
+        sel.innerHTML = '<option value="">-- Chọn nguyên liệu --</option>'
+            + SM_INGREDIENTS.map(function (i) {
+                var unit = i.ingredientUnit || i.IngredientUnit || '';
+                return '<option value="' + i.ingredientID + '" data-unit="' + unit + '">'
+                    + (i.ingredientName || ('#' + i.ingredientID)) + '</option>';
+            }).join('');
+    }
+    // Dùng lại cache nếu đã nạp (vd từ tab Sơ chế), tránh gọi API thừa.
+    if (PROC_INGREDIENTS && PROC_INGREDIENTS.length) { fill(PROC_INGREDIENTS); return; }
+    apiGet('/ingredient/get-all')
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (d) { fill(pAsArray(d)); })
+        .catch(function () { fill([]); });
+}
+
+// Khi chọn nguyên liệu → tự điền đơn vị (đơn vị là thuộc tính cố định của nguyên liệu).
+function onStockMoveIngredientChange() {
+    var sel = document.getElementById('sm-item');
+    var unitEl = document.getElementById('sm-unit');
+    if (!sel || !unitEl) return;
+    var opt = sel.selectedOptions && sel.selectedOptions[0];
+    unitEl.value = (opt && opt.getAttribute('data-unit')) || '';
+}
+
 function addStockMovement() {
-    var item = document.getElementById('sm-item').value.trim();
+    var sel  = document.getElementById('sm-item');
+    var opt  = sel && sel.selectedOptions && sel.selectedOptions[0];
+    var item = opt ? opt.textContent.trim() : '';
     var type = document.getElementById('sm-type').value;
     var qty  = document.getElementById('sm-qty').value;
     var unit = document.getElementById('sm-unit').value;
     var note = document.getElementById('sm-note').value.trim();
 
-    if (!item || !qty || !note) { toast('Vui lòng điền đầy đủ thông tin!', 'error'); return; }
+    if (!sel || !sel.value) { toast('Vui lòng chọn nguyên liệu!', 'error'); return; }
+    if (!qty || !note) { toast('Vui lòng điền đầy đủ thông tin!', 'error'); return; }
 
     var sign = (type === 'import') ? '+' : (type === 'adjust' ? '±' : '−');
-    STOCK_MOVEMENTS.unshift({ item: item, type: type, qty: sign + qty + ' ' + unit, note: note, time: new Date().toLocaleString('vi-VN') });
+    STOCK_MOVEMENTS.unshift({ item: item, type: type, qty: sign + qty + ' ' + unit, note: note, time: fmtVnFull(new Date()) });
 
-    document.getElementById('sm-item').value = '';
+    sel.value = '';
+    document.getElementById('sm-unit').value = '';
     document.getElementById('sm-qty').value  = '';
     document.getElementById('sm-note').value = '';
     renderStockMove();
@@ -1365,24 +1704,291 @@ function addStockMovement() {
 }
 
 function renderStockMove() {
+    loadStockMoveIngredients();
     var tbody = document.getElementById('stockmove-tbody');
-    if (!STOCK_MOVEMENTS.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="tbl-empty">Chưa có dữ liệu</td></tr>';
-        return;
+    if (!tbody) return;
+    
+    var storeId = localStorage.getItem('storeId') || 0;
+    var url = '/StockMovement/get-all';
+    if (storeId > 0) {
+        url += '?storeID=' + storeId;
     }
-    tbody.innerHTML = STOCK_MOVEMENTS.map(function (s) {
-        var badgeCls = MOVE_BADGE[s.type] || 'badge-gray';
-        return '<tr>'
-            + '<td><strong>' + s.item + '</strong></td>'
-            + '<td><span class="badge ' + badgeCls + '">' + MOVE_LABEL[s.type] + '</span></td>'
-            + '<td><strong>' + s.qty + '</strong></td>'
-            + '<td style="font-size:12px;color:var(--muted)">' + s.note + '</td>'
-            + '<td style="font-size:12px;color:var(--muted)">' + s.time + '</td>'
-            + '</tr>';
-    }).join('');
+    
+    apiGet(url)
+    .then(function(r) { return r.ok ? r.json() : []; })
+    .then(function(data) {
+        var dbMovs = Array.isArray(data) ? data : [];
+        
+        if (!dbMovs.length && !STOCK_MOVEMENTS.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="tbl-empty">Chưa có dữ liệu biến động kho</td></tr>';
+            return;
+        }
+        
+        var html = '';
+        
+        // 1. Render local movements
+        STOCK_MOVEMENTS.forEach(function(s) {
+            var badgeCls = MOVE_BADGE[s.type] || 'badge-gray';
+            html += '<tr>'
+                + '<td><strong>' + s.item + '</strong></td>'
+                + '<td><span class="badge ' + badgeCls + '">' + MOVE_LABEL[s.type] + '</span></td>'
+                + '<td><strong>' + s.qty + '</strong></td>'
+                + '<td style="font-size:12px;color:var(--muted)">' + s.note + '</td>'
+                + '<td style="font-size:12px;color:var(--muted)">' + s.time + '</td>'
+                + '<td style="text-align:center">—</td>'
+                + '</tr>';
+        });
+        
+        // 2. Render database movements
+        dbMovs.forEach(function(m) {
+            var movementType = m.movementType || '';
+            var typeLabel = '';
+            var badgeClass = '';
+            
+            if (movementType === 'PurchaseReceipt') {
+                typeLabel = 'Nhập kho';
+                badgeClass = 'badge-green';
+            } else if (movementType === 'Consumption') {
+                typeLabel = 'Chế biến';
+                badgeClass = 'badge-orange';
+            } else if (movementType === 'Waste') {
+                typeLabel = 'Hao hụt';
+                badgeClass = 'badge-red';
+            } else if (movementType === 'Processing') {
+                typeLabel = 'Sơ chế';
+                badgeClass = 'badge-blue';
+            } else {
+                typeLabel = 'Điều chỉnh';
+                badgeClass = 'badge-blue';
+            }
+            
+            var formattedDate = m.timeStamp ? m.timeStamp.replace('T', ' ').slice(0, 19) : '—';
+            var qtyChangeStr = (m.qtyChange > 0 ? '+' : '') + m.qtyChange + ' ' + (m.ingredientUnit || '');
+            var reasonOrNote = m.reason || m.note || '—';
+            
+            var detailBtn = '—';
+            if (m.referenceID) {
+                detailBtn = '<button class="btn-detail-toggle" onclick="toggleMovDetails(\'' + m.stockMovementID + '\', \'' + m.referenceType + '\', \'' + m.referenceID + '\', this)">Chi tiết</button>';
+            }
+            
+            html += '<tr id="mov-row-' + m.stockMovementID + '">'
+                + '<td><strong>' + (m.ingredientName || '—') + '</strong></td>'
+                + '<td><span class="badge ' + badgeClass + '">' + typeLabel + '</span></td>'
+                + '<td><strong>' + qtyChangeStr + '</strong></td>'
+                + '<td style="font-size:12px;color:var(--muted)">' + reasonOrNote + '</td>'
+                + '<td style="font-size:12px;color:var(--muted)">' + formattedDate + '</td>'
+                + '<td style="text-align:center">' + detailBtn + '</td>'
+                + '</tr>'
+                + '<tr class="detail-row" id="detail-row-' + m.stockMovementID + '" style="display:none;">'
+                + '<td colspan="6"><div class="mov-detail-content" id="detail-content-' + m.stockMovementID + '">Đang tải chi tiết...</div></td>'
+                + '</tr>';
+        });
+        
+        tbody.innerHTML = html;
+    }).catch(function(err) {
+        tbody.innerHTML = '<tr><td colspan="6" class="tbl-empty" style="color:var(--red)">Lỗi tải dữ liệu: ' + (err.message || '') + '</td></tr>';
+    });
 }
 
+window.toggleMovDetails = function(movId, refType, refId, btn) {
+    var detailRow = document.getElementById('detail-row-' + movId);
+    var detailContent = document.getElementById('detail-content-' + movId);
+    if (!detailRow || !detailContent) return;
+    
+    if (detailRow.style.display !== 'none') {
+        detailRow.style.display = 'none';
+        btn.textContent = 'Chi tiết';
+        return;
+    }
+    
+    detailRow.style.display = 'table-row';
+    btn.textContent = 'Thu gọn';
+    
+    detailContent.innerHTML = '<div class="mov-detail-card">Đang tải thông tin chi tiết...</div>';
+    
+    if (refType === 'Bill') {
+        apiGet('/bill/get/' + refId)
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(bill) {
+            if (!bill) {
+                detailContent.innerHTML = '<div class="mov-detail-card" style="color:var(--red)">Không tìm thấy thông tin hóa đơn.</div>';
+                return;
+            }
+            
+            var pMethod = bill.paymentMethods || bill.PaymentMethods || 'Cash';
+            var pStatus = bill.paymentStatus || bill.PaymentStatus || 'Pending';
+            var pMethodText = pMethod === 'BankTransfer' ? 'Chuyển khoản' : (pMethod === 'Card' ? 'Thẻ' : 'Tiền mặt');
+            var pStatusText = pStatus === 'Paid' ? 'Đã thanh toán' : 'Chưa thanh toán';
+            var customerName = (bill.user && (bill.user.fullName || bill.user.FullName)) || 'Khách vãng lai';
+            var storeName = (bill.store && (bill.store.storeName || bill.store.StoreName)) || 'Chi nhánh';
+            var tableNum = bill.tableID || bill.tableId || '—';
+            
+            var detailsListHtml = (bill.billDetail || []).map(function(d) {
+                var pVar = d.productVarient || d.ProductVarient || {};
+                var prod = pVar.product || pVar.Product || {};
+                var prodName = prod.productName || prod.ProductName || ('Mã ' + pVar.productID);
+                var sizeText = (pVar.size && pVar.size !== 'Default') ? ' (' + pVar.size + ')' : '';
+                return '<tr>'
+                    + '<td>' + prodName + sizeText + '</td>'
+                    + '<td style="text-align:center">' + d.quantity + '</td>'
+                    + '<td style="text-align:right">' + Number(d.price).toLocaleString('vi-VN') + ' đ</td>'
+                    + '<td style="text-align:right;font-weight:700">' + Number(d.inlineTotal).toLocaleString('vi-VN') + ' đ</td>'
+                    + '</tr>';
+            }).join('');
+            
+            detailContent.innerHTML = 
+                '<div class="mov-detail-card">'
+                + '  <div class="mov-detail-title">Chi Tiết Đơn Hàng #' + refId.slice(0,8).toUpperCase() + '</div>'
+                + '  <div class="mov-detail-grid">'
+                + '    <div class="mov-detail-label">Cửa hàng:</div><div class="mov-detail-value">' + storeName + '</div>'
+                + '    <div class="mov-detail-label">Khách hàng:</div><div class="mov-detail-value">' + customerName + '</div>'
+                + '    <div class="mov-detail-label">Bàn:</div><div class="mov-detail-value">' + tableNum + '</div>'
+                + '    <div class="mov-detail-label">Hình thức:</div><div class="mov-detail-value">' + pMethodText + ' (' + pStatusText + ')</div>'
+                + '    <div class="mov-detail-label">Tổng cộng:</div><div class="mov-detail-value" style="color:var(--primary)">' + Number(bill.total).toLocaleString('vi-VN') + ' đ</div>'
+                + '  </div>'
+                + '  <table class="mov-detail-table">'
+                + '    <thead>'
+                + '      <tr><th>Món ăn</th><th style="text-align:center">SL</th><th style="text-align:right">Đơn giá</th><th style="text-align:right">Thành tiền</th></tr>'
+                + '    </thead>'
+                + '    <tbody>' + (detailsListHtml || '<tr><td colspan="4" class="tbl-empty">Không có sản phẩm</td></tr>') + '</tbody>'
+                + '  </table>'
+                + '</div>';
+        })
+        .catch(function(err) {
+            detailContent.innerHTML = '<div class="mov-detail-card" style="color:var(--red)">Lỗi tải chi tiết hóa đơn: ' + err.message + '</div>';
+        });
+    } else if (refType === 'GoodsReceipt') {
+        apiGet('/receipt/getid/' + refId)
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(receipt) {
+            if (!receipt) {
+                detailContent.innerHTML = '<div class="mov-detail-card" style="color:var(--red)">Không tìm thấy thông tin phiếu nhập kho.</div>';
+                return;
+            }
+            
+            var supplierName = (receipt.supplier && (receipt.supplier.supplierName || receipt.supplier.SupplierName)) || 'Nhà cung cấp';
+            var employeeName = (receipt.employee && (receipt.employee.fullName || receipt.employee.FullName)) || 'Nhân viên';
+            var storeName = (receipt.store && (receipt.store.storeName || receipt.store.StoreName)) || 'Chi nhánh';
+            var poText = (receipt.poid || receipt.poID) ? ('PO #' + (receipt.poid || receipt.poID).slice(0, 8).toUpperCase()) : 'Trực tiếp (Không PO)';
+            
+            var detailsListHtml = (receipt.receiptDetail || []).map(function(d) {
+                var ing = d.ingredient || d.Ingredient || {};
+                var ingName = ing.ingredientName || ing.IngredientName || ('Mã ' + d.ingredientID);
+                var unitText = ing.ingredientUnit || ing.IngredientUnit || '';
+                return '<tr>'
+                    + '<td>' + ingName + '</td>'
+                    + '<td style="text-align:center">' + d.quantity + '</td>'
+                    + '<td style="text-align:center;color:var(--green);font-weight:700">' + d.goodQuantity + '</td>'
+                    + '<td>' + unitText + '</td>'
+                    + '<td style="text-align:right">' + Number(d.unitPrice).toLocaleString('vi-VN') + ' đ</td>'
+                    + '<td style="text-align:right;font-weight:700">' + Number(d.goodQuantity * d.unitPrice).toLocaleString('vi-VN') + ' đ</td>'
+                    + '</tr>';
+            }).join('');
+            
+            var totalAmount = (receipt.receiptDetail || []).reduce(function(acc, d) {
+                return acc + (d.goodQuantity * d.unitPrice);
+            }, 0);
+            
+            detailContent.innerHTML = 
+                '<div class="mov-detail-card">'
+                + '  <div class="mov-detail-title">Chi Tiết Phiếu Nhập #' + refId.slice(0,8).toUpperCase() + '</div>'
+                + '  <div class="mov-detail-grid">'
+                + '    <div class="mov-detail-label">Cửa hàng:</div><div class="mov-detail-value">' + storeName + '</div>'
+                + '    <div class="mov-detail-label">Nhà cung cấp:</div><div class="mov-detail-value">' + supplierName + '</div>'
+                + '    <div class="mov-detail-label">Người nhập:</div><div class="mov-detail-value">' + employeeName + '</div>'
+                + '    <div class="mov-detail-label">Đơn PO:</div><div class="mov-detail-value">' + poText + '</div>'
+                + '    <div class="mov-detail-label">Tổng giá trị:</div><div class="mov-detail-value" style="color:var(--primary)">' + Number(totalAmount).toLocaleString('vi-VN') + ' đ</div>'
+                + '  </div>'
+                + '  <table class="mov-detail-table">'
+                + '    <thead>'
+                + '      <tr><th>Nguyên liệu</th><th style="text-align:center">Nhập</th><th style="text-align:center">Đạt</th><th>Đơn vị</th><th style="text-align:right">Đơn giá</th><th style="text-align:right">Thành tiền</th></tr>'
+                + '    </thead>'
+                + '    <tbody>' + (detailsListHtml || '<tr><td colspan="6" class="tbl-empty">Không có chi tiết nhập kho</td></tr>') + '</tbody>'
+                + '  </table>'
+                + '</div>';
+        })
+        .catch(function(err) {
+            detailContent.innerHTML = '<div class="mov-detail-card" style="color:var(--red)">Lỗi tải chi tiết phiếu nhập: ' + err.message + '</div>';
+        });
+    } else {
+        detailContent.innerHTML = '<div class="mov-detail-card">Không hỗ trợ hiển thị chi tiết cho loại tham chiếu này.</div>';
+    }
+};
+
 // GIAO HÀNG
+// Thứ tự theo enum DeliveryStatus của backend (Pending=0 … Failed=6) — chỉ cho phép
+// chuyển tới trạng thái có chỉ số lớn hơn (forward-only), khớp ràng buộc phía server.
+var DELIVERY_STATUSES = ['Pending', 'Confirmed', 'Preparing', 'OnTheWay', 'Delivered', 'Cancelled', 'Failed'];
+var DELIVERY_STATUS_LABEL = {
+    Pending: 'Chờ giao', Confirmed: 'Đã xác nhận', Preparing: 'Đang chuẩn bị',
+    OnTheWay: 'Đang giao', Delivered: 'Đã giao', Cancelled: 'Đã huỷ', Failed: 'Thất bại'
+};
+var DELIVERY_STATUS_BADGE = {
+    Pending: 'badge-yellow', Confirmed: 'badge-blue', Preparing: 'badge-blue',
+    OnTheWay: 'badge-orange', Delivered: 'badge-green', Cancelled: 'badge-red', Failed: 'badge-red'
+};
+// Trạng thái kết thúc — không cho phép thay đổi nữa.
+var DELIVERY_TERMINAL = ['Delivered', 'Cancelled', 'Failed'];
+
+// Phương thức & trạng thái thanh toán (khớp enum PaymentMethods / PaymentStatus của backend).
+var PAYMENT_METHOD_LABEL = { Cash: 'Tiền mặt', Card: 'Thẻ', BankTransfer: 'Chuyển khoản' };
+var PAYMENT_STATUS_LABEL = { Paid: 'Đã thanh toán', Pending: 'Chưa thanh toán', Failed: 'Thanh toán lỗi' };
+var PAYMENT_STATUS_BADGE = { Paid: 'badge-green', Pending: 'badge-yellow', Failed: 'badge-red' };
+
+// Khớp giá trị enum (không phân biệt hoa/thường) với key trong map.
+function payKey(v, map) {
+    if (!v) return '';
+    if (map[v]) return v;
+    var s = String(v).toLowerCase();
+    for (var k in map) { if (k.toLowerCase() === s) return k; }
+    return '';
+}
+
+// Ô "Thanh toán": phương thức + badge trạng thái đã/chưa thanh toán.
+function paymentCell(bill) {
+    bill = bill || {};
+    var mKey = payKey(bill.paymentMethods || bill.PaymentMethods, PAYMENT_METHOD_LABEL);
+    var sKey = payKey(bill.paymentStatus  || bill.PaymentStatus,  PAYMENT_STATUS_LABEL);
+    var method = PAYMENT_METHOD_LABEL[mKey] || '—';
+    var sLabel = PAYMENT_STATUS_LABEL[sKey] || '';
+    var sBadge = PAYMENT_STATUS_BADGE[sKey] || 'badge-gray';
+    return '<div style="font-size:12px;font-weight:600">' + method + '</div>'
+        + (sLabel ? '<span class="badge ' + sBadge + '" style="margin-top:3px">' + sLabel + '</span>' : '');
+}
+
+// Đưa status (chuỗi hoa/thường tuỳ server) về đúng tên enum chuẩn.
+function canonDeliveryStatus(raw) {
+    if (!raw) return '';
+    var s = String(raw).toLowerCase();
+    for (var i = 0; i < DELIVERY_STATUSES.length; i++) {
+        if (DELIVERY_STATUSES[i].toLowerCase() === s) return DELIVERY_STATUSES[i];
+    }
+    return '';
+}
+
+// Định dạng "HH:mm dd/MM/yyyy" — đọc thẳng các thành phần, không lệch múi giờ.
+function fmtDeliveryTime(raw) {
+    if (!raw) return '—';
+    var m = String(raw).match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+    if (!m) return String(raw);
+    return m[4] + ':' + m[5] + ' ' + m[3] + '/' + m[2] + '/' + m[1];
+}
+
+// Ô "Trạng thái": badge tĩnh nếu đã kết thúc, ngược lại là dropdown đổi trạng thái.
+function deliveryStatusCell(delivId, status) {
+    var label = DELIVERY_STATUS_LABEL[status] || status || '—';
+    if (!status || DELIVERY_TERMINAL.indexOf(status) !== -1) {
+        return '<span class="badge ' + (DELIVERY_STATUS_BADGE[status] || 'badge-gray') + '">' + label + '</span>';
+    }
+    var curIdx = DELIVERY_STATUSES.indexOf(status);
+    var opts = '<option value="' + status + '" selected>' + label + '</option>';
+    for (var i = curIdx + 1; i < DELIVERY_STATUSES.length; i++) {
+        var s = DELIVERY_STATUSES[i];
+        opts += '<option value="' + s + '">' + (DELIVERY_STATUS_LABEL[s] || s) + '</option>';
+    }
+    return '<select class="del-status-select" onchange="changeDeliveryStatus(\'' + delivId + '\', this)">' + opts + '</select>';
+}
+
 function renderDelivery() {
     var start = '2020-01-01';
     var end   = todayVN();
@@ -1443,15 +2049,15 @@ function renderDeliveryLocal() {
                 + '</div>'
                 + '<div style="display:flex;gap:8px;align-items:center">'
                 + '<input type="text" placeholder="Ghi chú..." style="padding:6px 10px;border:1px solid #e8e8e8;border-radius:6px;font-size:12px;width:160px" id="del-note-' + delivId + '">'
-                + '<button class="btn btn-success btn-sm" onclick="confirmDelivery(\'' + delivId + '\')">'
-                + '<i class="ti-check"></i> Đã giao</button>'
+                + '<button class="btn btn-success btn-sm" onclick="startDelivery(\'' + delivId + '\')">'
+                + '<i class="ti-truck"></i> Giao hàng</button>'
                 + '</div></div>';
         }).join('');
     }
 
     var tbody = document.getElementById('delivery-done-tbody');
     if (!done.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="tbl-empty">Chưa có lịch sử</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="tbl-empty">Chưa có lịch sử</td></tr>';
         return;
     }
     tbody.innerHTML = done.map(function (d) {
@@ -1461,8 +2067,8 @@ function renderDeliveryLocal() {
         var customer = user.fullName || user.FullName || ('BillID: ' + String(billId).slice(0, 8));
         var address  = getDeliveryAddrText(d);
         var lastLog  = latestDeliveryLog(d) || {};
-        var atRaw    = lastLog.changeAt || lastLog.ChangeAt || '';
-        var at       = atRaw ? String(atRaw).replace('T', ' ').slice(0, 16) : '—';
+        var status   = canonDeliveryStatus(lastLog.status || lastLog.Status || '');
+        var at       = fmtDeliveryTime(lastLog.changeAt || lastLog.ChangeAt || '');
         var emp      = lastLog.employee || lastLog.Employee || {};
         var empName  = emp.fullName || emp.FullName || '—';
         var note     = lastLog.note || lastLog.Note || d.note || d.Note || '—';
@@ -1470,6 +2076,8 @@ function renderDeliveryLocal() {
             + '<td><strong style="color:var(--primary)">' + String(billId).slice(0, 8).toUpperCase() + '</strong></td>'
             + '<td>' + customer + '</td>'
             + '<td style="font-size:12px;color:var(--muted)">' + address + '</td>'
+            + '<td>' + deliveryStatusCell(delivId, status) + '</td>'
+            + '<td>' + paymentCell(d.bill || d.Bill) + '</td>'
             + '<td style="font-size:12px">' + at + '</td>'
             + '<td style="font-size:12px">' + empName + '</td>'
             + '<td style="font-size:12px;color:var(--muted)">' + note + '</td>'
@@ -1477,30 +2085,94 @@ function renderDeliveryLocal() {
     }).join('');
 }
 
-function confirmDelivery(deliveryId) {
+// Kiểm tra điều kiện & lấy tiền mặt khi xác nhận "Đã giao".
+//  - Thẻ / chuyển khoản: chỉ cho giao khi ĐÃ thanh toán; chưa thanh toán → chặn.
+//  - Tiền mặt: hiện popup nhập số tiền khách đưa, phải >= tổng cần thu (gồm ship).
+// Trả về: { ok:true, money?:number } để tiếp tục; { ok:false } nếu huỷ popup;
+//         { ok:false, blocked:true, msg } nếu vi phạm điều kiện (hiển thị lỗi).
+function askDeliveryCash(d) {
+    var bill   = d.bill || d.Bill || {};
+    var method = String(bill.paymentMethods || bill.PaymentMethods || '').toLowerCase();
+    var paid   = String(bill.paymentStatus || bill.PaymentStatus || '').toLowerCase() === 'paid';
+    var due    = Number(bill.total || bill.Total || 0) + Number(d.shippingFee || d.ShippingFee || 0);
+
+    // Thẻ / chuyển khoản: bắt buộc đã thanh toán mới được giao.
+    if (method !== 'cash') {
+        if (!paid) return { ok: false, blocked: true, msg: 'Đơn thẻ/chuyển khoản chưa thanh toán — không thể xác nhận đã giao.' };
+        return { ok: true };   // đã thanh toán online → không cần tiền mặt
+    }
+
+    // Tiền mặt: nhập số tiền khách đưa, phải đủ tổng cần thu.
+    var input = prompt('Tổng cần thu: ' + due.toLocaleString('vi-VN') + 'đ\nNhập số tiền khách đưa (VND):', '');
+    if (input === null) return { ok: false };
+    var money = parseFloat(input || '0') || 0;
+    if (money < due) return { ok: false, blocked: true,
+        msg: 'Số tiền khách đưa (' + money.toLocaleString('vi-VN') + 'đ) chưa đủ tổng cần thu (' + due.toLocaleString('vi-VN') + 'đ).' };
+    return { ok: true, money: money };
+}
+
+// Bắt đầu giao đơn đang chờ: Pending → Đang giao (OnTheWay).
+// Đơn rời panel "đang chờ giao" và xuống bảng lịch sử với dropdown đổi trạng thái.
+// Việc thu tiền / xác nhận "Đã giao" làm sau ở bảng lịch sử (theo luật thanh toán).
+function startDelivery(deliveryId) {
     var d = DELIVERIES.find(function (x) {
         return (x.deliveryID || x.DeliveryID) == deliveryId;
     });
     if (!d) return;
-    var noteEl   = document.getElementById('del-note-' + deliveryId);
-    var note     = noteEl ? noteEl.value.trim() : '';
-    var empId    = localStorage.getItem('employeeId');
-    var received = parseFloat(prompt('Nhập số tiền khách trả (VND):', '') || '0') || 0;
+    var noteEl = document.getElementById('del-note-' + deliveryId);
+    var note   = noteEl ? noteEl.value.trim() : '';
 
     apiPut('/delivery/update/' + deliveryId, {
-        Status: 'Delivered',
+        Status: 'OnTheWay',
         Note: note,
-        EmployeeID: empId,
-        MoneyReceived: received,
+        EmployeeID: localStorage.getItem('employeeId') || null,
         ChangeAt: new Date().toISOString()
     }).then(function (r) {
             if (!r.ok) return r.text().then(function (t) { throw new Error(t); });
-            var logs = d.deliveryLog || d.DeliveryLog || [];
-            logs.unshift({ status: 'Delivered', changeAt: new Date().toISOString(), note: note });
-            renderDeliveryLocal();
-            toast('Đã xác nhận giao đơn ' + String(d.billID || d.BillID || '').slice(0, 8).toUpperCase());
+            toast('Đơn ' + String(d.billID || d.BillID || '').slice(0, 8).toUpperCase() + ' chuyển sang Đang giao');
+            renderDelivery();   // tải lại: đơn xuống bảng lịch sử với trạng thái "Đang giao"
         }).catch(function (err) {
             toast('Lỗi cập nhật đơn giao hàng: ' + (err.message || ''), 'error');
+        });
+}
+
+// Đổi trạng thái giao hàng từ dropdown trong bảng (chỉ với đơn chưa kết thúc).
+// Nhân viên giao = nhân viên đang đăng nhập; thời điểm = lúc bấm.
+function changeDeliveryStatus(deliveryId, selectEl) {
+    var newStatus = selectEl.value;
+    var d = DELIVERIES.find(function (x) {
+        return (x.deliveryID || x.DeliveryID) == deliveryId;
+    });
+    if (!d || !newStatus) return;
+
+    var body = {
+        Status: newStatus,
+        EmployeeID: localStorage.getItem('employeeId') || null,
+        Note: '',
+        ChangeAt: new Date().toISOString()
+    };
+
+    // Giao thành công: thẻ/CK phải đã thanh toán; tiền mặt phải nhập đủ tiền khách đưa.
+    if (newStatus === 'Delivered') {
+        var cash = askDeliveryCash(d);
+        if (!cash.ok) {
+            if (cash.blocked) toast(cash.msg, 'error');
+            renderDeliveryLocal();   // trả dropdown về trạng thái cũ
+            return;
+        }
+        if (cash.money !== undefined) body.MoneyReceived = cash.money;
+    }
+
+    selectEl.disabled = true;
+    apiPut('/delivery/update/' + deliveryId, body).then(function (r) {
+            if (!r.ok) return r.text().then(function (t) { throw new Error(t); });
+            toast('Đã cập nhật trạng thái đơn ' + String(d.billID || d.BillID || '').slice(0, 8).toUpperCase()
+                + ' → ' + (DELIVERY_STATUS_LABEL[newStatus] || newStatus));
+            renderDelivery();   // tải lại để cập nhật "Thay đổi lúc" & "Nhân viên giao" từ server
+        }).catch(function (err) {
+            selectEl.disabled = false;
+            renderDeliveryLocal();   // trả dropdown về trạng thái hiện tại
+            toast('Lỗi cập nhật trạng thái: ' + (err.message || ''), 'error');
         });
 }
 

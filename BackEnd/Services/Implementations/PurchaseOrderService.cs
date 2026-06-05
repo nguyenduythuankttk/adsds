@@ -1,4 +1,5 @@
 using Backend.Data;
+using Backend.Helpers;
 using Backend.Models;
 using Backend.Services.Interface;
 using Microsoft.EntityFrameworkCore;
@@ -78,7 +79,7 @@ namespace Backend.Services.Implementations{
                 var approval = new POApproval{
                     POID        = newPO.POID,
                     EmployeeID  = createRequest.EmployeeID,
-                    LastUpdated = DateTime.UtcNow,
+                    LastUpdated = VnTime.Now,
                     Comment     = createRequest.Comment,
                     POStatus      = PO_Status.Submitted
                 };
@@ -138,7 +139,7 @@ namespace Backend.Services.Implementations{
                     EmployeeID      = updateRequest.EmployeeID,
                     Comment         = updateRequest.Comment,
                     CancelledReason = updateRequest.CancelledReason,
-                    LastUpdated     = DateTime.UtcNow,
+                    LastUpdated     = VnTime.Now,
                     POStatus          = updateRequest.POStatus
                 };
                 _dbContext.POApproval.Add(newChange);
@@ -151,12 +152,13 @@ namespace Backend.Services.Implementations{
             await _dbContext.PurchaseOrder
                 .AsNoTracking()
                 .Include(po => po.PODetail)
+                    .ThenInclude(d => d.Ingredient)
                 .Include(po => po.Store)
                 .Include(po => po.Supplier)
                 .Include(po => po.POApproval
                     .OrderByDescending(poA => poA.LastUpdated)
                     .Take(1))
-                .Where(po => po.StoreID == storeID && po.DeletedAt == null)
+                .Where(po => po.StoreID == storeID && po.DeletedAt == null && po.Receipt == null)
                 .ToListAsync();
         public async Task<List<PurchaseOrder>?> GetAllPOBySupplier(int supplierID) =>
             await _dbContext.PurchaseOrder
