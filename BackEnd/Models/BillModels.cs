@@ -25,7 +25,7 @@ namespace Backend.Models{
         public Guid? UserID { get; set; }
 
         [ForeignKey("UserID")]
-        public virtual User? User { get; set; }
+        public virtual User? User { get; set; } = null!;
 
         public int StoreID { get; set; }
 

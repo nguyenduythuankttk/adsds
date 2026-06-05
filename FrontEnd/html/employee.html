@@ -14,7 +14,7 @@
 
 <!--HEADER -->
 <header class="emp-header">
-    <a href="index.html" class="emp-brand">
+    <a href="employee.html" class="emp-brand">
         Chônlibi 🍗
         <span class="emp-brand-badge">Nhân Viên</span>
     </a>
@@ -225,7 +225,7 @@
                 </div>
                 <div class="panel-body">
                     <div class="form-row">
-                        <div class="form-row-2">
+                        <div class="form-row-2" style="align-items: start;">
                             <div class="form-group">
                                 <label>Tên khách hàng</label>
                                 <input type="text" id="inv-customer" placeholder="Nguyễn Văn A">
@@ -275,27 +275,44 @@
                     <span class="inv-total-val" id="inv-total">0 đ</span>
                 </div>
                 <div class="panel-body" style="padding-top:12px">
-                    <div class="form-group" style="margin-bottom:8px">
-                        <label>Tiền nhận nhanh</label>
-                        <div class="quick-cash-btns">
-                            <button type="button" class="quick-cash-btn" onclick="setReceived(50000)">50k</button>
-                            <button type="button" class="quick-cash-btn" onclick="setReceived(100000)">100k</button>
-                            <button type="button" class="quick-cash-btn" onclick="setReceived(200000)">200k</button>
-                            <button type="button" class="quick-cash-btn" onclick="setReceived(500000)">500k</button>
-                            <button type="button" class="quick-cash-btn" onclick="setReceived(1000000)">1 tr</button>
-                            <button type="button" class="quick-cash-btn exact" onclick="setReceivedExact()">Đủ tiền</button>
+                    <div class="form-group" style="margin-bottom:12px">
+                        <label>Phương thức thanh toán</label>
+                        <div class="payment-method-selector" style="display:flex;gap:10px;margin-top:6px;">
+                            <label class="pm-option" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border:1px solid #ddd;border-radius:8px;cursor:pointer;font-weight:600;transition:all 0.2s;background:#fff;text-align:center;">
+                                <input type="radio" name="inv-payment-method" value="Cash" checked style="margin:0;accent-color:var(--primary)" onchange="onPaymentMethodChange(this.value)">
+                                💵 Tiền mặt
+                            </label>
+                            <label class="pm-option" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border:1px solid #ddd;border-radius:8px;cursor:pointer;font-weight:600;transition:all 0.2s;background:#fff;text-align:center;">
+                                <input type="radio" name="inv-payment-method" value="BankTransfer" style="margin:0;accent-color:var(--primary)" onchange="onPaymentMethodChange(this.value)">
+                                💳 Chuyển khoản
+                            </label>
                         </div>
                     </div>
-                    <div class="form-row-2">
-                        <div class="form-group">
-                            <label>Tiền nhận</label>
-                            <input type="number" id="inv-received" placeholder="0" oninput="calcChange()">
+
+                    <div id="cash-payment-section">
+                        <div class="form-group" style="margin-bottom:8px">
+                            <label>Tiền nhận nhanh</label>
+                            <div class="quick-cash-btns">
+                                <button type="button" class="quick-cash-btn" onclick="setReceived(50000)">50k</button>
+                                <button type="button" class="quick-cash-btn" onclick="setReceived(100000)">100k</button>
+                                <button type="button" class="quick-cash-btn" onclick="setReceived(200000)">200k</button>
+                                <button type="button" class="quick-cash-btn" onclick="setReceived(500000)">500k</button>
+                                <button type="button" class="quick-cash-btn" onclick="setReceived(1000000)">1 tr</button>
+                                <button type="button" class="quick-cash-btn exact" onclick="setReceivedExact()">Đủ tiền</button>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>Tiền thối</label>
-                            <input type="number" id="inv-change" placeholder="0" readonly style="background:#f9f9f9">
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label>Tiền nhận</label>
+                                <input type="number" id="inv-received" placeholder="0" oninput="calcChange()">
+                            </div>
+                            <div class="form-group">
+                                <label>Tiền thối</label>
+                                <input type="number" id="inv-change" placeholder="0" readonly style="background:#f9f9f9">
+                            </div>
                         </div>
                     </div>
+
                     <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="createInvoice()">
                         <i class="ti-check"></i> Xuất hóa đơn
                     </button>
@@ -437,7 +454,7 @@
                     <button class="btn btn-sm" onclick="whGoStep(1)"><i class="ti-home"></i> Về trang chủ kho</button>
                 </div>
                 <div class="panel-body">
-                    <div class="form-group" style="margin-bottom:16px">
+                    <div class="form-group" style="margin-bottom:16px; display:none;">
                         <label>Kho nhận hàng *</label>
                         <select id="wh-confirm-warehouse">
                             <option value="">-- Đang tải kho --</option>
@@ -465,8 +482,10 @@
                 <div class="panel-body">
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Tên nguyên liệu *</label>
-                            <input type="text" id="sm-item" placeholder="Gà tươi, Dầu ăn...">
+                            <label>Nguyên liệu *</label>
+                            <select id="sm-item" onchange="onStockMoveIngredientChange()">
+                                <option value="">-- Đang tải nguyên liệu --</option>
+                            </select>
                         </div>
                         <div class="form-row-2">
                             <div class="form-group">
@@ -485,12 +504,7 @@
                         </div>
                         <div class="form-group">
                             <label>Đơn vị</label>
-                            <select id="sm-unit">
-                                <option value="kg">kg</option>
-                                <option value="lít">lít</option>
-                                <option value="cái">cái</option>
-                                <option value="gói">gói</option>
-                            </select>
+                            <input type="text" id="sm-unit" readonly placeholder="(tự điền theo nguyên liệu)" style="background:#f0f0f0;cursor:not-allowed">
                         </div>
                         <div class="form-group">
                             <label>Ghi chú lý do *</label>
@@ -515,6 +529,7 @@
                                 <th>SL thay đổi</th>
                                 <th>Lý do</th>
                                 <th>Thời gian</th>
+                                <th style="text-align:center">Chi tiết</th>
                             </tr>
                         </thead>
                         <tbody id="stockmove-tbody">
@@ -548,13 +563,15 @@
                             <th>Mã đơn</th>
                             <th>Khách hàng</th>
                             <th>Địa chỉ</th>
-                            <th>Giao lúc</th>
+                            <th>Trạng thái</th>
+                            <th>Thanh toán</th>
+                            <th>Thay đổi lúc</th>
                             <th>Nhân viên giao</th>
                             <th>Ghi chú</th>
                         </tr>
                     </thead>
                     <tbody id="delivery-done-tbody">
-                        <tr><td colspan="6" class="tbl-empty">Chưa có lịch sử</td></tr>
+                        <tr><td colspan="8" class="tbl-empty">Chưa có lịch sử</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -657,35 +674,22 @@
                                 <option value="">-- Đang tải sản phẩm --</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label>Nguyên liệu *</label>
-                            <select id="recipe-ingredient">
-                                <option value="">-- Đang tải nguyên liệu --</option>
-                            </select>
-                        </div>
-                        <div class="form-row-2">
-                            <div class="form-group">
-                                <label>QtyAfterProcess *</label>
-                                <input type="number" id="recipe-qty-after" placeholder="1" step="0.001" min="0.001">
+                        
+                        <div style="margin-top:16px">
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                                <strong style="font-size:13px">Danh sách nguyên liệu của món ăn</strong>
+                                <button class="btn btn-sm btn-primary" onclick="addRecipeIngredientRow()"><i class="ti-plus"></i> Thêm dòng</button>
                             </div>
-                            <div class="form-group">
-                                <label>BatchSize (cho bao nhiêu unit bán)</label>
-                                <input type="number" id="recipe-batch-size" placeholder="1" step="0.001" min="0.001" value="1">
-                            </div>
+                            <div id="recipe-ingredients-container"></div>
                         </div>
-                        <div class="form-group">
-                            <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:13px;font-weight:600;cursor:pointer">
-                                <input type="checkbox" id="recipe-consumable" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)">
-                                Tiêu hao (IsConsumable) — dầu, muối → dùng Raw batch
-                            </label>
+
+                        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;font-size:12px;color:#065f46;margin-top:8px">
+                            <strong>Hướng dẫn:</strong><br>
+                            - Không tích Tiêu hao = Định lượng (ví dụ: miếng gà - Processed batch).<br>
+                            - Có tích Tiêu hao = Tiêu hao dầu/muối (Raw batch).
                         </div>
-                        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;font-size:12px;color:#065f46">
-                            <strong>Hướng dẫn:</strong>
-                            Không tích = miếng gà (Processed batch, QtyAfterProcess = số miếng/lần bán).
-                            Có tích = dầu/muối (Raw batch, QtyAfterProcess/BatchSize = lượng dùng/unit).
-                        </div>
-                        <button class="btn btn-primary" onclick="addRecipe()">
-                            <i class="ti-plus"></i> Thêm công thức
+                        <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="submitBulkRecipe()">
+                            <i class="ti-check"></i> Lưu công thức
                         </button>
                     </div>
                 </div>
@@ -700,11 +704,12 @@
                 <div class="tbl-wrap">
                     <table>
                         <thead><tr>
-                            <th>Sản phẩm</th><th>Nguyên liệu</th>
-                            <th>Qty/Đơn</th><th>BatchSize</th><th>Loại</th><th></th>
+                            <th>Sản phẩm</th>
+                            <th>Số lượng nguyên liệu</th>
+                            <th style="width: 50px"></th>
                         </tr></thead>
                         <tbody id="recipe-tbody">
-                            <tr><td colspan="6" class="tbl-empty">Đang tải...</td></tr>
+                            <tr><td colspan="3" class="tbl-empty">Đang tải...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -793,6 +798,7 @@
 <div id="emp-toast"></div>
 
 <script src="/asset/js/api.js"></script>
+<script src="/asset/js/datetime.js"></script>
 <script src="/asset/js/employee.js"></script>
 </body>
 </html>

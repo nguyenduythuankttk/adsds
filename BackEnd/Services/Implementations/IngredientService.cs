@@ -1,4 +1,5 @@
 using Backend.Data;
+using Backend.Helpers;
 using Backend.Models;
 using Backend.Models.DTOs.Reponse;
 using Backend.Models.DTOs.Request;
@@ -33,7 +34,7 @@ namespace Backend.Services.Implementations{
             }
 
             try{
-                ingredient.DeletedAt = DateTime.Now;
+                ingredient.DeletedAt = VnTime.Now;
                 await _dbcontext.SaveChangesAsync();
             }catch(Exception ex){
                 Console.WriteLine($"Soft delete ingredient error {ex.Message}");

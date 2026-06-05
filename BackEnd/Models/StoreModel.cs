@@ -26,6 +26,10 @@ namespace Backend.Models{
         [JsonIgnore]
         public virtual Address Address { get; set; } = null!;
 
+ 
+        [JsonIgnore]
+        public virtual BankAccount? BankAccount { get; set; }
+
         [JsonIgnore]
         public virtual ICollection<Employee> Employee { get; set; } = new List<Employee>();
 

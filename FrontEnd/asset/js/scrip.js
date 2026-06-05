@@ -119,18 +119,39 @@ function togglePw(id, btn) {
     var _forgotEmail = '';
     var _forgotTimerRef = { interval: null };
 
+    // Chặn ký tự không phải chữ số trên các ô nhập OTP
+    ['forgot-otp-input', 'otp-input'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', function () {
+            var cleaned = el.value.replace(/\D/g, '').slice(0, 6);
+            if (cleaned !== el.value) el.value = cleaned;
+        });
+        el.addEventListener('paste', function (e) {
+            e.preventDefault();
+            var pasted = (e.clipboardData || window.clipboardData).getData('text') || '';
+            el.value = pasted.replace(/\D/g, '').slice(0, 6);
+            el.dispatchEvent(new Event('input'));
+        });
+    });
+
     function startForgotCountdown() {
         var timerEl     = document.getElementById('forgot-otp-timer');
         var countdownEl = document.getElementById('forgot-otp-countdown');
         var btnResend   = document.getElementById('btn-forgot-resend');
         var secs = 60;
-        timerEl.textContent = secs;
+        function render() {
+            var m = Math.floor(secs / 60);
+            var s = secs % 60;
+            timerEl.textContent = m + ':' + (s < 10 ? '0' + s : s);
+        }
+        render();
         countdownEl.style.display = '';
         btnResend.style.display = 'none';
         clearInterval(_forgotTimerRef.interval);
         _forgotTimerRef.interval = setInterval(function () {
             secs--;
-            timerEl.textContent = secs;
+            render();
             if (secs <= 0) {
                 clearInterval(_forgotTimerRef.interval);
                 countdownEl.style.display = 'none';
@@ -152,6 +173,7 @@ function togglePw(id, btn) {
     // Quay lại đăng nhập
     document.getElementById('btn-back-login').addEventListener('click', function () {
         clearInterval(_forgotTimerRef.interval);
+        _forgotOtp = '';
         document.querySelector('.modal-tabs').style.display = '';
         document.getElementById('closeLoginBtn').style.display = '';
         document.querySelectorAll('.modal-tab').forEach(function (t) { t.classList.remove('active'); });
@@ -170,10 +192,12 @@ function togglePw(id, btn) {
             .then(safeJson)
             .then(function (r) {
                 if (r.status === 200) {
+                    _forgotOtp = '';
                     document.getElementById('forgot-otp-input').value = '';
                     document.getElementById('forgot-new-pw').value = '';
                     document.getElementById('forgot-confirm-pw').value = '';
                     document.getElementById('forgot-otp-error').textContent = '';
+                    document.getElementById('forgot-newpw-error').textContent = '';
                     showPanel('panel-forgot-otp');
                     startForgotCountdown();
                 } else {
@@ -191,7 +215,9 @@ function togglePw(id, btn) {
             .then(safeJson)
             .then(function (r) {
                 if (r.status === 200) {
+                    _forgotOtp = '';
                     document.getElementById('forgot-otp-input').value = '';
+                    showPanel('panel-forgot-otp');
                     startForgotCountdown();
                 } else {
                     errEl.textContent = r.data.message || 'Không thể gửi lại mã OTP.';
@@ -200,21 +226,48 @@ function togglePw(id, btn) {
             .catch(function () { errEl.textContent = 'Lỗi kết nối máy chủ.'; });
     });
 
-    // Đặt lại mật khẩu
+    var _forgotOtp = '';
+
+    // Bước 1 → Bước 2: xác nhận OTP, chuyển sang khung nhập mật khẩu mới
+    document.getElementById('btn-forgot-otp-next').addEventListener('click', function () {
+        var otp   = document.getElementById('forgot-otp-input').value.trim();
+        var errEl = document.getElementById('forgot-otp-error');
+        errEl.textContent = '';
+        if (!otp || otp.length !== 6 || !/^\d{6}$/.test(otp)) {
+            errEl.textContent = 'Vui lòng nhập đúng 6 chữ số OTP.';
+            return;
+        }
+        _forgotOtp = otp;
+        document.getElementById('forgot-new-pw').value = '';
+        document.getElementById('forgot-confirm-pw').value = '';
+        document.getElementById('forgot-newpw-error').textContent = '';
+        showPanel('panel-forgot-newpw');
+    });
+
+    // Bước 2 → Bước 1: quay lại nhập OTP
+    document.getElementById('btn-forgot-newpw-back').addEventListener('click', function () {
+        document.getElementById('forgot-newpw-error').textContent = '';
+        showPanel('panel-forgot-otp');
+    });
+
+    // Đặt lại mật khẩu (Bước 2)
     document.getElementById('btn-forgot-reset').addEventListener('click', function () {
-        var otp       = document.getElementById('forgot-otp-input').value.trim();
         var newPw     = document.getElementById('forgot-new-pw').value;
         var confirmPw = document.getElementById('forgot-confirm-pw').value;
-        var errEl     = document.getElementById('forgot-otp-error');
+        var errEl     = document.getElementById('forgot-newpw-error');
         errEl.textContent = '';
-        if (!otp || otp.length !== 6)         { errEl.textContent = 'Vui lòng nhập đúng 6 chữ số OTP.'; return; }
-        if (!newPw || newPw.length < 6)       { errEl.textContent = 'Mật khẩu mới phải có ít nhất 6 ký tự.'; return; }
-        if (newPw !== confirmPw)               { errEl.textContent = 'Mật khẩu xác nhận không khớp.'; return; }
-        apiPost('/auth/reset-password', { Token: otp, NewPassword: newPw }, true)
+        if (!_forgotOtp || _forgotOtp.length !== 6) {
+            errEl.textContent = 'Phiên OTP không hợp lệ. Vui lòng quay lại nhập OTP.';
+            return;
+        }
+        if (!newPw || newPw.length < 6)  { errEl.textContent = 'Mật khẩu mới phải có ít nhất 6 ký tự.'; return; }
+        if (newPw !== confirmPw)         { errEl.textContent = 'Mật khẩu xác nhận không khớp.'; return; }
+        apiPost('/auth/reset-password', { Token: _forgotOtp, NewPassword: newPw }, true)
             .then(safeJson)
             .then(function (r) {
                 if (r.status === 200) {
                     clearInterval(_forgotTimerRef.interval);
+                    _forgotOtp = '';
                     document.querySelector('.modal-tabs').style.display = '';
                     document.getElementById('closeLoginBtn').style.display = '';
                     document.querySelectorAll('.modal-tab').forEach(function (t) { t.classList.remove('active'); });
@@ -222,7 +275,13 @@ function togglePw(id, btn) {
                     showPanel('panel-login');
                     alert('Đặt lại mật khẩu thành công! Vui lòng đăng nhập lại.');
                 } else {
-                    errEl.textContent = r.data.message || 'OTP không đúng hoặc đã hết hạn.';
+                    var msg = (r.data && r.data.message) || 'OTP không đúng hoặc đã hết hạn.';
+                    errEl.textContent = msg;
+                    // Nếu OTP sai/hết hạn, đưa người dùng về Bước 1 để nhập lại
+                    if (/OTP|hết hạn|hết|không hợp lệ|token/i.test(msg)) {
+                        document.getElementById('forgot-otp-error').textContent = msg;
+                        showPanel('panel-forgot-otp');
+                    }
                 }
             })
             .catch(function () { errEl.textContent = 'Lỗi kết nối máy chủ.'; });
@@ -514,7 +573,12 @@ function updateHeaderAfterLogin(name) {
     setActiveTab('home');
 
     homeBtn.addEventListener('click', function () {
-        window.location.href = 'index.html';
+        var role = localStorage.getItem('role');
+        if ((role === 'admin' || role === 'employee') && !isTokenExpired()) {
+            window.location.href = role === 'admin' ? 'admin.html' : 'employee.html';
+        } else {
+            window.location.href = 'index.html';
+        }
     });
 
     userBtn.addEventListener('click', function () {

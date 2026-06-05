@@ -14,6 +14,8 @@ namespace Backend.Models.DTOs.Reponse{
         public string FullName {get; set;} = null!;
         public Gender Gender {get; set;}
         public decimal BasicSalary { get; set; }
+        // Trạng thái ca hôm nay sau khi đăng nhập (đúng giờ / trễ / vắng / không có ca).
+        public ShiftCheckInResponse? CurrentShift { get; set; }
     }
     public class UserAuthReponse : AuthReponse{
         public Guid UserID {get; set;}

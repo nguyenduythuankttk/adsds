@@ -1,4 +1,5 @@
 using Backend.Data;
+using Backend.Helpers;
 using Backend.Models;
 using Backend.Models.DTOs.Reponse;
 using Backend.Models.DTOs.Request;
@@ -78,7 +79,7 @@ namespace Backend.Services.Implementations
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                var processedAt = DateTime.UtcNow;
+                var processedAt = VnTime.Now;
 
                 var log = new ProcessingLog
                 {
@@ -213,7 +214,7 @@ namespace Backend.Services.Implementations
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                var now = DateTime.UtcNow;
+                var now = VnTime.Now;
 
                 foreach (var detail in log.Details)
                 {

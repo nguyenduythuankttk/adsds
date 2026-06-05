@@ -6,6 +6,8 @@ namespace Backend.Models.DTOs.Request
         public int ProductVarientID { get; set; }
         public decimal QtyBeforeProcess { get; set; }
         public decimal QtyAfterProcess { get; set; }
+        public bool IsConsumable { get; set; }
+        public decimal BatchSize { get; set; }
     }
 
     public class RecipeUpdateRequest
@@ -19,6 +21,8 @@ namespace Backend.Models.DTOs.Request
         public int IngredientID { get; set; }
         public decimal QtyBeforeProcess { get; set; }
         public decimal QtyAfterProcess { get; set; }
+        public bool IsConsumable { get; set; }
+        public decimal BatchSize { get; set; }
     }
 
     public class RecipeBulkCreateRequest

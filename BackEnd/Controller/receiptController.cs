@@ -1,5 +1,6 @@
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Backend.Controller
@@ -41,6 +42,13 @@ namespace Backend.Controller
             return Ok(await _receiptService.GetReceiptByStore(storeID));
         }
 
+        // Admin dùng để liệt kê phiếu nhập trong store của mình theo khoảng thời gian.
+        [HttpGet("by-store/{storeID}/{start}/{end}")]
+        public async Task<IActionResult> GetByStoreInRange(int storeID, DateOnly start, DateOnly end)
+        {
+            return Ok(await _receiptService.GetReceiptsByStoreInRange(storeID, start, end));
+        }
+
         [HttpGet("getbyemployee/{employeeID}")]
         public async Task<IActionResult> GetReceiptByEmployee(Guid employeeID)
         {
@@ -64,6 +72,22 @@ namespace Backend.Controller
         {
             var result = await _receiptService.CreateReceipt(request);
             return CreatedAtAction(nameof(GetReceiptByID), new { receiptID = result.ReceiptID }, result);
+        }
+
+        // Admin tạo phiếu nhập trực tiếp (không qua PO) cho store mình quản lý.
+        [Authorize(Roles = "Manager")]
+        [HttpPost("create-direct/{storeID}")]
+        public async Task<IActionResult> CreateDirectReceipt(int storeID, [FromBody] DirectReceiptCreateRequest request)
+        {
+            try
+            {
+                var result = await _receiptService.CreateDirectReceipt(storeID, request);
+                return CreatedAtAction(nameof(GetReceiptByID), new { receiptID = result.ReceiptID }, result);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(new { message = e.Message });
+            }
         }
 
         [HttpPost("confirm")]

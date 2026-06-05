@@ -1,4 +1,5 @@
 using Backend.Data;
+using Backend.Helpers;
 using Backend.Models;
 using Backend.Services.Interface;
 using Microsoft.EntityFrameworkCore;
@@ -24,7 +25,7 @@ namespace Backend.Services.Implementations{
                 .Where(r => productVarientIDs.Contains(r.ProductVarientID) && r.DeletedAt == null)
                 .ToListAsync();
 
-            var now   = DateTime.UtcNow.AddHours(7);
+            var now   = VnTime.Now;
             var today = DateOnly.FromDateTime(now);
 
             var demand = new Dictionary<int, decimal>();
@@ -93,8 +94,12 @@ namespace Backend.Services.Implementations{
 
             await _dbcontext.SaveChangesAsync();
         }
-        public async Task<List<DeliveryInfo>?> GetAllDeliveryIn(DateTime start, DateTime end) =>
-            await _dbcontext.DeliveryInfo
+        public async Task<List<DeliveryInfo>?> GetAllDeliveryIn(DateTime start, DateTime end)
+        {
+            // end là mốc 00:00 của ngày → dùng mốc loại trừ (end + 1 ngày) để lấy trọn cả
+            // ngày end, tránh bỏ sót đơn vừa tạo/thanh toán trong hôm nay (ChangeAt lưu UTC).
+            var endExclusive = end.Date.AddDays(1);
+            return await _dbcontext.DeliveryInfo
                 .AsNoTracking()
                 .Include(di => di.User)
                 .Include(di => di.Address)
@@ -103,8 +108,9 @@ namespace Backend.Services.Implementations{
                     .ThenInclude(l => l.Employee)
                 .Where(di => di.DeliveryLog.Any() &&
                              di.DeliveryLog.Min(l => l.ChangeAt) >= start &&
-                             di.DeliveryLog.Min(l => l.ChangeAt) <= end)
+                             di.DeliveryLog.Min(l => l.ChangeAt) < endExclusive)
                 .ToListAsync();
+        }
 
         public async Task<List<DeliveryInfo>?> GetAllDeliveryByUser(Guid userID) =>
             await _dbcontext.DeliveryInfo
@@ -131,7 +137,7 @@ namespace Backend.Services.Implementations{
                 var deliveryLog = new DeliveryLog{
                     DeliveryID = delivery.DeliveryID,
                     EmployeeID = request.EmployeeID,
-                    ChangeAt = DateTime.UtcNow.AddHours(7),
+                    ChangeAt = VnTime.Now,
                     Status = DeliveryStatus.Pending,
                     Note = request.Note
                 };
@@ -161,9 +167,9 @@ namespace Backend.Services.Implementations{
                 if (latestLog != null) {
                     var terminalStates = new[] { DeliveryStatus.Delivered, DeliveryStatus.Cancelled, DeliveryStatus.Failed };
                     if (terminalStates.Contains(latestLog.Status))
-                        throw new Exception($"Không thể cập nhật đơn hàng đã ở trạng thái {latestLog.Status}");
+                        throw new InvalidOperationException($"Không thể cập nhật đơn hàng đã ở trạng thái {latestLog.Status}");
                     if ((int)updateRequest.Status <= (int)latestLog.Status)
-                        throw new Exception($"Không thể chuyển trạng thái từ {latestLog.Status} sang {updateRequest.Status}");
+                        throw new InvalidOperationException($"Không thể chuyển trạng thái từ {latestLog.Status} sang {updateRequest.Status}");
                 }
 
                 // Bếp bắt đầu chuẩn bị → trừ nguyên liệu khỏi kho
@@ -172,19 +178,33 @@ namespace Backend.Services.Implementations{
                     await ConsumeIngredientsForDelivery(bill.BillID, updateRequest.EmployeeID, bill.StoreID);
                 }
 
-                // Giao hàng thành công → bắt buộc cập nhật MoneyReceived & MoneyGiveBack
+                // Luật xác nhận "Đã giao":
+                //  - Tiền mặt: bắt buộc nhập số tiền khách đưa và phải >= tổng tiền hàng (gồm phí ship).
+                //  - Thẻ / chuyển khoản: chỉ cho giao khi ĐÃ thanh toán (PaymentStatus = Paid).
                 if (updateRequest.Status == DeliveryStatus.Delivered)
                 {
-                    if (updateRequest.MoneyReceived == null)
-                        throw new Exception("MoneyReceived là bắt buộc khi xác nhận giao hàng thành công.");
-
                     var totalWithShipping = bill.Total + delivery.ShippingFee;
-                    if (updateRequest.MoneyReceived < totalWithShipping)
-                        throw new Exception($"MoneyReceived ({updateRequest.MoneyReceived}) không đủ so với tổng đơn hàng ({totalWithShipping}).");
 
-                    bill.MoneyReceived = updateRequest.MoneyReceived;
-                    bill.MoneyGiveBack = updateRequest.MoneyReceived - totalWithShipping;
-                    _dbcontext.Bill.Update(bill);
+                    if (bill.PaymentMethods == PaymentMethods.Cash)
+                    {
+                        if (updateRequest.MoneyReceived == null)
+                            throw new InvalidOperationException("Cần nhập số tiền khách đưa khi thanh toán tiền mặt.");
+                        if (updateRequest.MoneyReceived < totalWithShipping)
+                            throw new InvalidOperationException($"Số tiền khách đưa ({updateRequest.MoneyReceived:N0}đ) phải lớn hơn hoặc bằng tổng tiền hàng ({totalWithShipping:N0}đ).");
+
+                        bill.MoneyReceived = updateRequest.MoneyReceived;
+                        bill.MoneyGiveBack = updateRequest.MoneyReceived - totalWithShipping;
+                        bill.PaymentStatus = PaymentStatus.Paid;
+                        bill.PaidAt = VnTime.Now;
+                        _dbcontext.Bill.Update(bill);
+                    }
+                    else
+                    {
+                        // Thẻ / chuyển khoản: phải đã thanh toán trước mới được giao.
+                        if (bill.PaymentStatus != PaymentStatus.Paid)
+                            throw new InvalidOperationException("Đơn thanh toán thẻ/chuyển khoản chưa thanh toán — không thể xác nhận đã giao.");
+                        // Đã thanh toán online → xác nhận giao, không cần thao tác tiền mặt.
+                    }
                 }
 
                 var newLog = new DeliveryLog {
@@ -196,6 +216,8 @@ namespace Backend.Services.Implementations{
                 };
                 _dbcontext.DeliveryLog.Add(newLog);
                 await _dbcontext.SaveChangesAsync();
+            } catch (InvalidOperationException) {
+                throw;   // vi phạm nghiệp vụ → middleware trả 400 kèm thông điệp rõ ràng
             } catch (Exception e) {
                 Console.WriteLine(e.Message);
                 throw new Exception("Lỗi khi cập nhật trạng thái giao hàng: " + e.Message);
@@ -211,7 +233,7 @@ namespace Backend.Services.Implementations{
             }
 
             try{
-                delivery.DeletedAt = DateTime.Now;
+                delivery.DeletedAt = VnTime.Now;
                 await _dbcontext.SaveChangesAsync();
             }catch(Exception ex){
                 Console.WriteLine($"Soft delete delivery error {ex.Message}");

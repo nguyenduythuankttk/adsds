@@ -5,23 +5,40 @@
     if(isTokenExpired()){clearAuth();window.location.href='index.html';return;}
     var u=document.getElementById('adm-username');
     if(u)u.textContent=localStorage.getItem('fullName')||'Admin';
+    // Hiện toast trạng thái ca khi vừa đăng nhập (chỉ 1 lần / phiên).
+    try{
+        var raw=localStorage.getItem('shiftStatus');
+        if(raw && !sessionStorage.getItem('shiftToastShown')){
+            var s=JSON.parse(raw);
+            sessionStorage.setItem('shiftToastShown','1');
+            setTimeout(function(){
+                if(typeof showToast!=='function')return;
+                if(!s.hasShift){showToast(s.message||'Hôm nay không có ca làm','warning');return;}
+                var ty=s.status==='OnTime'?'success':(s.status==='Late'?'warning':(s.status==='Absent'?'error':'success'));
+                showToast(s.message||('Ca: '+s.status), ty);
+            },400);
+        }
+    }catch(e){}
 })();
 var lb=document.getElementById('btn-logout');
 if(lb)lb.addEventListener('click',function(){
     apiPost('/auth/logout').catch(function(){}).finally(function(){clearAuth();window.location.href='index.html';});
 });
-setInterval(function(){var c=document.getElementById('adm-clock');if(c)c.textContent=new Date().toLocaleString('vi-VN');},1000);
+setInterval(function(){var c=document.getElementById('adm-clock');if(c)c.textContent=fmtVnFull(new Date());},1000);
 setInterval(function(){if(isTokenExpired()){clearAuth();window.location.href='index.html';}},60000);
 
 // Cache
 var STORES_DATA=[], PRODS_DATA=[], EMPS_DATA=[], SUPPS_DATA=[], TICKETS_DATA=[], BILLS_DATA=[], POS_DATA=[];
 var WAREHOUSES_DATA=[], BATCHES_DATA=[];
+var RECEIPTS_DATA=[], SHIFTS_DATA=[], INGREDIENTS_DATA=[];
 var invStatusFilter='all', invTypeFilter='all', invWhFilter='all', invIngSearch='';
-var SDEFS=[{name:'Ca Sang',time:'06:00-14:00'},{name:'Ca Chieu',time:'14:00-22:00'},{name:'Ca Dem',time:'22:00-06:00'}];
-var SHIFTS=[
-  {emp:'Le Minh Phung',store:'Quan 1',shift:'Ca Sang',date:'2026-05-15',in:'05:55',out:'14:05',status:'ok'},
-  {emp:'Pham Van D',store:'Da Nang',shift:'Ca Chieu',date:'2026-05-15',in:'--',out:'--',status:'pending'},
-  {emp:'Nguyen Van A',store:'Quan 1',shift:'Ca Chieu',date:'2026-05-14',in:'14:20',out:'22:00',status:'late'}
+// Phạm vi hoạt động của admin: chỉ trong storeID của tài khoản hiện tại.
+var ADMIN_STORE_ID = parseInt(localStorage.getItem('storeId')) || 0;
+// Định nghĩa ca chuẩn — chọn 1 ca + chọn ngày sẽ ra TimeIn/TimeOut.
+var SDEFS=[
+    {key:'morning', name:'Ca Sáng',  start:'06:00', end:'14:00'},
+    {key:'evening', name:'Ca Chiều', start:'14:00', end:'22:00'},
+    {key:'night',   name:'Ca Đêm',   start:'22:00', end:'06:00'}
 ];
 var MOVS=[
   {item:'Thit dui ga',store:'Quan 1',type:'Nhap kho',qty:120,unit:'Cai',reason:'Nhap hang tuan',emp:'Nguyen Van A',date:'2026-05-10'},
@@ -40,6 +57,7 @@ function showSection(n){
     var map={
         dashboard:renderDash, stores:renderStores, products:renderProds, recipes:renderRecipes,
         suppliers:renderSupps, 'purchase-orders':renderPO, inventory:renderInv,
+        receipts:renderReceipts,
         employees:renderEmps, shifts:renderShifts, tickets:renderTickets,
         reports:renderReports, 'stock-movement':renderMovs
     };
@@ -50,10 +68,10 @@ function sc(ico,col,val,lbl){return '<div class="stat-card"><div class="stat-ico
 function fv(n){return Number(n).toLocaleString('vi-VN');}
 function bdg(cls,txt){return '<span class="badge '+cls+'">'+txt+'</span>';}
 function eBtn(cls,ico,cb){return '<button class="'+cls+'" onclick="'+cb+'"><i class="'+ico+'"></i></button>';}
-function today(){return new Date().toISOString().slice(0,10);}
+function today(){return vnTodayISO();}
 function yearRange(){return '2020-01-01/'+today();}
 function ticketDefaultStart(){return today();}
-function ticketDefaultEnd(){var d=new Date();d.setDate(d.getDate()+7);return d.toISOString().slice(0,10);}
+function ticketDefaultEnd(){var d=new Date(today()+'T00:00:00+07:00');d.setUTCDate(d.getUTCDate()+7);return d.toISOString().slice(0,10);}
 function applyTicketFilter(){renderTickets();}
 
 // ===== RENDER FUNCTIONS =====
@@ -185,15 +203,32 @@ function batchDS(b){if(b.status==='Available'&&isBatchExpiring(b))return 'expiri
 function renderInv(){
     var wt=document.getElementById('warehouse-tbody'),it=document.getElementById('inv-tbody');
     if(!it)return;
+    if(!ADMIN_STORE_ID){
+        if(wt)wt.innerHTML='<tr><td colspan="6" class="tbl-empty">Tài khoản admin chưa được gán cửa hàng.</td></tr>';
+        it.innerHTML='<tr><td colspan="12" class="tbl-empty">Không xác định được storeID của admin.</td></tr>';
+        return;
+    }
     if(wt)wt.innerHTML='<tr><td colspan="6" class="tbl-empty">Đang tải...</td></tr>';
     it.innerHTML='<tr><td colspan="12" class="tbl-empty">Đang tải...</td></tr>';
-    apiGet('/warehouse/get-all').then(function(r){return r.ok?r.json():[];}).then(function(warehouses){
-        WAREHOUSES_DATA=warehouses||[];
-        return Promise.all(WAREHOUSES_DATA.map(function(wh){
-            return apiGet('/inventorybatch/by-warehouse/'+wh.warehouseID).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
-        }));
-    }).then(function(arrays){
-        BATCHES_DATA=[].concat.apply([],arrays).sort(function(a,b){return new Date(a.importDate)-new Date(b.importDate);});
+    Promise.all([
+        apiGet('/warehouse/get-by-store/'+ADMIN_STORE_ID).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}),
+        apiGet('/inventorybatch/by-store/'+ADMIN_STORE_ID).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];})
+    ]).then(function(res){
+        WAREHOUSES_DATA=res[0]||[];
+        // BE trả về DTO phẳng cho by-store: đã có ingredient/store info, BatchType/Status là chuỗi.
+        BATCHES_DATA=(res[1]||[]).map(function(b){
+            return {
+                batchID:b.batchID, batchCode:b.batchCode,
+                warehouseID:b.warehouseID,
+                ingredientID:b.ingredientID,
+                ingredient:{ingredientName:b.ingredientName, ingredientUnit:b.ingredientUnit},
+                warehouse:{store:{storeName:b.storeName}},
+                batchType:b.batchType, status:b.status,
+                quantityOriginal:b.quantityOriginal, quantityOnHand:b.quantityOnHand,
+                unitCost:b.unitCost, importDate:b.importDate,
+                mfd:b.mfd, exp:b.exp
+            };
+        }).sort(function(a,b){return new Date(a.importDate)-new Date(b.importDate);});
         var whSel=document.getElementById('inv-wh-filter');
         if(whSel){whSel.innerHTML='<option value="all">Tất cả kho</option>'+WAREHOUSES_DATA.map(function(wh){return '<option value="'+wh.warehouseID+'">Kho #'+wh.warehouseID+' — '+(wh.store?wh.store.storeName:'')+'</option>';}).join('');}
         renderInvStats();renderWhTable();renderIngSummary();renderBatchTable();
@@ -303,7 +338,9 @@ function renderBatchTable(){
 function renderEmps(){
     var t=document.getElementById('emp-tbody');if(!t)return;
     t.innerHTML='<tr><td colspan="9" class="tbl-empty">Đang tải...</td></tr>';
-    apiGet('/employee/get-all').then(function(r){return r.json();}).then(function(data){
+    // Admin chỉ thấy NV thuộc store của mình.
+    var path = ADMIN_STORE_ID ? '/employee/get-by-store/'+ADMIN_STORE_ID : '/employee/get-all';
+    apiGet(path).then(function(r){return r.ok?r.json():[];}).then(function(data){
         EMPS_DATA=data||[];
         if(!EMPS_DATA.length){t.innerHTML='<tr><td colspan="9" class="tbl-empty">Chưa có nhân viên</td></tr>';return;}
         t.innerHTML=EMPS_DATA.map(function(e,i){
@@ -317,10 +354,70 @@ function renderEmps(){
     }).catch(function(){t.innerHTML='<tr><td colspan="9" class="tbl-empty">Lỗi tải dữ liệu</td></tr>';});
 }
 
+function shiftDateRange(){
+    // Mặc định: 7 ngày từ thứ Hai tuần này, theo lịch VN.
+    // Tạo Date từ midnight VN; getUTCDay() trên Date này = day-of-week theo VN (0=Sun..6=Sat).
+    var d=new Date(vnTodayISO()+'T00:00:00+07:00');
+    d.setUTCDate(d.getUTCDate()-((d.getUTCDay()+6)%7));
+    var monday=d.toISOString().slice(0,10);
+    d.setUTCDate(d.getUTCDate()+6);
+    var sunday=d.toISOString().slice(0,10);
+    return {start:monday, end:sunday};
+}
+function fmtShiftClock(iso){ return iso ? (fmtVnTime(iso) || '--') : '--'; }
+function fmtShiftDate(iso){
+    if(!iso)return '';
+    var d=new Date(iso); if(isNaN(d))return '';
+    return d.toLocaleDateString('sv-SE',{timeZone:'Asia/Ho_Chi_Minh'});
+}
+// Lấy giờ:phút theo zone VN của 1 ISO string (vd "07:30") để phân loại Ca Sáng/Chiều/Đêm
+function shiftHM(iso){
+    var d=new Date(iso); if(isNaN(d))return 0;
+    var parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(d);
+    var h=0,m=0;
+    parts.forEach(function(p){if(p.type==='hour')h=Number(p.value);if(p.type==='minute')m=Number(p.value);});
+    return h*60+m;
+}
+function shiftStatusBadge(s){
+    var map={
+        OnTime:['badge-ok','Đúng giờ'],
+        Late:['badge-expired','Đi trễ'],
+        Absent:['badge-rejected','Vắng'],
+        EarlyLeave:['badge-pending','Về sớm'],
+        Completed:['badge-paid','Hoàn thành'],
+        Scheduled:['badge-inactive','Chưa check-in']
+    };
+    var m=map[s]||['badge-inactive',s||'--'];
+    return bdg(m[0],m[1]);
+}
 function renderShifts(){
     var dl=document.getElementById('shift-def-list'),t=document.getElementById('shift-tbody');if(!dl||!t)return;
-    dl.innerHTML=SDEFS.map(function(d){return '<li class="shift-def-item"><div class="shift-name">'+d.name+'</div><div class="shift-time">'+d.time+'</div></li>';}).join('');
-    t.innerHTML=SHIFTS.map(function(s){var cl=s.status==='ok'?'badge-ok':(s.status==='late'?'badge-expired':'badge-pending');var tx=s.status==='ok'?'Đúng giờ':(s.status==='late'?'Đi trễ':'Chưa check-in');return '<tr><td style="font-weight:600">'+s.emp+'</td><td>'+s.store+'</td><td>'+s.shift+'</td><td style="font-size:12px">'+s.date+'</td><td style="font-weight:700;color:var(--primary)">'+s.in+'</td><td style="font-weight:700">'+s.out+'</td><td>'+bdg(cl,tx)+'</td></tr>';}).join('');
+    dl.innerHTML=SDEFS.map(function(d){return '<li class="shift-def-item"><div class="shift-name">'+d.name+'</div><div class="shift-time">'+d.start+'-'+d.end+'</div></li>';}).join('');
+    if(!ADMIN_STORE_ID){t.innerHTML='<tr><td colspan="7" class="tbl-empty">Tài khoản admin chưa được gán storeID.</td></tr>';return;}
+    var r=shiftDateRange();
+    t.innerHTML='<tr><td colspan="7" class="tbl-empty">Đang tải...</td></tr>';
+    apiGet('/shift/by-store/'+ADMIN_STORE_ID+'/'+r.start+'/'+r.end)
+        .then(function(res){return res.ok?res.json():[];})
+        .then(function(data){
+            SHIFTS_DATA=data||[];
+            if(!SHIFTS_DATA.length){t.innerHTML='<tr><td colspan="7" class="tbl-empty">Chưa có ca nào trong tuần này</td></tr>';return;}
+            t.innerHTML=SHIFTS_DATA.map(function(s){
+                var shiftName='--';
+                var inHm=shiftHM(s.timeIn);
+                if(inHm<14*60-30)shiftName='Ca Sáng';
+                else if(inHm<22*60-30)shiftName='Ca Chiều';
+                else shiftName='Ca Đêm';
+                return '<tr>'+
+                    '<td style="font-weight:600">'+(s.employeeName||'')+'</td>'+
+                    '<td>'+(s.storeName||'#'+s.storeID)+'</td>'+
+                    '<td>'+shiftName+'</td>'+
+                    '<td style="font-size:12px">'+fmtShiftDate(s.timeIn)+' · '+fmtShiftClock(s.timeIn)+'→'+fmtShiftClock(s.timeOut)+'</td>'+
+                    '<td style="font-weight:700;color:var(--primary)">'+fmtShiftClock(s.checkIn)+'</td>'+
+                    '<td style="font-weight:700">'+fmtShiftClock(s.checkOut)+'</td>'+
+                    '<td>'+shiftStatusBadge(s.status)+'</td>'+
+                    '</tr>';
+            }).join('');
+        }).catch(function(){t.innerHTML='<tr><td colspan="7" class="tbl-empty">Lỗi tải dữ liệu</td></tr>';});
 }
 
 function renderTickets(){
@@ -384,10 +481,203 @@ function renderReports(){
 
 function renderMovs(){
     var s=document.getElementById('sm-stats'),t=document.getElementById('sm-tbody');if(!s||!t)return;
-    var inp=MOVS.filter(function(m){return m.type.indexOf('Nhap')>=0;}).length;
-    if(s)s.innerHTML=sc('ti-arrow-down','green',inp,'Lần Nhập Kho')+sc('ti-arrow-up','red',MOVS.length-inp,'Lần Xuất Kho');
-    t.innerHTML=MOVS.map(function(m){var cl=m.type.indexOf('Nhap')>=0?'badge-in':(m.type.indexOf('hao')>=0?'badge-adj':'badge-out');return '<tr><td style="font-weight:600">'+m.item+'</td><td>'+m.store+'</td><td>'+bdg(cl,m.type)+'</td><td style="font-weight:700">'+m.qty+'</td><td>'+m.unit+'</td><td style="font-size:12px;color:var(--muted)">'+m.reason+'</td><td>'+m.emp+'</td><td style="font-size:12px">'+m.date+'</td></tr>';}).join('');
+    t.innerHTML='<tr><td colspan="9" class="tbl-empty">Đang tải dữ liệu...</td></tr>';
+    
+    var url = '/StockMovement/get-all';
+    if(ADMIN_STORE_ID > 0) {
+        url += '?storeID=' + ADMIN_STORE_ID;
+    }
+    
+    apiGet(url)
+    .then(function(r){ return r.ok ? r.json() : []; })
+    .then(function(data){
+        var list = Array.isArray(data) ? data : [];
+        var inp = list.filter(function(m){ return m.qtyChange > 0; }).length;
+        if(s) s.innerHTML=sc('ti-arrow-down','green',inp,'Lần Nhập Kho')+sc('ti-arrow-up','red',list.length-inp,'Lần Xuất Kho');
+        
+        if(!list.length) {
+            t.innerHTML='<tr><td colspan="9" class="tbl-empty">Không có dữ liệu biến động kho</td></tr>';
+            return;
+        }
+        
+        t.innerHTML=list.map(function(m){
+            var movementType = m.movementType || '';
+            var typeLabel = '';
+            var badgeClass = '';
+            
+            if (movementType === 'PurchaseReceipt') {
+                typeLabel = 'Nhập kho';
+                badgeClass = 'badge-in';
+            } else if (movementType === 'Consumption') {
+                typeLabel = 'Chế biến';
+                badgeClass = 'badge-out';
+            } else if (movementType === 'Waste') {
+                typeLabel = 'Hao hụt';
+                badgeClass = 'badge-out';
+            } else if (movementType === 'Processing') {
+                typeLabel = 'Sơ chế';
+                badgeClass = 'badge-adj';
+            } else {
+                typeLabel = 'Điều chỉnh';
+                badgeClass = 'badge-adj';
+            }
+            
+            var formattedDate = m.timeStamp ? m.timeStamp.replace('T', ' ').slice(0, 19) : '—';
+            var qtyChangeStr = (m.qtyChange > 0 ? '+' : '') + m.qtyChange;
+            var reasonOrNote = m.reason || m.note || '—';
+            var empName = m.employeeName || 'Hệ thống';
+            
+            var detailBtn = '—';
+            if (m.referenceID) {
+                detailBtn = '<button class="btn-detail-toggle" onclick="toggleMovDetails(\'' + m.stockMovementID + '\', \'' + m.referenceType + '\', \'' + m.referenceID + '\', this)">Chi tiết</button>';
+            }
+            
+            var rowHtml = '<tr id="mov-row-' + m.stockMovementID + '">'
+                + '<td style="font-weight:600">' + (m.ingredientName || '—') + '</td>'
+                + '<td>' + (m.batchCode || '—') + '</td>'
+                + '<td>' + bdg(badgeClass, typeLabel) + '</td>'
+                + '<td style="font-weight:700">' + qtyChangeStr + '</td>'
+                + '<td>' + (m.ingredientUnit || '') + '</td>'
+                + '<td style="font-size:12px;color:var(--muted)">' + reasonOrNote + '</td>'
+                + '<td>' + empName + '</td>'
+                + '<td style="font-size:12px">' + formattedDate + '</td>'
+                + '<td style="text-align:center">' + detailBtn + '</td>'
+                + '</tr>'
+                + '<tr class="detail-row" id="detail-row-' + m.stockMovementID + '" style="display:none;">'
+                + '<td colspan="9"><div class="mov-detail-content" id="detail-content-' + m.stockMovementID + '">Đang tải chi tiết...</div></td>'
+                + '</tr>';
+                
+            return rowHtml;
+        }).join('');
+    }).catch(function(err){
+        t.innerHTML='<tr><td colspan="9" class="tbl-empty">Lỗi tải dữ liệu: ' + (err.message || '') + '</td></tr>';
+    });
 }
+
+window.toggleMovDetails = function(movId, refType, refId, btn) {
+    var detailRow = document.getElementById('detail-row-' + movId);
+    var detailContent = document.getElementById('detail-content-' + movId);
+    if (!detailRow || !detailContent) return;
+    
+    if (detailRow.style.display !== 'none') {
+        detailRow.style.display = 'none';
+        btn.textContent = 'Chi tiết';
+        return;
+    }
+    
+    detailRow.style.display = 'table-row';
+    btn.textContent = 'Thu gọn';
+    
+    detailContent.innerHTML = '<div class="mov-detail-card">Đang tải thông tin chi tiết...</div>';
+    
+    if (refType === 'Bill') {
+        apiGet('/bill/get/' + refId)
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(bill) {
+            if (!bill) {
+                detailContent.innerHTML = '<div class="mov-detail-card" style="color:var(--red)">Không tìm thấy thông tin hóa đơn.</div>';
+                return;
+            }
+            
+            var pMethod = bill.paymentMethods || bill.PaymentMethods || 'Cash';
+            var pStatus = bill.paymentStatus || bill.PaymentStatus || 'Pending';
+            var pMethodText = pMethod === 'BankTransfer' ? 'Chuyển khoản' : (pMethod === 'Card' ? 'Thẻ' : 'Tiền mặt');
+            var pStatusText = pStatus === 'Paid' ? 'Đã thanh toán' : 'Chưa thanh toán';
+            var customerName = (bill.user && (bill.user.fullName || bill.user.FullName)) || 'Khách vãng lai';
+            var storeName = (bill.store && (bill.store.storeName || bill.store.StoreName)) || 'Chi nhánh';
+            var tableNum = bill.tableID || bill.tableId || '—';
+            
+            var detailsListHtml = (bill.billDetail || []).map(function(d) {
+                var pVar = d.productVarient || d.ProductVarient || {};
+                var prod = pVar.product || pVar.Product || {};
+                var prodName = prod.productName || prod.ProductName || ('Mã ' + pVar.productID);
+                var sizeText = (pVar.size && pVar.size !== 'Default') ? ' (' + pVar.size + ')' : '';
+                return '<tr>'
+                    + '<td>' + prodName + sizeText + '</td>'
+                    + '<td style="text-align:center">' + d.quantity + '</td>'
+                    + '<td style="text-align:right">' + Number(d.price).toLocaleString('vi-VN') + ' đ</td>'
+                    + '<td style="text-align:right;font-weight:700">' + Number(d.inlineTotal).toLocaleString('vi-VN') + ' đ</td>'
+                    + '</tr>';
+            }).join('');
+            
+            detailContent.innerHTML = 
+                '<div class="mov-detail-card">'
+                + '  <div class="mov-detail-title">Chi Tiết Đơn Hàng #' + refId.slice(0,8).toUpperCase() + '</div>'
+                + '  <div class="mov-detail-grid">'
+                + '    <div class="mov-detail-label">Cửa hàng:</div><div class="mov-detail-value">' + storeName + '</div>'
+                + '    <div class="mov-detail-label">Khách hàng:</div><div class="mov-detail-value">' + customerName + '</div>'
+                + '    <div class="mov-detail-label">Bàn:</div><div class="mov-detail-value">' + tableNum + '</div>'
+                + '    <div class="mov-detail-label">Hình thức:</div><div class="mov-detail-value">' + pMethodText + ' (' + pStatusText + ')</div>'
+                + '    <div class="mov-detail-label">Tổng cộng:</div><div class="mov-detail-value" style="color:var(--primary)">' + Number(bill.total).toLocaleString('vi-VN') + ' đ</div>'
+                + '  </div>'
+                + '  <table class="mov-detail-table">'
+                + '    <thead>'
+                + '      <tr><th>Món ăn</th><th style="text-align:center">SL</th><th style="text-align:right">Đơn giá</th><th style="text-align:right">Thành tiền</th></tr>'
+                + '    </thead>'
+                + '    <tbody>' + (detailsListHtml || '<tr><td colspan="4" class="tbl-empty">Không có sản phẩm</td></tr>') + '</tbody>'
+                + '  </table>'
+                + '</div>';
+        })
+        .catch(function(err) {
+            detailContent.innerHTML = '<div class="mov-detail-card" style="color:var(--red)">Lỗi tải chi tiết hóa đơn: ' + err.message + '</div>';
+        });
+    } else if (refType === 'GoodsReceipt') {
+        apiGet('/receipt/getid/' + refId)
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(receipt) {
+            if (!receipt) {
+                detailContent.innerHTML = '<div class="mov-detail-card" style="color:var(--red)">Không tìm thấy thông tin phiếu nhập kho.</div>';
+                return;
+            }
+            
+            var supplierName = (receipt.supplier && (receipt.supplier.supplierName || receipt.supplier.SupplierName)) || 'Nhà cung cấp';
+            var employeeName = (receipt.employee && (receipt.employee.fullName || receipt.employee.FullName)) || 'Nhân viên';
+            var storeName = (receipt.store && (receipt.store.storeName || receipt.store.StoreName)) || 'Chi nhánh';
+            var poText = (receipt.poid || receipt.poID) ? ('PO #' + (receipt.poid || receipt.poID).slice(0, 8).toUpperCase()) : 'Trực tiếp (Không PO)';
+            
+            var detailsListHtml = (receipt.receiptDetail || []).map(function(d) {
+                var ing = d.ingredient || d.Ingredient || {};
+                var ingName = ing.ingredientName || ing.IngredientName || ('Mã ' + d.ingredientID);
+                var unitText = ing.ingredientUnit || ing.IngredientUnit || '';
+                return '<tr>'
+                    + '<td>' + ingName + '</td>'
+                    + '<td style="text-align:center">' + d.quantity + '</td>'
+                    + '<td style="text-align:center;color:var(--green);font-weight:700">' + d.goodQuantity + '</td>'
+                    + '<td>' + unitText + '</td>'
+                    + '<td style="text-align:right">' + Number(d.unitPrice).toLocaleString('vi-VN') + ' đ</td>'
+                    + '<td style="text-align:right;font-weight:700">' + Number(d.goodQuantity * d.unitPrice).toLocaleString('vi-VN') + ' đ</td>'
+                    + '</tr>';
+            }).join('');
+            
+            var totalAmount = (receipt.receiptDetail || []).reduce(function(acc, d) {
+                return acc + (d.goodQuantity * d.unitPrice);
+            }, 0);
+            
+            detailContent.innerHTML = 
+                '<div class="mov-detail-card">'
+                + '  <div class="mov-detail-title">Chi Tiết Phiếu Nhập #' + refId.slice(0,8).toUpperCase() + '</div>'
+                + '  <div class="mov-detail-grid">'
+                + '    <div class="mov-detail-label">Cửa hàng:</div><div class="mov-detail-value">' + storeName + '</div>'
+                + '    <div class="mov-detail-label">Nhà cung cấp:</div><div class="mov-detail-value">' + supplierName + '</div>'
+                + '    <div class="mov-detail-label">Người nhập:</div><div class="mov-detail-value">' + employeeName + '</div>'
+                + '    <div class="mov-detail-label">Đơn PO:</div><div class="mov-detail-value">' + poText + '</div>'
+                + '    <div class="mov-detail-label">Tổng giá trị:</div><div class="mov-detail-value" style="color:var(--primary)">' + Number(totalAmount).toLocaleString('vi-VN') + ' đ</div>'
+                + '  </div>'
+                + '  <table class="mov-detail-table">'
+                + '    <thead>'
+                + '      <tr><th>Nguyên liệu</th><th style="text-align:center">Nhập</th><th style="text-align:center">Đạt</th><th>Đơn vị</th><th style="text-align:right">Đơn giá</th><th style="text-align:right">Thành tiền</th></tr>'
+                + '    </thead>'
+                + '    <tbody>' + (detailsListHtml || '<tr><td colspan="6" class="tbl-empty">Không có chi tiết nhập kho</td></tr>') + '</tbody>'
+                + '  </table>'
+                + '</div>';
+        })
+        .catch(function(err) {
+            detailContent.innerHTML = '<div class="mov-detail-card" style="color:var(--red)">Lỗi tải chi tiết phiếu nhập: ' + err.message + '</div>';
+        });
+    } else {
+        detailContent.innerHTML = '<div class="mov-detail-card">Không hỗ trợ hiển thị chi tiết cho loại tham chiếu này.</div>';
+    }
+};
 
 // ===== TOAST =====
 window.showToast=function(msg,type){
@@ -530,6 +820,161 @@ Object.keys(addBtns).forEach(function(id){
     var el=document.getElementById(id);
     if(el)el.addEventListener('click',function(){crudAdd(addBtns[id]);});
 });
+
+// Buttons riêng cho shift & receipt — không đi qua FORMS template.
+var _btnShift=document.getElementById('btn-add-shift');
+if(_btnShift)_btnShift.addEventListener('click',openShiftAssignModal);
+var _btnRcp=document.getElementById('btn-add-receipt');
+if(_btnRcp)_btnRcp.addEventListener('click',openReceiptModal);
+var _btnRcpFilter=document.getElementById('btn-filter-receipt');
+if(_btnRcpFilter)_btnRcpFilter.addEventListener('click',renderReceipts);
+
+// ===== PHIẾU NHẬP =====
+function todayMinusDays(n){var d=new Date(vnTodayISO()+'T00:00:00+07:00');d.setUTCDate(d.getUTCDate()-n);return d.toISOString().slice(0,10);}
+
+function renderReceipts(){
+    var t=document.getElementById('receipt-tbody');if(!t)return;
+    if(!ADMIN_STORE_ID){t.innerHTML='<tr><td colspan="7" class="tbl-empty">Tài khoản admin chưa được gán storeID.</td></tr>';return;}
+    var sEl=document.getElementById('receipt-filter-start'),eEl=document.getElementById('receipt-filter-end');
+    if(sEl && !sEl.value) sEl.value=todayMinusDays(30);
+    if(eEl && !eEl.value) eEl.value=today();
+    var start=sEl?sEl.value:todayMinusDays(30), end=eEl?eEl.value:today();
+    t.innerHTML='<tr><td colspan="7" class="tbl-empty">Đang tải...</td></tr>';
+    apiGet('/receipt/by-store/'+ADMIN_STORE_ID+'/'+start+'/'+end)
+        .then(function(r){return r.ok?r.json():[];})
+        .then(function(data){
+            RECEIPTS_DATA=data||[];
+            if(!RECEIPTS_DATA.length){t.innerHTML='<tr><td colspan="7" class="tbl-empty">Chưa có phiếu nhập nào</td></tr>';return;}
+            t.innerHTML=RECEIPTS_DATA.map(function(r){
+                var st=r.confirmedAt?bdg('badge-paid','Đã xác nhận'):bdg('badge-pending','Đang chờ');
+                return '<tr>'+
+                    '<td style="font-weight:700;color:var(--primary);font-family:monospace">'+(r.receiptID||'').slice(0,8).toUpperCase()+'</td>'+
+                    '<td style="font-size:12px">'+(r.dateReceive||'').slice(0,10)+'</td>'+
+                    '<td style="font-weight:600">'+(r.supplierName||'#'+r.supplierID)+'</td>'+
+                    '<td>'+(r.employeeName||'')+'</td>'+
+                    '<td style="font-weight:700">'+r.lineCount+'</td>'+
+                    '<td style="font-weight:700;color:var(--primary)">'+fv(r.totalAmount)+' đ</td>'+
+                    '<td>'+st+'</td>'+
+                '</tr>';
+            }).join('');
+        }).catch(function(){t.innerHTML='<tr><td colspan="7" class="tbl-empty">Lỗi tải dữ liệu</td></tr>';});
+}
+
+function openReceiptModal(){
+    if(!ADMIN_STORE_ID){showToast('Tài khoản admin chưa được gán storeID','error');return;}
+    Promise.all([
+        apiGet('/supplier/get-all').then(function(r){return r.ok?r.json():[];}),
+        apiGet('/ingredient/get-all').then(function(r){return r.ok?r.json():[];})
+    ]).then(function(res){
+        var supps=res[0]||[], ings=res[1]||[]; INGREDIENTS_DATA=ings;
+        var suppOpts='<option value="">-- Chọn NCC --</option>'+supps.map(function(s){return '<option value="'+s.supplierID+'">'+s.supplierName+'</option>';}).join('');
+        var ingOpts='<option value="">-- Nguyên liệu --</option>'+ings.map(function(i){return '<option value="'+i.ingredientID+'">'+i.ingredientName+' ('+i.ingredientUnit+')</option>';}).join('');
+        var body=
+            '<div class="form-group"><label class="form-label">Nhà cung cấp</label><select id="f-rcp-supp" class="form-control">'+suppOpts+'</select></div>'+
+            '<div class="form-group"><label class="form-label">Danh sách nguyên liệu</label>'+
+                '<div id="rcp-lines"></div>'+
+                '<button type="button" class="btn-secondary" id="btn-add-rcp-line" style="margin-top:8px;padding:6px 14px;font-size:13px">+ Thêm dòng</button>'+
+            '</div>';
+        openModal('Lập Phiếu Nhập (Store #'+ADMIN_STORE_ID+')', body, function(){
+            var suppID=parseInt(document.getElementById('f-rcp-supp').value)||0;
+            if(!suppID){showToast('Vui lòng chọn nhà cung cấp','warning');return;}
+            var rows=document.querySelectorAll('.rcp-line-row');
+            var lines=[];
+            rows.forEach(function(row){
+                var iid=parseInt(row.querySelector('.f-rcp-ing').value)||0;
+                var qty=parseFloat(row.querySelector('.f-rcp-qty').value)||0;
+                var good=parseFloat(row.querySelector('.f-rcp-good').value)||0;
+                var price=parseFloat(row.querySelector('.f-rcp-price').value)||0;
+                if(iid>0 && qty>0)lines.push({IngredientID:iid,Quantity:qty,GoodQuantity:good,UnitPrice:price});
+            });
+            if(!lines.length){showToast('Vui lòng thêm ít nhất 1 nguyên liệu','warning');return;}
+            var empID=localStorage.getItem('employeeId')||'';
+            apiPost('/receipt/create-direct/'+ADMIN_STORE_ID,{
+                EmployeeID:empID, SupplierID:suppID, ReceiptLines:lines
+            }).then(function(r){
+                if(r.status===201 || r.ok){
+                    showToast('Lập phiếu nhập thành công','success');
+                    closeModal();renderReceipts();
+                } else {
+                    r.json().then(function(d){showToast(d.message||'Lập phiếu thất bại','error');}).catch(function(){showToast('Lập phiếu thất bại','error');});
+                }
+            }).catch(function(){showToast('Lỗi kết nối','error');});
+        });
+        var ll=document.getElementById('rcp-lines');
+        function addRow(){
+            var row=document.createElement('div');
+            row.className='rcp-line-row';
+            row.style.cssText='display:flex;gap:6px;align-items:center;margin-bottom:6px;';
+            row.innerHTML=
+                '<select class="form-control f-rcp-ing" style="flex:2">'+ingOpts+'</select>'+
+                '<input class="form-control f-rcp-qty" type="number" placeholder="SL" min="0" step="0.01" style="flex:1">'+
+                '<input class="form-control f-rcp-good" type="number" placeholder="SL Tốt" min="0" step="0.01" style="flex:1">'+
+                '<input class="form-control f-rcp-price" type="number" placeholder="Đơn giá" min="0" step="1" style="flex:1">'+
+                '<button type="button" class="btn-del" onclick="this.parentElement.remove()" style="padding:4px 8px"><i class="ti-trash"></i></button>';
+            ll.appendChild(row);
+        }
+        document.getElementById('btn-add-rcp-line').addEventListener('click',addRow);
+        addRow();
+    }).catch(function(){showToast('Lỗi tải dữ liệu NCC/nguyên liệu','error');});
+}
+
+// ===== MODAL PHÂN CA =====
+function pad2(n){return (n<10?'0':'')+n;}
+function combineDateTime(dateStr,hhmm){
+    if(!dateStr||!hhmm)return null;
+    // Gắn +07:00 để BE hiểu là giờ VN bất kể server timezone.
+    return dateStr+'T'+hhmm+':00+07:00';
+}
+function openShiftAssignModal(){
+    if(!ADMIN_STORE_ID){showToast('Tài khoản admin chưa được gán storeID','error');return;}
+    apiGet('/employee/get-by-store/'+ADMIN_STORE_ID).then(function(r){return r.ok?r.json():[];}).then(function(emps){
+        var empOpts='<option value="">-- Chọn nhân viên --</option>'+(emps||[]).map(function(e){
+            return '<option value="'+e.userID+'">'+(e.fullName||e.userName)+' ('+e.role+')</option>';
+        }).join('');
+        var defOpts=SDEFS.map(function(d){return '<option value="'+d.key+'">'+d.name+' ('+d.start+'-'+d.end+')</option>';}).join('');
+        var body=
+            '<div class="form-group"><label class="form-label">Nhân viên</label><select id="f-shift-emp" class="form-control">'+empOpts+'</select></div>'+
+            '<div class="form-group"><label class="form-label">Ngày làm</label><input type="date" id="f-shift-date" class="form-control" value="'+today()+'"></div>'+
+            '<div class="form-group"><label class="form-label">Ca</label><select id="f-shift-def" class="form-control">'+defOpts+'<option value="custom">Tùy chỉnh</option></select></div>'+
+            '<div class="form-group" id="g-shift-custom" style="display:none;">'+
+                '<label class="form-label">Bắt đầu - Kết thúc</label>'+
+                '<div style="display:flex;gap:8px"><input type="time" id="f-shift-in" class="form-control"><input type="time" id="f-shift-out" class="form-control"></div>'+
+            '</div>';
+        openModal('Phân ca cho nhân viên', body, function(){
+            var empID=document.getElementById('f-shift-emp').value;
+            var date=document.getElementById('f-shift-date').value;
+            var defKey=document.getElementById('f-shift-def').value;
+            if(!empID){showToast('Vui lòng chọn nhân viên','warning');return;}
+            if(!date){showToast('Vui lòng chọn ngày','warning');return;}
+            var inT,outT,nextDay=false;
+            if(defKey==='custom'){
+                inT=document.getElementById('f-shift-in').value;
+                outT=document.getElementById('f-shift-out').value;
+            } else {
+                var def=SDEFS.find(function(d){return d.key===defKey;});
+                if(!def){showToast('Ca không hợp lệ','warning');return;}
+                inT=def.start; outT=def.end;
+                if(def.key==='night')nextDay=true;
+            }
+            if(!inT||!outT){showToast('Vui lòng nhập giờ','warning');return;}
+            var endDate=date;
+            if(nextDay){
+                var dd=new Date(date+'T00:00:00+07:00'); dd.setUTCDate(dd.getUTCDate()+1); endDate=dd.toISOString().slice(0,10);
+            }
+            apiPost('/shift/assign/'+ADMIN_STORE_ID,{
+                EmployeeID: empID,
+                TimeIn: combineDateTime(date,inT),
+                TimeOut: combineDateTime(endDate,outT)
+            }).then(function(r){
+                if(r.ok){showToast('Phân ca thành công','success');closeModal();renderShifts();}
+                else r.json().then(function(d){showToast(d.message||'Phân ca thất bại','error');}).catch(function(){showToast('Phân ca thất bại','error');});
+            }).catch(function(){showToast('Lỗi kết nối','error');});
+        });
+        document.getElementById('f-shift-def').addEventListener('change',function(){
+            document.getElementById('g-shift-custom').style.display=(this.value==='custom')?'block':'none';
+        });
+    }).catch(function(){showToast('Không tải được danh sách nhân viên','error');});
+}
 
 // ===== INVENTORY FILTERS =====
 document.querySelectorAll('#inv-status-tabs .ftab').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('#inv-status-tabs .ftab').forEach(function(x){x.classList.remove('active');});this.classList.add('active');invStatusFilter=this.getAttribute('data-sfilter');renderBatchTable();});});

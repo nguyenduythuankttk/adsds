@@ -45,7 +45,7 @@ namespace Backend.Models.DTOs.Reponse
     public class ReceiptCreateResponse
     {
         public Guid ReceiptID { get; set; }
-        public Guid POID { get; set; }
+        public Guid? POID { get; set; }
         public int SupplierID { get; set; }
         public int StoreID { get; set; }
         public Guid EmployeeID { get; set; }
@@ -57,6 +57,7 @@ namespace Backend.Models.DTOs.Reponse
     public class ReceiptDetailSaved
     {
         public int IngredientID { get; set; }
+        public string? IngredientName { get; set; }
         public decimal Quantity { get; set; }
         public decimal GoodQuantity { get; set; }
         public decimal UnitPrice { get; set; }
@@ -76,5 +77,22 @@ namespace Backend.Models.DTOs.Reponse
         public string IngredientName { get; set; } = "";
         public decimal QuantityOnHand { get; set; }
         public string BatchCode { get; set; } = "";
+    }
+
+    // Bản phẳng dùng cho list theo store/admin — tránh load toàn bộ Employee/Store entity.
+    public class ReceiptListResponse
+    {
+        public Guid ReceiptID { get; set; }
+        public Guid? POID { get; set; }
+        public int StoreID { get; set; }
+        public string? StoreName { get; set; }
+        public int SupplierID { get; set; }
+        public string? SupplierName { get; set; }
+        public Guid EmployeeID { get; set; }
+        public string? EmployeeName { get; set; }
+        public DateTime DateReceive { get; set; }
+        public DateTime? ConfirmedAt { get; set; }
+        public int LineCount { get; set; }
+        public decimal TotalAmount { get; set; }
     }
 }

@@ -427,7 +427,7 @@ function renderReviewList(storeId, reviews) {
         var created = rv.createdAt || rv.CreatedAt;
         var dt = '';
         if (created) {
-            try { dt = new Date(created).toLocaleString('vi-VN'); } catch (e) {}
+            try { dt = fmtVnDateTime(created); } catch (e) {}
         }
         return '<div style="background:#fff;border:1px solid #eee;border-radius:14px;padding:12px 14px;margin-bottom:10px">'
             +    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'

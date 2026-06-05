@@ -241,7 +241,7 @@
         apiGet('/ticket/my-tickets')
             .then(function (r) { return r.ok ? r.json() : []; })
             .then(function (data) {
-                var now = new Date().toISOString().slice(0, 10);
+                var now = vnTodayISO();
                 var valid = (Array.isArray(data) ? data : []).filter(function (tk) {
                     return !tk.usedAt && !tk.deletedAt &&
                            (tk.startDate || '') <= now &&
@@ -911,7 +911,12 @@
         if (thumb) thumb.classList.remove('on-user');
 
         homeBtn.addEventListener('click', function () {
-            window.location.href = 'index.html';
+            var role = localStorage.getItem('role');
+            if ((role === 'admin' || role === 'employee') && !isTokenExpired()) {
+                window.location.href = role === 'admin' ? 'admin.html' : 'employee.html';
+            } else {
+                window.location.href = 'index.html';
+            }
         });
 
         userBtn.addEventListener('click', function () {

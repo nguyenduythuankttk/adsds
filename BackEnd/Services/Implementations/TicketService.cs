@@ -3,6 +3,7 @@
 using Backend.Services.Interface;
 using Backend.Models.DTOs.Request;
 using Backend.Models;
+using Backend.Helpers;
 using Backend.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -136,12 +137,12 @@ namespace Backend.Services.Implementations
                 throw new Exception("Ticket not found");
             if (ticket.UsedAt != null)
                 throw new Exception("Ticket đã được sử dụng");
-            if (ticket.EndDate < DateOnly.FromDateTime(DateTime.UtcNow))
+            if (ticket.EndDate < VnTime.Today)
                 throw new Exception("Ticket đã hết hạn");
 
             try
             {
-                ticket.UsedAt = DateTime.UtcNow;
+                ticket.UsedAt = VnTime.Now;
                 ticket.UsedBy = userID;
                 await _dbcontext.SaveChangesAsync();
             }
@@ -164,7 +165,7 @@ namespace Backend.Services.Implementations
             
             try
             {
-                ticket.DeletedAt = DateTime.Now;
+                ticket.DeletedAt = VnTime.Now;
                 await _dbcontext.SaveChangesAsync();
             }catch(Exception ex)
             {

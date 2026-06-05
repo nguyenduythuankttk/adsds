@@ -1,7 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
-using Microsoft.EntityFrameworkCore; 
+using Backend.Helpers;
+using Microsoft.EntityFrameworkCore;
 namespace Backend.Models {
     public enum Gender
     {
@@ -21,7 +22,7 @@ namespace Backend.Models {
         [Required,MaxLength(255)]
         public string HashPassword {get; set;} = null!;
         public DateOnly? BirthDate {get; set;} 
-        public DateTime CreateAt {get; set;} = DateTime.UtcNow;
+        public DateTime CreateAt {get; set;} = VnTime.Now;
         public string? Email {get; set;}
         [Required, Phone, MaxLength(10)]
         public string Phone {get; set;} = null!;

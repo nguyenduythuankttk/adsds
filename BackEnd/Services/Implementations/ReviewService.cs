@@ -1,5 +1,6 @@
 using Backend.Data;
 using Backend.Converters;
+using Backend.Helpers;
 using Backend.Models.DTOs.Reponse;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interfaces;
@@ -110,7 +111,7 @@ namespace Backend.Services.Implementations
                     StoreID = createRequest.StoreID,
                     Rating = createRequest.Rating,
                     Comment = createRequest.Comment,
-                    CreatedAt = DateTime.UtcNow,
+                    CreatedAt = VnTime.Now,
                     DeletedAt = null
                 });
 
@@ -158,7 +159,7 @@ namespace Backend.Services.Implementations
                 if (!string.IsNullOrWhiteSpace(updateRequest.Comment))
                     updates.Add(Builders<Review>.Update.Set(r => r.Comment, updateRequest.Comment));
 
-                updates.Add(Builders<Review>.Update.Set(r => r.UpdatedAt, DateTime.Now));
+                updates.Add(Builders<Review>.Update.Set(r => r.UpdatedAt, VnTime.Now));
 
                 if (updates.Count == 1)
                     throw new Exception("Nothing to update");
@@ -190,7 +191,7 @@ namespace Backend.Services.Implementations
 
                 await _mongoDbContext.Reviews.UpdateOneAsync(
                     r => r.ReviewID == reviewId,
-                    Builders<Review>.Update.Set(r => r.DeletedAt, DateTime.UtcNow)
+                    Builders<Review>.Update.Set(r => r.DeletedAt, VnTime.Now)
                 );
 
                 await RecomputeStoreStats(review.StoreID);

@@ -10,9 +10,11 @@ namespace Backend.Controller {
     [Route("api/pbl3/[controller]")]
     public class billController : ControllerBase {
         private readonly IBillService _billService;
+        private readonly ISePayService _sepayService;
 
-        public billController(IBillService billService) {
+        public billController(IBillService billService, ISePayService sepayService) {
             _billService = billService;
+            _sepayService = sepayService;
         }
 
         [Authorize(Roles = "Manager,Counter,Dining,Kitchen")]
@@ -58,7 +60,7 @@ namespace Backend.Controller {
             return Ok(bill);
         }
 
-        [Authorize(Roles = "Manager,Counter,Dining")]
+        [Authorize(Roles = "Manager,Counter,Dining,Kitchen")]
         [HttpPost("create-dinein")]
         public async Task<IActionResult> CreateDineInBill([FromBody] DineInBillCreateRequest request) {
             try {
@@ -105,6 +107,19 @@ namespace Backend.Controller {
             }
         }
 
+        // FE gọi khi user bấm "Tôi đã chuyển khoản": chủ động query SePay xem tiền đã về chưa.
+        // Trả { paid:true } → FE chấp nhận thanh toán; { paid:false } → cho thanh toán lại.
+        [Authorize]
+        [HttpPost("verify-payment/{billID}")]
+        public async Task<IActionResult> VerifyPayment(Guid billID) {
+            try {
+                var paid = await _sepayService.VerifyBillPaymentAsync(billID);
+                return Ok(new { paid });
+            } catch (Exception e) {
+                return StatusCode(500, new { paid = false, message = e.Message });
+            }
+        }
+
         // FE gọi khi countdown 3 phút hết, hoặc user bấm "Huỷ" trên popup QR
         [Authorize]
         [HttpPost("cancel/{billID}")]
@@ -113,7 +128,7 @@ namespace Backend.Controller {
                 var callerID = Guid.Parse((User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                     ?? User.FindFirst("user_id")?.Value)!);
                 var role = User.FindFirst(ClaimTypes.Role)?.Value;
-                bool isStaff = role == "Manager" || role == "Counter";
+                bool isStaff = role != "Customer";
                 await _billService.CancelUnpaidBill(billID, callerID, isStaff);
                 return Ok(new { success = true });
             } catch (Exception e) {
@@ -122,7 +137,7 @@ namespace Backend.Controller {
         }
 
         // Nhân viên thay đổi trạng thái bill
-        [Authorize(Roles = "Manager,Counter")]
+        [Authorize(Roles = "Manager,Counter,Dining,Kitchen")]
         [HttpPost("change-status")]
         public async Task<IActionResult> ChangeBill([FromBody] BillChangeRequest request) {
             await _billService.ChangeBill(request);

@@ -30,6 +30,14 @@ namespace Backend.Models.DTOs.Request
         public DateOnly Exp { get; set; }
         public string? BatchCode { get; set; }
     }
+
+    // Admin/Manager tạo phiếu nhập trực tiếp (không gắn với PO).
+    // Mọi nhân viên + supplier phải được verify thuộc store admin đang quản lý
+    // (storeID lấy từ URL controller, không nhận từ body để tránh giả mạo).
+    public class DirectReceiptCreateRequest
+    {
+        public Guid EmployeeID { get; set; }
+        public int SupplierID { get; set; }
+        public List<ReceiptDetailItem> ReceiptLines { get; set; } = [];
+    }
 }
-
-

@@ -1,4 +1,5 @@
 using Backend.Data;
+using Backend.Helpers;
 using Backend.Models;
 using Backend.Models.DTOs.Reponse;
 using Backend.Models.DTOs.Request;
@@ -165,8 +166,10 @@ namespace Backend.Services.Implementations{
 
             using var tx = await _dbcontext.Database.BeginTransactionAsync();
             try{
-                Guid? userID = null;
-                if (!string.IsNullOrEmpty(request.contact)) {
+                Guid? userID;
+                if (string.IsNullOrEmpty(request.contact))
+                    userID = null;
+                else{
                     var user = await _userService.GetUserByContact(request.contact);
                     userID = user?.UserID;
                 }
@@ -180,7 +183,7 @@ namespace Backend.Services.Implementations{
                         Note = request.Note,
                         MoneyReceived = isBankTransfer ? null : request.MoneyReceived,
                         PaymentStatus = isBankTransfer ? PaymentStatus.Pending : PaymentStatus.Paid,
-                        PaidAt = isBankTransfer ? null : DateTime.UtcNow
+                        PaidAt = isBankTransfer ? null : VnTime.Now
                         };
                 decimal total = 0.0m;
                 foreach (var i in request.products)
@@ -201,7 +204,7 @@ namespace Backend.Services.Implementations{
                 if (request.TicketID.HasValue && request.TicketID.Value != Guid.Empty)
                 {
                     var ticket = await _ticketService.GetTicketByID(request.TicketID.Value);
-                    if (ticket != null && ticket.UsedAt == null && ticket.EndDate >= DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7)))
+                    if (ticket != null && ticket.UsedAt == null && ticket.EndDate >= VnTime.Today)
                     {
                         bill.TicketID = ticket.TicketID;
                         bill.Total = Math.Round(bill.Total * (1 - ticket.Discount), 0);
@@ -226,7 +229,7 @@ namespace Backend.Services.Implementations{
                     BillID = bill.BillID,
                     Status = BillStatus.Create,
                     EmployeeID = request.EmployeID,
-                    ChangeAt = DateTime.UtcNow.AddHours(7)
+                    ChangeAt = VnTime.Now
                 };
                 bill.BillChange.Add(billChange);
                 _dbcontext.Bill.Add(bill);
@@ -239,6 +242,7 @@ namespace Backend.Services.Implementations{
                 await ConsumeIngredients(bill.BillID, bill.BillDetail.ToList(), request.EmployeID.Value, request.StoreID);
                 await tx.CommitAsync();
 
+                var (storeAcc, storeBank, storeAccName) = await ResolveStoreBankAsync(bill.StoreID);
                 var response = new DineInBillCreateReponse
                 {
                     BillID           = bill.BillID,
@@ -246,18 +250,19 @@ namespace Backend.Services.Implementations{
                     PaymentMethods   = bill.PaymentMethods,
                     PaymentStatus    = bill.PaymentStatus,
                     PaymentReference = bill.PaymentReference,
-                    BankAccount      = _sepay.Account,
-                    BankCode         = _sepay.Bank,
+                    BankAccount      = storeAcc,
+                    BankCode         = storeBank,
+                    BankAccountName  = storeAccName,
                     TestMode         = _sepay.TestMode
                 };
 
                 if (isBankTransfer
-                    && !string.IsNullOrEmpty(_sepay.Account)
-                    && !string.IsNullOrEmpty(_sepay.Bank))
+                    && !string.IsNullOrEmpty(storeAcc)
+                    && !string.IsNullOrEmpty(storeBank))
                 {
                     var amount = ((long)bill.Total).ToString();
                     var des    = Uri.EscapeDataString(bill.PaymentReference ?? "");
-                    response.QrUrl = $"https://qr.sepay.vn/img?acc={_sepay.Account}&bank={_sepay.Bank}&amount={amount}&des={des}";
+                    response.QrUrl = $"https://qr.sepay.vn/img?acc={storeAcc}&bank={storeBank}&amount={amount}&des={des}";
                 }
                 return response;
             } catch (InvalidOperationException) {
@@ -393,7 +398,7 @@ namespace Backend.Services.Implementations{
                 if (request.TicketID.HasValue && request.TicketID.Value != Guid.Empty)
                 {
                     var ticket = await _ticketService.GetTicketByID(request.TicketID.Value);
-                    if (ticket != null && ticket.UsedAt == null && ticket.EndDate >= DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7)))
+                    if (ticket != null && ticket.UsedAt == null && ticket.EndDate >= VnTime.Today)
                     {
                         bill.TicketID = ticket.TicketID;
                         bill.Total = Math.Round(bill.Total * (1 - ticket.Discount), 0);
@@ -405,7 +410,7 @@ namespace Backend.Services.Implementations{
                     BillID = bill.BillID,
                     Status = BillStatus.Create,
                     EmployeeID = request.EmployeID,
-                    ChangeAt = DateTime.UtcNow.AddHours(7)
+                    ChangeAt = VnTime.Now
                 };
                 bill.BillChange.Add(billChange);
 
@@ -421,29 +426,35 @@ namespace Backend.Services.Implementations{
                 var delivery = new DeliveryInfo{
                     DeliveryID = Guid.NewGuid(),
                     BillID = bill.BillID,
-                    UserID = bill.UserID!.Value,
+                    UserID = request.UserID,
                     AddressID = addressID,
                     Note = request.NoteForDelivery,
                     ShippingFee = shippingFee
                 };
-                var deliveryLog = new DeliveryLog{
-                    DeliveryID = delivery.DeliveryID,
-                    Status = DeliveryStatus.Pending,
-                    ChangeAt = DateTime.UtcNow.AddHours(7),
-                    Note = request.NoteForDelivery
-                };
-                delivery.DeliveryLog.Add(deliveryLog);
+                // Chỉ đưa đơn vào quản lý giao hàng (tạo log Pending) khi đã thanh toán.
+                // Đơn chuyển khoản/thẻ (BankTransfer) chờ webhook SePay xác nhận tiền về
+                // rồi mới tạo log → lúc đó mới hiện trong "Đơn đang chờ giao".
+                if (bill.PaymentStatus == PaymentStatus.Paid)
+                {
+                    delivery.DeliveryLog.Add(new DeliveryLog{
+                        DeliveryID = delivery.DeliveryID,
+                        Status = DeliveryStatus.Pending,
+                        ChangeAt = VnTime.Now,
+                        Note = request.NoteForDelivery
+                    });
+                }
                 _dbcontext.DeliveryInfo.Add(delivery);
 
                 await _dbcontext.SaveChangesAsync();
 
-                if (bill.TicketID.HasValue && bill.UserID.HasValue)
-                    await _ticketService.SetUsedAt(bill.TicketID.Value, bill.UserID.Value);
+                if (bill.TicketID.HasValue)
+                    await _ticketService.SetUsedAt(bill.TicketID.Value, request.UserID);
 
                 await IncreaseSoldCount(bill.BillDetail.ToList());
                 // Không trừ nguyên liệu ở đây – sẽ trừ khi bếp bắt đầu chuẩn bị (Preparing)
                 await tx.CommitAsync();
 
+                var (storeAcc, storeBank, storeAccName) = await ResolveStoreBankAsync(bill.StoreID);
                 var response = new DeliveryBillCreateReponse
                 {
                     BillID           = bill.BillID,
@@ -451,19 +462,20 @@ namespace Backend.Services.Implementations{
                     PaymentMethods   = bill.PaymentMethods,
                     PaymentStatus    = bill.PaymentStatus,
                     PaymentReference = bill.PaymentReference,
-                    BankAccount      = _sepay.Account,
-                    BankCode         = _sepay.Bank,
+                    BankAccount      = storeAcc,
+                    BankCode         = storeBank,
+                    BankAccountName  = storeAccName,
                     TestMode         = _sepay.TestMode
                 };
 
                 if (bill.PaymentMethods == PaymentMethods.BankTransfer
-                    && !string.IsNullOrEmpty(_sepay.Account)
-                    && !string.IsNullOrEmpty(_sepay.Bank))
+                    && !string.IsNullOrEmpty(storeAcc)
+                    && !string.IsNullOrEmpty(storeBank))
                 {
                     // VietQR ảnh động của SePay: https://qr.sepay.vn/img?acc=...&bank=...&amount=...&des=...
                     var amount = ((long)bill.Total).ToString();
                     var des    = Uri.EscapeDataString(bill.PaymentReference ?? "");
-                    response.QrUrl = $"https://qr.sepay.vn/img?acc={_sepay.Account}&bank={_sepay.Bank}&amount={amount}&des={des}";
+                    response.QrUrl = $"https://qr.sepay.vn/img?acc={storeAcc}&bank={storeBank}&amount={amount}&des={des}";
                 }
                 return response;
             } catch (InvalidOperationException) {
@@ -502,12 +514,20 @@ namespace Backend.Services.Implementations{
             if (bill.PaymentStatus == PaymentStatus.Failed) return; // đã huỷ rồi
 
             bill.PaymentStatus = PaymentStatus.Failed;
+
+            // Đơn chuyển khoản chưa thanh toán bị huỷ → xoá mềm thông tin giao hàng
+            // (đơn chưa có log nên chưa hiện trong quản lý giao hàng; đây là bước dọn dẹp).
+            var deliveryInfo = await _dbcontext.DeliveryInfo
+                .FirstOrDefaultAsync(di => di.BillID == bill.BillID && di.DeletedAt == null);
+            if (deliveryInfo != null)
+                deliveryInfo.DeletedAt = VnTime.Now;
+
             _dbcontext.BillChange.Add(new BillChange
             {
                 BillChangeID = Guid.NewGuid(),
                 BillID = bill.BillID,
                 Status = BillStatus.Delete,
-                ChangeAt = DateTime.UtcNow.AddHours(7),
+                ChangeAt = VnTime.Now,
                 EmployeeID = null
             });
             await _dbcontext.SaveChangesAsync();
@@ -545,7 +565,7 @@ namespace Backend.Services.Implementations{
                 .Where(r => productVarientIDs.Contains(r.ProductVarientID) && r.DeletedAt == null)
                 .ToListAsync();
 
-            var now = DateTime.UtcNow.AddHours(7);
+            var now = VnTime.Now;
             var today = DateOnly.FromDateTime(now);
 
             var demand = new Dictionary<int, decimal>();
@@ -616,8 +636,34 @@ namespace Backend.Services.Implementations{
             await _dbcontext.SaveChangesAsync();
         }
 
+        // Lấy TK ngân hàng nhận tiền. Ưu tiên TK cấu hình chung trong .env (SePay__Account/Bank)
+        // để chỉ cần cấu hình 1 lần, không phải chọn/khai báo TK cho từng cửa hàng. Nếu .env
+        // trống thì mới fallback về TK riêng của cửa hàng trong DB (BankAccount).
+        private async Task<(string? acc, string? bank, string? name)> ResolveStoreBankAsync(int storeID)
+        {
+            if (!string.IsNullOrWhiteSpace(_sepay.Account) && !string.IsNullOrWhiteSpace(_sepay.Bank))
+                return (_sepay.Account, _sepay.Bank, _sepay.AccountHolderName);
+
+            var ba = await _dbcontext.BankAccount
+                .AsNoTracking()
+                .FirstOrDefaultAsync(b => b.StoreID == storeID && b.DeletedAt == null);
+            return (ba?.AccountNumber, ba?.BankCode, ba?.AccountHolderName);
+        }
+
         public async Task ChangeBill(BillChangeRequest changeRequest){
             try {
+                var bill = await _dbcontext.Bill
+                    .FirstOrDefaultAsync(b => b.BillID == changeRequest.BillID)
+                    ?? throw new Exception("Không tìm thấy hóa đơn");
+
+                // CHẶN đánh dấu "Đã thanh toán" khi tiền chưa thực sự vào.
+                // Bill.PaymentStatus chỉ = Paid trong 2 trường hợp:
+                //   - Tiền mặt/thẻ: set Paid ngay lúc tạo bill (thu tại quầy).
+                //   - Chuyển khoản: SePay webhook xác nhận TransferAmount >= Total mới set Paid.
+                // Nhân viên KHÔNG được tự ghi log Paid khi SePay chưa cộng đủ tiền.
+                if (changeRequest.Status == BillStatus.Paid && bill.PaymentStatus != PaymentStatus.Paid)
+                    throw new Exception("Chưa nhận được thanh toán (SePay chưa xác nhận cộng tiền). Không thể chuyển hóa đơn sang Đã thanh toán.");
+
                 var latestChange = await _dbcontext.BillChange
                     .Where(bc => bc.BillID == changeRequest.BillID)
                     .OrderByDescending(bc => bc.ChangeAt)
