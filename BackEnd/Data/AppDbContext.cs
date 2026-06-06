@@ -42,6 +42,7 @@ namespace Backend.Data {
         public DbSet<ShiftTask> ShiftTask {get; set;}
         public DbSet<BankAccount> BankAccount {get; set;}
         public DbSet<SupplierIngredient> SupplierIngredient {get; set;}
+        public DbSet<LeaveRequest> LeaveRequest {get; set;}
 
         protected override void OnModelCreating(ModelBuilder modelBuilder) {
             base.OnModelCreating(modelBuilder);
@@ -366,6 +367,21 @@ namespace Backend.Data {
                 .WithOne(b => b.Store)
                 .HasForeignKey<BankAccount>(b => b.StoreID)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // LeaveRequest: 2 FK về Employee — phải khai báo tường minh để tránh cascade cycle
+            modelBuilder.Entity<LeaveRequest>()
+                .HasOne(lr => lr.Employee)
+                .WithMany()
+                .HasForeignKey(lr => lr.EmployeeID)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<LeaveRequest>()
+                .HasOne(lr => lr.ReviewedBy)
+                .WithMany()
+                .HasForeignKey(lr => lr.ReviewedByID)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<LeaveRequest>()
+                .Property(lr => lr.Status)
+                .HasConversion<string>().HasMaxLength(20).IsRequired();
         }
     }
 }

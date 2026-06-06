@@ -39,6 +39,14 @@ namespace Backend.Controller
             return Ok(employees);
         }
 
+        [HttpGet("get-manager/{storeID}")]
+        public async Task<IActionResult> GetManagerByStoreID(int storeID)
+        {
+            var manager = await _employeeService.GetManagerByStoreID(storeID);
+            if (manager == null) return NotFound("Không tìm thấy manager cho cửa hàng này");
+            return Ok(manager);
+        }
+
         [HttpPost("add")]
         public async Task<IActionResult> AddEmployee([FromBody] EmployeeCreateRequest request)
         {

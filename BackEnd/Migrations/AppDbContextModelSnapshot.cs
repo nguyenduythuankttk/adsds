@@ -509,6 +509,53 @@ namespace BackEnd.Migrations
                     b.ToTable("InventoryBatch");
                 });
 
+            modelBuilder.Entity("Backend.Models.LeaveRequest", b =>
+                {
+                    b.Property<Guid>("LeaveRequestID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("EmployeeID")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateOnly>("LeaveDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("ReviewNote")
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("ReviewedByID")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.HasKey("LeaveRequestID");
+
+                    b.HasIndex("EmployeeID");
+
+                    b.HasIndex("ReviewedByID");
+
+                    b.ToTable("LeaveRequest");
+                });
+
             modelBuilder.Entity("Backend.Models.POApproval", b =>
                 {
                     b.Property<Guid>("POApprovalID")
@@ -1459,6 +1506,24 @@ namespace BackEnd.Migrations
                     b.Navigation("Ingredient");
 
                     b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("Backend.Models.LeaveRequest", b =>
+                {
+                    b.HasOne("Backend.Models.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Backend.Models.Employee", "ReviewedBy")
+                        .WithMany()
+                        .HasForeignKey("ReviewedByID")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("ReviewedBy");
                 });
 
             modelBuilder.Entity("Backend.Models.POApproval", b =>

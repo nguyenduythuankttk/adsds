@@ -15,6 +15,7 @@ namespace Backend.Services.Implementations{
             await _dbContext.PurchaseOrder
                 .AsNoTracking()
                 .Include(po => po.PODetail)
+                    .ThenInclude(d => d.Ingredient)
                 .Include(po => po.Store)
                 .Include(po => po.Supplier)
                 .Include(po => po.POApproval
@@ -29,10 +30,11 @@ namespace Backend.Services.Implementations{
             await _dbContext.PurchaseOrder
                 .AsNoTracking()
                 .Include(po => po.PODetail)
+                    .ThenInclude(d => d.Ingredient)
                 .Include(po => po.Store)
                 .Include(po => po.Supplier)
-                .Include(po => po.POApproval
-                    .OrderByDescending(poA => poA.LastUpdated))
+                .Include(po => po.POApproval.OrderByDescending(poA => poA.LastUpdated))
+                    .ThenInclude(a => a.Employee)
                 .FirstOrDefaultAsync(po => po.POID == id && po.DeletedAt == null);
         public async Task<POCreateResponse> CreatePO(POCreateRequest createRequest){
             if (createRequest.Items == null || createRequest.Items.Count == 0)
@@ -63,6 +65,7 @@ namespace Backend.Services.Implementations{
                 decimal total = subtotal * (1 + createRequest.TaxRate);
 
                 var newPO = new PurchaseOrder{
+                    POID       = Guid.NewGuid(),
                     StoreID    = createRequest.StoreID,
                     SupplierID = createRequest.SupplierID,
                     TaxRate    = createRequest.TaxRate,

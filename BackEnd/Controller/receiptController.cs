@@ -70,8 +70,15 @@ namespace Backend.Controller
         [HttpPost("create")]
         public async Task<IActionResult> CreateReceipt(ReceiptCreateRequest request)
         {
-            var result = await _receiptService.CreateReceipt(request);
-            return CreatedAtAction(nameof(GetReceiptByID), new { receiptID = result.ReceiptID }, result);
+            try
+            {
+                var result = await _receiptService.CreateReceipt(request);
+                return CreatedAtAction(nameof(GetReceiptByID), new { receiptID = result.ReceiptID }, result);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(new { message = e.Message });
+            }
         }
 
         // Admin tạo phiếu nhập trực tiếp (không qua PO) cho store mình quản lý.

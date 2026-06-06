@@ -9,6 +9,7 @@ namespace Backend.Services.Interface
         Task<List<EmployeeResponse>?> GetAllEmployees();
         Task<EmployeeResponse?> GetEmployeeByID(Guid employeeID);
         Task<List<EmployeeResponse>?> GetEmployeesByStoreID(int storeID);
+        Task<EmployeeResponse?> GetManagerByStoreID(int storeID);
         Task AddEmployee(EmployeeCreateRequest request);
         Task UpdateEmployee(Guid employeeID, EmployeeUpdateRequest request);
         Task SoftDeleteEmployee(Guid employeeID);

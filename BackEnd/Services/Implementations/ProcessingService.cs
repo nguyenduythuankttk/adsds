@@ -64,16 +64,10 @@ namespace Backend.Services.Implementations
                     throw new Exception($"Batch {item.SourceBatchID}: InputKg ({item.InputKg}) exceeds QuantityOnHand ({batch.QuantityOnHand}).");
                 if (item.OutputPieces <= 0)
                     throw new Exception($"Batch {item.SourceBatchID}: OutputPieces must be > 0.");
-                if (item.BagCount <= 0)
-                    throw new Exception($"Batch {item.SourceBatchID}: BagCount must be > 0.");
-                if (item.PiecesPerBag <= 0)
-                    throw new Exception($"Batch {item.SourceBatchID}: PiecesPerBag must be > 0.");
                 if (item.Mfd >= item.Exp)
                     throw new Exception($"Batch {item.SourceBatchID}: Mfd must be before Exp.");
-                if (!outputIngredients.TryGetValue(item.OutputIngredientID, out var outIngredient))
+                if (!outputIngredients.TryGetValue(item.OutputIngredientID, out _))
                     throw new Exception($"OutputIngredientID {item.OutputIngredientID} not found.");
-                if (outIngredient.IngredientUnit != IngredientUnit.Unit)
-                    throw new Exception($"OutputIngredientID {item.OutputIngredientID} must be IngredientUnit.Unit (got {outIngredient.IngredientUnit}).");
             }
 
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
