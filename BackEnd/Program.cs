@@ -113,6 +113,7 @@ builder.Services.AddScoped<IProcessingService, ProcessingService>();
 builder.Services.AddScoped<IInventoryBatchService, InventoryBatchService>();
 builder.Services.AddScoped<IShiftService, ShiftService>();
 builder.Services.AddScoped<IShiftTaskService, ShiftTaskService>();
+builder.Services.AddScoped<ILeaveRequestService, LeaveRequestService>();
 builder.Services.AddScoped<IRecipeService, RecipeService>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();

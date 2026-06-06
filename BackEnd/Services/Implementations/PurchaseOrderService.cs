@@ -15,6 +15,7 @@ namespace Backend.Services.Implementations{
             await _dbContext.PurchaseOrder
                 .AsNoTracking()
                 .Include(po => po.PODetail)
+                    .ThenInclude(d => d.Ingredient)
                 .Include(po => po.Store)
                 .Include(po => po.Supplier)
                 // Lấy mọi approval + Employee (FE tự chọn bản mới nhất). KHÔNG dùng
@@ -33,8 +34,8 @@ namespace Backend.Services.Implementations{
                     .ThenInclude(d => d.Ingredient)
                 .Include(po => po.Store)
                 .Include(po => po.Supplier)
-                .Include(po => po.POApproval)
-                    .ThenInclude(poA => poA.Employee)
+                .Include(po => po.POApproval.OrderByDescending(poA => poA.LastUpdated))
+                    .ThenInclude(a => a.Employee)
                 .FirstOrDefaultAsync(po => po.POID == id && po.DeletedAt == null);
         public async Task<POCreateResponse> CreatePO(POCreateRequest createRequest){
             if (createRequest.Items == null || createRequest.Items.Count == 0)
@@ -63,6 +64,14 @@ namespace Backend.Services.Implementations{
             try {
                 decimal subtotal = createRequest.Items.Sum(i => i.Quantity * i.UnitPriceExpected);
                 decimal total = subtotal * (1 + createRequest.TaxRate);
+
+                var newPO = new PurchaseOrder{
+                    POID       = Guid.NewGuid(),
+                    StoreID    = createRequest.StoreID,
+                    SupplierID = createRequest.SupplierID,
+                    TaxRate    = createRequest.TaxRate,
+                    Total      = total
+                };
 
                 var details = createRequest.Items.Select(i => new PODetail{
                     IngredientID      = i.IngredientID,

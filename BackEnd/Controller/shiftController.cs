@@ -71,6 +71,32 @@ namespace Backend.Controller {
             }
         }
 
+        [Authorize(Roles = "Manager,Dining,Kitchen,Counter")]
+        [HttpPost("check-in")]
+        public async Task<IActionResult> CheckIn() {
+            try {
+                var empID = GetCallerID();
+                if (empID == null) return Unauthorized();
+                var result = await _shiftService.CheckInForEmployee(empID.Value);
+                return Ok(result);
+            } catch (Exception e) {
+                return StatusCode(500, new { message = e.Message });
+            }
+        }
+
+        [Authorize(Roles = "Manager,Dining,Kitchen,Counter")]
+        [HttpPost("check-out")]
+        public async Task<IActionResult> CheckOut() {
+            try {
+                var empID = GetCallerID();
+                if (empID == null) return Unauthorized();
+                var result = await _shiftService.CheckOutForEmployee(empID.Value);
+                return Ok(result);
+            } catch (Exception e) {
+                return StatusCode(500, new { message = e.Message });
+            }
+        }
+
         [Authorize(Roles = "Manager")]
         [HttpDelete("delete/{shiftID}")]
         public async Task<IActionResult> DeleteShift(Guid shiftID) {

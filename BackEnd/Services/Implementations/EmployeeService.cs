@@ -135,6 +135,44 @@ namespace Backend.Services.Implementations
                 })
                 .ToListAsync();
 
+        public async Task<EmployeeResponse?> GetManagerByStoreID(int storeID) =>
+            await _dbContext.Employee
+                .Where(e => e.StoreID == storeID && e.Role == RoleType.Manager && e.DeleteAt == null)
+                .AsNoTracking()
+                .Include(e => e.Store)
+                    .ThenInclude(s => s.Address)
+                .Select(e => new EmployeeResponse
+                {
+                    UserID = e.UserID,
+                    UserName = e.UserName,
+                    Email = e.Email,
+                    Phone = e.Phone,
+                    FullName = e.FullName,
+                    Gender = e.Gender,
+                    Birthday = e.BirthDate,
+                    Role = e.Role,
+                    StoreID = e.StoreID,
+                    BasicSalary = e.BasicSalary,
+                    Store = new StoreResponse
+                    {
+                        StoreID = e.Store.StoreID,
+                        StoreName = e.Store.StoreName,
+                        Phone = e.Store.Phone,
+                        Email = e.Store.Email,
+                        TotalReviews = e.Store.TotalReviews,
+                        TotalPoints = e.Store.TotalPoints,
+                        SeatingCapacity = e.Store.SeatingCapacity,
+                        Address = e.Store.Address == null ? null : new AddressResponse
+                        {
+                            AddressID = e.Store.Address.AddressID,
+                            StreetAddress = e.Store.Address.StreetAddress,
+                            District = e.Store.Address.District,
+                            Province = e.Store.Address.Province
+                        }
+                    }
+                })
+                .FirstOrDefaultAsync();
+
         public async Task AddEmployee(EmployeeCreateRequest request)
         {
             try
