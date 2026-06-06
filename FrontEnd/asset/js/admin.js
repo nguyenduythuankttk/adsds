@@ -37,8 +37,7 @@ var ADMIN_STORE_ID = parseInt(localStorage.getItem('storeId')) || 0;
 // Định nghĩa ca chuẩn — chọn 1 ca + chọn ngày sẽ ra TimeIn/TimeOut.
 var SDEFS=[
     {key:'morning', name:'Ca Sáng',  start:'06:00', end:'14:00'},
-    {key:'evening', name:'Ca Chiều', start:'14:00', end:'22:00'},
-    {key:'night',   name:'Ca Đêm',   start:'22:00', end:'06:00'}
+    {key:'evening', name:'Ca Chiều', start:'14:00', end:'22:00'}
 ];
 var MOVS=[
   {item:'Thit dui ga',store:'Quan 1',type:'Nhap kho',qty:120,unit:'Cai',reason:'Nhap hang tuan',emp:'Nguyen Van A',date:'2026-05-10'},
@@ -299,28 +298,52 @@ function renderSupps(){
     }).catch(function(){t.innerHTML='<tr><td colspan="7" class="tbl-empty">Lỗi tải dữ liệu</td></tr>';});
 }
 
-var poFilter='all';
+var poFilter='submitted';
+function _poLatestApproval(p){
+    var arr=p.poApproval||p.pOApproval||[];
+    if(!arr.length)return null;
+    return arr.reduce(function(a,b){return new Date(a.lastUpdated||a.LastUpdated)>new Date(b.lastUpdated||b.LastUpdated)?a:b;});
+}
 function renderPO(){
     var t=document.getElementById('po-tbody');if(!t)return;
     t.innerHTML='<tr><td colspan="10" class="tbl-empty">Đang tải...</td></tr>';
     apiGet('/purchaseorder/Get-all/'+yearRange()).then(function(r){return r.ok?r.json():[];}).then(function(data){
-        POS_DATA=data||[];
-        var rows=poFilter==='all'?POS_DATA:POS_DATA.filter(function(p){return (p.pOStatus||p.status||'').toLowerCase()===poFilter;});
-        var pc=POS_DATA.filter(function(p){var st=(p.pOStatus||p.status||'').toLowerCase();return st==='pending'||st==='waiting';}).length;
+        POS_DATA=(data||[]).map(function(p){
+            var apv=_poLatestApproval(p);
+            p._status=apv?(apv.poStatus||apv.pOStatus||'submitted').toLowerCase():'submitted';
+            p._id=p.poid||p.pOID||'';
+            return p;
+        });
+        var rows=poFilter==='all'?POS_DATA:POS_DATA.filter(function(p){return p._status===poFilter;});
+        var pc=POS_DATA.filter(function(p){return p._status==='submitted';}).length;
         var b=document.getElementById('badge-po');if(b){b.textContent=pc;b.style.display=pc>0?'inline-block':'none';}
         if(!rows.length){t.innerHTML='<tr><td colspan="10" class="tbl-empty">Không có đơn nào</td></tr>';return;}
         t.innerHTML=rows.map(function(p){
-            var st=(p.pOStatus||p.status||'pending').toLowerCase();
-            var cl=st==='approved'?'badge-approved':(st==='rejected'?'badge-rejected':'badge-pending');
-            var tx=st==='approved'?'Đã duyệt':(st==='rejected'?'Từ chối':'Chờ duyệt');
-            var ac=(st==='pending'||st==='waiting')?
-                eBtn('btn-approve','ti-check',"actionPO('"+p.pOID+"','Approved')")+' '+eBtn('btn-reject','ti-close',"actionPO('"+p.pOID+"','Rejected')"):
+            var st=p._status;
+            var cl=st==='ordered'||st==='received'?'badge-approved':(st==='rejected'||st==='cancelled'?'badge-rejected':'badge-pending');
+            var tx={submitted:'Chờ duyệt',ordered:'Đã duyệt',received:'Đã nhận hàng',rejected:'Từ chối',cancelled:'Đã hủy'}[st]||st;
+            var ac=st==='submitted'?
+                eBtn('btn-approve','ti-check',"actionPO('"+p._id+"','Ordered')")+' '+eBtn('btn-reject','ti-close',"actionPO('"+p._id+"','Rejected')"):
                 '<span style="color:#aaa;font-size:12px">Đã chốt</span>';
-            return '<tr><td style="font-weight:700;color:var(--primary)">'+(p.pOID||'').toString().slice(0,8)+'</td>'+
+            var details=p.poDetail||p.pODetail||[];
+            var ingNames=details.map(function(d){
+                var ing=d.ingredient||d.Ingredient;
+                return ing?(ing.ingredientName||ing.IngredientName||'?'):('NL#'+d.ingredientID);
+            }).join(', ')||'—';
+            var totalQty=details.reduce(function(acc,d){return acc+(d.quantity||0);},0);
+            var apvDate=_poLatestApproval(p);
+            var dateStr=apvDate?(apvDate.lastUpdated||'').toString().slice(0,10):'';
+            return '<tr style="cursor:pointer" onclick="openPODetail(\''+p._id+'\')">'+
+                   '<td style="font-weight:700;color:var(--primary);font-family:monospace">'+p._id.slice(0,8).toUpperCase()+'</td>'+
                    '<td>'+(p.store?p.store.storeName:p.storeID)+'</td>'+
                    '<td style="font-weight:600">'+(p.supplier?p.supplier.supplierName:p.supplierID)+'</td>'+
-                   '<td style="font-size:12px">'+(p.createdAt||'').toString().slice(0,10)+'</td>'+
-                   '<td>'+bdg(cl,tx)+'</td><td>'+ac+'</td></tr>';
+                   '<td style="font-size:11px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+ingNames+'">'+ingNames+'</td>'+
+                   '<td style="text-align:center">'+fv(totalQty)+'</td>'+
+                   '<td style="font-weight:700;color:var(--primary)">'+fv(p.total||0)+' đ</td>'+
+                   '<td style="font-size:12px">—</td>'+
+                   '<td style="font-size:12px">'+dateStr+'</td>'+
+                   '<td>'+bdg(cl,tx)+'</td>'+
+                   '<td onclick="event.stopPropagation()">'+ac+'</td></tr>';
         }).join('');
     }).catch(function(){t.innerHTML='<tr><td colspan="10" class="tbl-empty">Lỗi tải dữ liệu</td></tr>';});
 }
@@ -328,9 +351,251 @@ window.actionPO=function(id,status){
     var empId=localStorage.getItem('employeeId')||'00000000-0000-0000-0000-000000000000';
     apiPut('/purchaseorder/update/'+id,{EmployeeID:empId,POStatus:status,Comment:''})
         .then(function(r){
-            if(r.ok){showToast((status==='Approved'?'Đã duyệt':'Đã từ chối')+' đơn','success');renderPO();}
-            else{showToast('Thao tác thất bại','error');}
+            if(r.ok){showToast((status==='Ordered'?'Đã duyệt đơn':'Đã từ chối đơn'),'success');renderPO();}
+            else{r.text().then(function(msg){showToast('Thao tác thất bại: '+(msg||''),'error');});}
         }).catch(function(){showToast('Lỗi kết nối','error');});
+};
+function docTienVND(n){
+    if(!n||n===0)return'Không đồng.';
+    var d=['không','một','hai','ba','bốn','năm','sáu','bảy','tám','chín'];
+    function g3(num,lead){
+        var h=Math.floor(num/100),t=Math.floor((num%100)/10),u=num%10,s='';
+        if(lead||h){s+=d[h]+' trăm';if(!t&&u)s+=' lẻ';}
+        if(t>1){s+=' '+d[t]+' mươi';if(u===1)s+=' mốt';else if(u===5)s+=' lăm';else if(u)s+=' '+d[u];}
+        else if(t===1){s+=' mười';if(u===5)s+=' lăm';else if(u)s+=' '+d[u];}
+        else if(u)s+=' '+d[u];
+        return s.trim();
+    }
+    var units=['', ' nghìn', ' triệu', ' tỷ'];
+    var groups=[],tmp=n;
+    while(tmp>0){groups.unshift(tmp%1000);tmp=Math.floor(tmp/1000);}
+    var res='';
+    for(var i=0;i<groups.length;i++){if(groups[i])res+=g3(groups[i],i>0)+units[groups.length-1-i]+' ';}
+    res=res.trim().replace(/\s+/g,' ')+' đồng.';
+    return res.charAt(0).toUpperCase()+res.slice(1);
+}
+function printPOA4(p){
+    var apv=_poLatestApproval(p);
+    var dateStr=apv?(apv.lastUpdated||'').toString().slice(0,10):'';
+    var pid=p.poid||p.pOID||'';
+    var storeName=(p.store&&p.store.storeName)?p.store.storeName:'Chônlibi';
+    var suppName=(p.supplier&&p.supplier.supplierName)?p.supplier.supplierName:(p.supplierID||'');
+    var empName=(p.employee&&(p.employee.employeeName||p.employee.fullName))?(p.employee.employeeName||p.employee.fullName):'';
+    var details=p.poDetail||p.pODetail||[];
+    var tong=details.reduce(function(s,d){return s+(d.quantity||0)*(d.unitPriceExpected||0);},0);
+    var day=dateStr?dateStr.slice(8,10):'.....';
+    var mon=dateStr?dateStr.slice(5,7):'.....';
+    var yr=dateStr?dateStr.slice(0,4):'20.....';
+    var rowsHtml=details.map(function(d,i){
+        var ing=d.ingredient||d.Ingredient||{};
+        var name=ing.ingredientName||ing.IngredientName||('Mã '+d.ingredientID);
+        var unit=ing.ingredientUnit||ing.IngredientUnit||'';
+        var qty=d.quantity||0;
+        var price=d.unitPriceExpected||0;
+        var sub=qty*price;
+        var maSo=(d.ingredientID||'').toString().slice(0,6).toUpperCase()||('NL'+String(i+1).padStart(2,'0'));
+        return '<tr><td class="c">'+(i+1)+'</td><td>'+name+'</td>'
+            +'<td class="c">'+maSo+'</td>'
+            +'<td class="c">'+unit+'</td>'
+            +'<td class="r">'+qty.toLocaleString('vi-VN')+'</td>'
+            +'<td class="r">'+qty.toLocaleString('vi-VN')+'</td>'
+            +'<td class="r">'+price.toLocaleString('vi-VN')+'</td>'
+            +'<td class="r">'+sub.toLocaleString('vi-VN')+'</td></tr>';
+    }).join('');
+    for(var k=0;k<3;k++)rowsHtml+='<tr class="empty"><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
+    var html='<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8">'
+        +'<title>Phiếu Nhập Kho - '+pid.slice(0,8).toUpperCase()+'</title>'
+        +'<style>'
+        +':root{--ink:#111;--line:#000;}*{box-sizing:border-box;}'
+        +'body{margin:0;background:#e9eaec;font-family:"Times New Roman",Times,serif;color:var(--ink);-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+        +'.toolbar{position:sticky;top:0;z-index:10;display:flex;justify-content:center;gap:12px;padding:12px;background:#1f2937;}'
+        +'.toolbar button{font-family:system-ui,sans-serif;font-size:14px;font-weight:600;padding:8px 18px;border:0;border-radius:8px;cursor:pointer;background:#E8590C;color:#fff;}'
+        +'.toolbar .hint{color:#cbd5e1;font-family:system-ui,sans-serif;font-size:12px;align-self:center;}'
+        +'.sheet{width:210mm;min-height:297mm;margin:16px auto;padding:14mm 16mm;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.18);font-size:13.5pt;line-height:1.45;}'
+        +'.head{display:flex;justify-content:space-between;align-items:flex-start;}'
+        +'.head .left{width:48%;}.head .right{width:48%;text-align:right;}'
+        +'.mau{font-weight:700;}.tt{font-style:italic;font-size:11.5pt;line-height:1.3;}'
+        +'.title{text-align:center;margin:14px 0 2px;}'
+        +'.title h1{font-size:18pt;font-weight:700;letter-spacing:1px;margin:0;text-transform:uppercase;}'
+        +'.title .date{font-style:italic;font-size:12.5pt;}'
+        +'.nocc{display:flex;justify-content:center;gap:34px;font-size:12.5pt;margin-bottom:8px;}'
+        +'.meta p{margin:4px 0;}.fill{border-bottom:1px dotted #555;}'
+        +'table{width:100%;border-collapse:collapse;margin:8px 0;font-size:12.5pt;}'
+        +'th,td{border:1px solid var(--line);padding:4px 6px;vertical-align:middle;}'
+        +'th{text-align:center;font-weight:700;}'
+        +'.c{text-align:center;}.r{text-align:right;}'
+        +'.codes td{text-align:center;font-style:italic;font-size:11pt;padding:2px;}'
+        +'.empty td{height:26px;}.sum td{font-weight:700;}'
+        +'.total-words{margin:6px 0;}'
+        +'.sign-wrap{margin-top:14px;page-break-inside:avoid;}'
+        +'.sign-date{text-align:right;font-style:italic;font-size:12.5pt;margin-right:6%;margin-bottom:6px;}'
+        +'.signs{display:flex;justify-content:space-between;text-align:center;}'
+        +'.signs .col{width:24%;}.signs .role{font-weight:700;font-size:12.5pt;}'
+        +'.signs .sub{font-style:italic;font-size:11pt;}.signs .space{height:70px;}.signs .name{font-weight:600;}'
+        +'.note{font-style:italic;font-size:10.5pt;color:#333;margin-top:16px;border-top:1px solid #999;padding-top:6px;}'
+        +'@media print{@page{size:A4;margin:12mm;}body{background:#fff;}.toolbar{display:none;}'
+        +'.sheet{width:auto;min-height:auto;margin:0;padding:0;box-shadow:none;}.note{color:#000;}}'
+        +'</style></head><body>'
+        +'<div class="toolbar"><button onclick="window.print()">🖨️ In phiếu (A4)</button>'
+        +'<span class="hint">Mẹo: trong hộp thoại in, chọn "Lưu thành PDF" để xuất file.</span></div>'
+        +'<div class="sheet">'
+        +'<div class="head"><div class="left">'
+        +'<p style="margin:2px 0">Đơn vị: <b>'+storeName+'</b></p>'
+        +'<p style="margin:2px 0">Bộ phận: <span class="fill">Kho nguyên liệu</span></p>'
+        +'</div><div class="right">'
+        +'<p class="mau" style="margin:2px 0">Mẫu số: 01 - VT</p>'
+        +'<p class="tt" style="margin:2px 0">(Kèm theo Thông tư số 99/2025/TT-BTC<br>ngày 27 tháng 10 năm 2025 của<br>Bộ trưởng Bộ Tài chính)</p>'
+        +'</div></div>'
+        +'<div class="title"><h1>Phiếu Nhập Kho</h1>'
+        +'<div class="date">Ngày '+day+' tháng '+mon+' năm '+yr+'</div></div>'
+        +'<div class="nocc"><span>Số: <b>'+pid.slice(0,8).toUpperCase()+'</b></span>'
+        +'<span>Nợ: <span class="fill">.............</span></span>'
+        +'<span>Có: <span class="fill">.............</span></span></div>'
+        +'<div class="meta">'
+        +'<p>- Họ và tên người giao: <b>'+suppName+'</b></p>'
+        +'<p>- Theo đơn đặt hàng số <b>'+pid.slice(0,8).toUpperCase()+'</b> ngày '+day+' tháng '+mon+' năm '+yr+' của <span class="fill">'+suppName+'</span></p>'
+        +'<p>- Nhập tại kho: <b>Kho nguyên liệu</b> &nbsp;&nbsp; Địa điểm: <span class="fill">'+storeName+'</span></p>'
+        +'</div>'
+        +'<table><thead>'
+        +'<tr><th rowspan="2" style="width:5%">STT</th>'
+        +'<th rowspan="2">Tên, nhãn hiệu, quy cách, phẩm chất vật tư, dụng cụ, sản phẩm, hàng hóa</th>'
+        +'<th rowspan="2" style="width:8%">Mã số</th>'
+        +'<th rowspan="2" style="width:9%">Đơn vị tính</th>'
+        +'<th colspan="2" style="width:18%">Số lượng</th>'
+        +'<th rowspan="2" style="width:13%">Đơn giá</th>'
+        +'<th rowspan="2" style="width:16%">Thành tiền</th></tr>'
+        +'<tr><th style="width:9%">Theo chứng từ</th><th style="width:9%">Thực nhập</th></tr>'
+        +'<tr class="codes"><td>A</td><td>B</td><td>C</td><td>D</td><td>1</td><td>2</td><td>3</td><td>4</td></tr>'
+        +'</thead><tbody>'+rowsHtml+'</tbody>'
+        +'<tfoot><tr class="sum"><td class="c"></td><td><b>Cộng</b></td>'
+        +'<td class="c">x</td><td class="c">x</td><td class="c">x</td><td class="c">x</td><td class="c">x</td>'
+        +'<td class="r">'+tong.toLocaleString('vi-VN')+'</td></tr></tfoot>'
+        +'</table>'
+        +'<div class="total-words">- Tổng số tiền (viết bằng chữ): <i>'+docTienVND(tong)+'</i></div>'
+        +'<div style="margin:4px 0 0">- Số chứng từ gốc kèm theo: <span class="fill">................................</span></div>'
+        +'<div class="sign-wrap">'
+        +'<div class="sign-date">TP. HCM, ngày '+day+' tháng '+mon+' năm '+yr+'</div>'
+        +'<div class="signs">'
+        +'<div class="col"><div class="role">Người lập phiếu</div><div class="sub">(Ký, họ tên)</div>'
+        +'<div class="space"></div>'+(empName?'<div class="name">'+empName+'</div>':'')+'</div>'
+        +'<div class="col"><div class="role">Người giao hàng</div><div class="sub">(Ký, họ tên)</div><div class="space"></div></div>'
+        +'<div class="col"><div class="role">Thủ kho</div><div class="sub">(Ký, họ tên)</div><div class="space"></div></div>'
+        +'<div class="col"><div class="role">Kế toán trưởng</div><div class="sub">(Hoặc bộ phận có nhu cầu nhập)<br>(Ký, họ tên)</div><div class="space"></div></div>'
+        +'</div></div>'
+        +'<div class="note">Ghi chú: Tùy theo đặc điểm hoạt động sản xuất kinh doanh và yêu cầu quản lý của đơn vị mình, doanh nghiệp được xây dựng, thiết kế biểu mẫu chứng từ kế toán.</div>'
+        +'</div></body></html>';
+    var win=window.open('','_blank','width=920,height=750');
+    if(win){win.document.write(html);win.document.close();}
+}
+window.openPODetail=function(id){
+    document.getElementById('modal-box').style.maxWidth='700px';
+    document.getElementById('modal-title').textContent='Chi Tiết Đơn Mua Hàng';
+    document.getElementById('modal-body').innerHTML='<div style="text-align:center;padding:32px;color:var(--muted)">Đang tải...</div>';
+    document.getElementById('modal-confirm').style.display='none';
+    document.getElementById('modal-cancel').textContent='Đóng';
+    mOv.classList.add('open');
+    apiGet('/purchaseorder/get/'+id)
+        .then(function(r){return r.ok?r.json():null;})
+        .then(function(p){
+            if(!p){document.getElementById('modal-body').innerHTML='<div style="color:var(--red);padding:20px">Không tìm thấy đơn.</div>';return;}
+            var apv=_poLatestApproval(p);
+            var st=apv?(apv.poStatus||apv.pOStatus||'submitted').toLowerCase():'submitted';
+            var stMap={
+                submitted:{label:'Chờ duyệt',color:'#B45309',bg:'#FFFBEB',border:'#FDE68A'},
+                ordered:{label:'Đã duyệt',color:'#047857',bg:'#ECFDF5',border:'#A7F3D0'},
+                received:{label:'Đã nhận hàng',color:'#047857',bg:'#ECFDF5',border:'#A7F3D0'},
+                rejected:{label:'Từ chối',color:'#DC2626',bg:'#FEE2E2',border:'#FECACA'},
+                cancelled:{label:'Đã hủy',color:'#6B7280',bg:'#F3F4F6',border:'#D1D5DB'}
+            };
+            var si=stMap[st]||{label:st,color:'#6B7280',bg:'#F3F4F6',border:'#D1D5DB'};
+            var dateStr=apv?(apv.lastUpdated||'').toString().slice(0,10):'';
+            var pid=p.poid||p.pOID||id;
+            var storeName=(p.store&&p.store.storeName)?p.store.storeName:(p.storeID||'—');
+            var suppName=(p.supplier&&p.supplier.supplierName)?p.supplier.supplierName:(p.supplierID||'—');
+            var allApvs=p.pOApproval||p.poApproval||[];
+            var firstApv=allApvs.length?allApvs[allApvs.length-1]:null;
+            var empName=(firstApv&&firstApv.employee&&(firstApv.employee.fullName||firstApv.employee.employeeName))
+                ?(firstApv.employee.fullName||firstApv.employee.employeeName):'—';
+            var details=p.poDetail||p.pODetail||[];
+            var tong=details.reduce(function(s,d){return s+(d.quantity||0)*(d.unitPriceExpected||0);},0);
+            var svgStore='<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
+            var svgTruck='<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>';
+            var svgHash='<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>';
+            var svgUser='<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+            function mc(icon,lbl,val){
+                return '<div style="display:flex;align-items:flex-start;gap:10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:10px 14px">'
+                    +'<div style="width:30px;height:30px;border-radius:8px;background:#FFF4ED;color:#E8590C;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">'+icon+'</div>'
+                    +'<div style="min-width:0">'
+                    +'<div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#94A3B8;margin-bottom:2px">'+lbl+'</div>'
+                    +'<div style="font-size:13px;font-weight:600;color:#1E293B;word-break:break-word">'+val+'</div>'
+                    +'</div></div>';
+            }
+            var rowsHtml=details.length?details.map(function(d){
+                var ing=d.ingredient||d.Ingredient||{};
+                var name=ing.ingredientName||ing.IngredientName||('Mã '+d.ingredientID);
+                var unit=ing.ingredientUnit||ing.IngredientUnit||'';
+                var qty=d.quantity||0;
+                var price=d.unitPriceExpected||0;
+                var sub=qty*price;
+                return '<tr style="border-top:1px solid #F1F5F9">'
+                    +'<td style="padding:10px 14px;font-weight:600;color:#1E293B;font-size:13px">'+name+'</td>'
+                    +'<td style="padding:10px 14px;text-align:center;font-size:12px;color:#64748B">'+unit+'</td>'
+                    +'<td style="padding:10px 14px;text-align:right;font-weight:600;color:#1E293B;font-size:13px">'+fv(qty)+'</td>'
+                    +'<td style="padding:10px 14px;text-align:right;color:#64748B;font-size:13px">'+fv(price)+' đ</td>'
+                    +'<td style="padding:10px 14px;text-align:right;font-weight:700;color:#E8590C;font-size:13px">'+fv(sub)+' đ</td>'
+                    +'</tr>';
+            }).join(''):'<tr><td colspan="5" style="padding:24px;text-align:center;color:#94A3B8">Không có nguyên liệu</td></tr>';
+            document.getElementById('modal-title').innerHTML=
+                'Chi Tiết Đơn Mua Hàng '
+                +'<span style="background:#E8590C;color:#fff;border-radius:6px;padding:1px 8px;font-size:11px;font-weight:700;font-family:monospace;vertical-align:middle">#'+pid.slice(0,8).toUpperCase()+'</span>';
+            document.getElementById('modal-body').innerHTML=
+                '<div style="background:#FFF4ED;border-radius:10px;padding:14px 16px;margin-bottom:14px;border:1px solid #FDDCBA;position:relative;overflow:hidden">'
+                +'<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#E8590C,#FB923C)"></div>'
+                +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+                +'<span style="background:'+si.bg+';color:'+si.color+';border:1px solid '+si.border+';border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600">● '+si.label+'</span>'
+                +(dateStr?'<span style="font-size:12px;color:#94A3B8;margin-left:auto">Ngày: '+dateStr+'</span>':'')
+                +'</div></div>'
+                +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">'
+                +mc(svgStore,'Chi nhánh',storeName)
+                +mc(svgTruck,'Nhà cung cấp',suppName)
+                +mc(svgHash,'Mã đơn PO','PO #'+pid.slice(0,8).toUpperCase())
+                +mc(svgUser,'Người đề xuất',empName)
+                +'</div>'
+                +'<div style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;margin-bottom:12px">'
+                +'<table style="width:100%;border-collapse:collapse">'
+                +'<thead><tr style="background:#F8FAFC">'
+                +'<th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:.04em">Nguyên liệu</th>'
+                +'<th style="padding:9px 14px;text-align:center;font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:.04em">ĐVT</th>'
+                +'<th style="padding:9px 14px;text-align:right;font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:.04em">Số lượng</th>'
+                +'<th style="padding:9px 14px;text-align:right;font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:.04em">Đơn giá</th>'
+                +'<th style="padding:9px 14px;text-align:right;font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:.04em">Thành tiền</th>'
+                +'</tr></thead>'
+                +'<tbody>'+rowsHtml+'</tbody>'
+                +'<tfoot><tr style="border-top:2px solid #E2E8F0;background:#FFF9F6">'
+                +'<td colspan="4" style="padding:11px 14px;font-weight:700;color:#1E293B;font-size:13px">Cộng</td>'
+                +'<td style="padding:11px 14px;text-align:right;font-weight:800;color:#E8590C;font-size:15px">'+fv(tong)+' đ</td>'
+                +'</tr></tfoot>'
+                +'</table></div>'
+                +'<div style="font-size:12px;color:#64748B;font-style:italic">'
+                +'Số tiền bằng chữ: <span style="color:#1E293B;font-style:normal;font-weight:600">'+docTienVND(tong)+'</span>'
+                +'</div>';
+            // Note trạng thái kế tiếp
+            var nextStepNote = '';
+            if (st === 'ordered') {
+                nextStepNote = '<div style="margin-top:10px;padding:10px 14px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;font-size:12px;color:#1D4ED8;display:flex;align-items:center;gap:8px">'
+                    +'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+                    +'<span><strong>Bước tiếp theo:</strong> Nhân viên vào <em>Nhập Kho</em> → chọn PO này → tạo và xác nhận phiếu nhập để cập nhật kho.</span></div>';
+            } else if (st === 'submitted') {
+                nextStepNote = '<div style="margin-top:10px;padding:10px 14px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;font-size:12px;color:#B45309;display:flex;align-items:center;gap:8px">'
+                    +'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9l-8 14A2 2 0 004 21h16a2 2 0 001.7-3l-8-14a2 2 0 00-3.4 0z"/></svg>'
+                    +'<span>Đơn đang chờ duyệt. Dùng nút <strong>Duyệt / Từ chối</strong> trong bảng danh sách.</span></div>';
+            }
+            var existBody = document.getElementById('modal-body').innerHTML;
+            document.getElementById('modal-body').innerHTML = existBody + nextStepNote;
+
+            document.getElementById('modal-confirm').style.display='none';
+        })
+        .catch(function(){document.getElementById('modal-body').innerHTML='<div style="color:var(--red);padding:20px">Lỗi tải chi tiết đơn.</div>';});
 };
 document.querySelectorAll('#po-filter-tabs .ftab').forEach(function(b){
     b.addEventListener('click',function(){
@@ -548,8 +813,7 @@ function renderShifts(){
                 var shiftName='--';
                 var inHm=shiftHM(s.timeIn);
                 if(inHm<14*60-30)shiftName='Ca Sáng';
-                else if(inHm<22*60-30)shiftName='Ca Chiều';
-                else shiftName='Ca Đêm';
+                else shiftName='Ca Chiều';
                 return '<tr>'+
                     '<td style="font-weight:600">'+(s.employeeName||'')+'</td>'+
                     '<td>'+(s.storeName||'#'+s.storeID)+'</td>'+
@@ -834,11 +1098,16 @@ window.showToast=function(msg,type){
 // ===== MODAL =====
 var mOv=document.getElementById('modal-overlay');
 function openModal(title,body,onConfirm){
+    document.getElementById('modal-box').style.maxWidth='';
     document.getElementById('modal-title').textContent=title;
     document.getElementById('modal-body').innerHTML=body;
     mOv.classList.add('open');
     var ok=document.getElementById('modal-confirm');
+    ok.style.cssText='';
+    ok.textContent='Xác Nhận';
+    ok.style.display='';
     ok.onclick=onConfirm||function(){closeModal();};
+    document.getElementById('modal-cancel').textContent='Huỷ';
 }
 function closeModal(){mOv.classList.remove('open');}
 ['modal-close','modal-cancel'].forEach(function(id){var el=document.getElementById(id);if(el)el.addEventListener('click',closeModal);});
@@ -960,7 +1229,7 @@ Object.keys(addBtns).forEach(function(id){
 var _btnShift=document.getElementById('btn-add-shift');
 if(_btnShift)_btnShift.addEventListener('click',openShiftAssignModal);
 var _btnRcp=document.getElementById('btn-add-receipt');
-if(_btnRcp)_btnRcp.addEventListener('click',openReceiptModal);
+if(_btnRcp)_btnRcp.addEventListener('click',openCreatePOModal);
 var _btnRcpFilter=document.getElementById('btn-filter-receipt');
 if(_btnRcpFilter)_btnRcpFilter.addEventListener('click',renderReceipts);
 
@@ -982,18 +1251,185 @@ function renderReceipts(){
             if(!RECEIPTS_DATA.length){t.innerHTML='<tr><td colspan="7" class="tbl-empty">Chưa có phiếu nhập nào</td></tr>';return;}
             t.innerHTML=RECEIPTS_DATA.map(function(r){
                 var st=r.confirmedAt?bdg('badge-paid','Đã xác nhận'):bdg('badge-pending','Đang chờ');
-                return '<tr>'+
-                    '<td style="font-weight:700;color:var(--primary);font-family:monospace">'+(r.receiptID||'').slice(0,8).toUpperCase()+'</td>'+
+                var rid=r.receiptID||'';
+                return '<tr style="cursor:pointer" onclick="openReceiptDetail(\''+rid+'\')">'+
+                    '<td style="font-weight:700;color:var(--primary);font-family:monospace">'+rid.slice(0,8).toUpperCase()+'</td>'+
                     '<td style="font-size:12px">'+(r.dateReceive||'').slice(0,10)+'</td>'+
                     '<td style="font-weight:600">'+(r.supplierName||'#'+r.supplierID)+'</td>'+
                     '<td>'+(r.employeeName||'')+'</td>'+
-                    '<td style="font-weight:700">'+r.lineCount+'</td>'+
+                    '<td style="font-weight:700;text-align:center">'+r.lineCount+'</td>'+
                     '<td style="font-weight:700;color:var(--primary)">'+fv(r.totalAmount)+' đ</td>'+
                     '<td>'+st+'</td>'+
                 '</tr>';
             }).join('');
         }).catch(function(){t.innerHTML='<tr><td colspan="7" class="tbl-empty">Lỗi tải dữ liệu</td></tr>';});
 }
+window.openReceiptDetail=function(id){
+    openModal('Chi Tiết Phiếu Nhập Kho','<div style="text-align:center;padding:20px;color:var(--muted)">Đang tải...</div>',null);
+    document.getElementById('modal-confirm').style.display='none';
+    apiGet('/receipt/getid/'+id)
+        .then(function(r){return r.ok?r.json():null;})
+        .then(function(receipt){
+            if(!receipt){document.getElementById('modal-body').innerHTML='<div style="color:var(--red)">Không tìm thấy phiếu nhập.</div>';return;}
+            var supplierName=(receipt.supplier&&(receipt.supplier.supplierName||receipt.supplier.SupplierName))||'—';
+            var employeeName=(receipt.employee&&(receipt.employee.fullName||receipt.employee.FullName))||'—';
+            var storeName=(receipt.store&&(receipt.store.storeName||receipt.store.StoreName))||'—';
+            var poText=(receipt.poid||receipt.poID)?('PO #'+(receipt.poid||receipt.poID).slice(0,8).toUpperCase()):'Trực tiếp (Không PO)';
+            var isConfirmed=!!(receipt.confirmedAt||receipt.ConfirmedAt);
+            var details=receipt.receiptDetail||[];
+            var total=details.reduce(function(acc,d){return acc+(d.goodQuantity*d.unitPrice);},0);
+            var rows=details.map(function(d){
+                var ing=d.ingredient||d.Ingredient||{};
+                var name=ing.ingredientName||ing.IngredientName||('Mã '+d.ingredientID);
+                var unit=ing.ingredientUnit||ing.IngredientUnit||'';
+                return '<tr><td>'+name+'</td><td style="text-align:center">'+d.quantity+' '+unit+'</td>'+
+                       '<td style="text-align:center;color:var(--green);font-weight:700">'+d.goodQuantity+'</td>'+
+                       '<td style="text-align:right">'+fv(d.unitPrice)+' đ</td>'+
+                       '<td style="text-align:right;font-weight:700;color:var(--primary)">'+fv(d.goodQuantity*d.unitPrice)+' đ</td></tr>';
+            }).join('');
+            var printBar=isConfirmed
+                ?'<div style="margin-top:16px;padding-top:14px;border-top:1px solid #ECE6DF;display:flex;justify-content:flex-end">'
+                 +'<button onclick="printReceiptA4(\''+id+'\')" style="display:inline-flex;align-items:center;gap:7px;padding:9px 18px;background:#047857;color:#fff;border:none;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;transition:.15s" onmouseover="this.style.background=\'#065f46\'" onmouseout="this.style.background=\'#047857\'">'
+                 +'<i class="ti-printer"></i> In phiếu nhập kho (A4)'
+                 +'</button></div>'
+                :'';
+            document.getElementById('modal-body').innerHTML=
+                '<div class="mov-detail-grid" style="margin-bottom:14px">'+
+                '<div class="mov-detail-label">Mã phiếu:</div><div class="mov-detail-value" style="font-family:monospace;font-weight:700">'+id.slice(0,8).toUpperCase()+'</div>'+
+                '<div class="mov-detail-label">Chi nhánh:</div><div class="mov-detail-value">'+storeName+'</div>'+
+                '<div class="mov-detail-label">Nhà cung cấp:</div><div class="mov-detail-value" style="font-weight:600">'+supplierName+'</div>'+
+                '<div class="mov-detail-label">Nhân viên nhập:</div><div class="mov-detail-value">'+employeeName+'</div>'+
+                '<div class="mov-detail-label">Đơn PO:</div><div class="mov-detail-value">'+poText+'</div>'+
+                '<div class="mov-detail-label">Tổng giá trị:</div><div class="mov-detail-value" style="color:var(--primary);font-weight:700">'+fv(total)+' đ</div>'+
+                '</div>'+
+                '<table class="mov-detail-table"><thead><tr>'+
+                '<th>Nguyên liệu</th><th style="text-align:center">Nhập</th><th style="text-align:center">Đạt</th>'+
+                '<th style="text-align:right">Đơn giá</th><th style="text-align:right">Thành tiền</th>'+
+                '</tr></thead><tbody>'+(rows||'<tr><td colspan="5" class="tbl-empty">Không có dữ liệu</td></tr>')+'</tbody></table>'+
+                printBar;
+        })
+        .catch(function(){document.getElementById('modal-body').innerHTML='<div style="color:var(--red)">Lỗi tải chi tiết phiếu nhập.</div>';});
+};
+
+window.printReceiptA4=function(id){
+    apiGet('/receipt/getid/'+id)
+        .then(function(r){return r.ok?r.json():null;})
+        .then(function(receipt){
+            if(!receipt){showToast('Không tìm thấy phiếu nhập','error');return;}
+            var supplierName=(receipt.supplier&&(receipt.supplier.supplierName||receipt.supplier.SupplierName))||'—';
+            var employeeName=(receipt.employee&&(receipt.employee.fullName||receipt.employee.FullName))||'—';
+            var storeName=(receipt.store&&(receipt.store.storeName||receipt.store.StoreName))||'Chônlibi';
+            var dateRaw=(receipt.dateReceive||receipt.DateReceive||'').toString().slice(0,10);
+            var day=dateRaw.slice(8,10)||'.....';
+            var mon=dateRaw.slice(5,7)||'.....';
+            var yr=dateRaw.slice(0,4)||'20.....';
+            var rid=(receipt.receiptID||id).toString();
+            var details=receipt.receiptDetail||[];
+            var tong=details.reduce(function(s,d){return s+(d.goodQuantity||0)*(d.unitPrice||0);},0);
+            var rowsHtml=details.map(function(d,i){
+                var ing=d.ingredient||d.Ingredient||{};
+                var name=ing.ingredientName||ing.IngredientName||('Mã '+d.ingredientID);
+                var unit=ing.ingredientUnit||ing.IngredientUnit||'';
+                var maSo=(d.ingredientID||'').toString().slice(0,6).toUpperCase()||('NL'+String(i+1).padStart(2,'0'));
+                var qtyExp=d.quantity||0;
+                var qtyGood=d.goodQuantity||0;
+                var unitPrice=d.unitPrice||0;
+                var sub=qtyGood*unitPrice;
+                return '<tr><td class="c">'+(i+1)+'</td><td>'+name+'</td>'
+                    +'<td class="c">'+maSo+'</td>'
+                    +'<td class="c">'+unit+'</td>'
+                    +'<td class="r">'+Number(qtyExp).toLocaleString('vi-VN')+'</td>'
+                    +'<td class="r">'+Number(qtyGood).toLocaleString('vi-VN')+'</td>'
+                    +'<td class="r">'+Number(unitPrice).toLocaleString('vi-VN')+'</td>'
+                    +'<td class="r">'+sub.toLocaleString('vi-VN')+'</td></tr>';
+            }).join('');
+            for(var k=0;k<3;k++)rowsHtml+='<tr class="empty"><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
+            var html='<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8">'
+                +'<title>Phiếu Nhập Kho - '+rid.slice(0,8).toUpperCase()+'</title>'
+                +'<style>'
+                +':root{--ink:#111;--line:#000;}*{box-sizing:border-box;}'
+                +'body{margin:0;background:#e9eaec;font-family:"Times New Roman",Times,serif;color:var(--ink);-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+                +'.toolbar{position:sticky;top:0;z-index:10;display:flex;justify-content:center;gap:12px;padding:12px;background:#1f2937;}'
+                +'.toolbar button{font-family:system-ui,sans-serif;font-size:14px;font-weight:600;padding:8px 18px;border:0;border-radius:8px;cursor:pointer;background:#E8590C;color:#fff;}'
+                +'.toolbar .hint{color:#cbd5e1;font-family:system-ui,sans-serif;font-size:12px;align-self:center;}'
+                +'.sheet{width:210mm;min-height:297mm;margin:16px auto;padding:14mm 16mm;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.18);font-size:13.5pt;line-height:1.45;}'
+                +'.head{display:flex;justify-content:space-between;align-items:flex-start;}'
+                +'.head .left{width:48%;}.head .right{width:48%;text-align:right;}'
+                +'.mau{font-weight:700;}.tt{font-style:italic;font-size:11.5pt;line-height:1.3;}'
+                +'.title{text-align:center;margin:14px 0 2px;}'
+                +'.title h1{font-size:18pt;font-weight:700;letter-spacing:1px;margin:0;text-transform:uppercase;}'
+                +'.title .date{font-style:italic;font-size:12.5pt;}'
+                +'.nocc{display:flex;justify-content:center;gap:34px;font-size:12.5pt;margin-bottom:8px;}'
+                +'.meta p{margin:4px 0;}.fill{border-bottom:1px dotted #555;}'
+                +'table{width:100%;border-collapse:collapse;margin:8px 0;font-size:12.5pt;}'
+                +'th,td{border:1px solid var(--line);padding:4px 6px;vertical-align:middle;}'
+                +'th{text-align:center;font-weight:700;}'
+                +'.c{text-align:center;}.r{text-align:right;}'
+                +'.codes td{text-align:center;font-style:italic;font-size:11pt;padding:2px;}'
+                +'.empty td{height:26px;}.sum td{font-weight:700;}'
+                +'.total-words{margin:6px 0;}'
+                +'.sign-wrap{margin-top:14px;page-break-inside:avoid;}'
+                +'.sign-date{text-align:right;font-style:italic;font-size:12.5pt;margin-right:6%;margin-bottom:6px;}'
+                +'.signs{display:flex;justify-content:space-between;text-align:center;}'
+                +'.signs .col{width:24%;}.signs .role{font-weight:700;font-size:12.5pt;}'
+                +'.signs .sub{font-style:italic;font-size:11pt;}.signs .space{height:70px;}.signs .name{font-weight:600;}'
+                +'.note{font-style:italic;font-size:10.5pt;color:#333;margin-top:16px;border-top:1px solid #999;padding-top:6px;}'
+                +'@media print{@page{size:A4;margin:12mm;}body{background:#fff;}.toolbar{display:none;}'
+                +'.sheet{width:auto;min-height:auto;margin:0;padding:0;box-shadow:none;}.note{color:#000;}}'
+                +'</style></head><body>'
+                +'<div class="toolbar"><button onclick="window.print()">🖨️ In phiếu (A4)</button>'
+                +'<span class="hint">Mẹo: trong hộp thoại in, chọn "Lưu thành PDF" để xuất file.</span></div>'
+                +'<div class="sheet">'
+                +'<div class="head"><div class="left">'
+                +'<p style="margin:2px 0">Đơn vị: <b>'+storeName+'</b></p>'
+                +'<p style="margin:2px 0">Bộ phận: <span class="fill">Kho nguyên liệu</span></p>'
+                +'</div><div class="right">'
+                +'<p class="mau" style="margin:2px 0">Mẫu số: 01 - VT</p>'
+                +'<p class="tt" style="margin:2px 0">(Kèm theo Thông tư số 99/2025/TT-BTC<br>ngày 27 tháng 10 năm 2025 của<br>Bộ trưởng Bộ Tài chính)</p>'
+                +'</div></div>'
+                +'<div class="title"><h1>Phiếu Nhập Kho</h1>'
+                +'<div class="date">Ngày '+day+' tháng '+mon+' năm '+yr+'</div></div>'
+                +'<div class="nocc"><span>Số: <b>'+rid.slice(0,8).toUpperCase()+'</b></span>'
+                +'<span>Nợ: <span class="fill">.............</span></span>'
+                +'<span>Có: <span class="fill">.............</span></span></div>'
+                +'<div class="meta">'
+                +'<p>- Họ và tên người giao: <b>'+supplierName+'</b></p>'
+                +'<p>- Theo đơn đặt hàng số <b>'+rid.slice(0,8).toUpperCase()+'</b> ngày '+day+' tháng '+mon+' năm '+yr+' của <span class="fill">'+supplierName+'</span></p>'
+                +'<p>- Nhập tại kho: <b>Kho nguyên liệu</b> &nbsp;&nbsp; Địa điểm: <span class="fill">'+storeName+'</span></p>'
+                +'</div>'
+                +'<table><thead>'
+                +'<tr><th rowspan="2" style="width:5%">STT</th>'
+                +'<th rowspan="2">Tên, nhãn hiệu, quy cách, phẩm chất vật tư, dụng cụ, sản phẩm, hàng hóa</th>'
+                +'<th rowspan="2" style="width:8%">Mã số</th>'
+                +'<th rowspan="2" style="width:9%">Đơn vị tính</th>'
+                +'<th colspan="2" style="width:18%">Số lượng</th>'
+                +'<th rowspan="2" style="width:13%">Đơn giá</th>'
+                +'<th rowspan="2" style="width:16%">Thành tiền</th></tr>'
+                +'<tr><th style="width:9%">Theo chứng từ</th><th style="width:9%">Thực nhập</th></tr>'
+                +'<tr class="codes"><td>A</td><td>B</td><td>C</td><td>D</td><td>1</td><td>2</td><td>3</td><td>4</td></tr>'
+                +'</thead><tbody>'+rowsHtml+'</tbody>'
+                +'<tfoot><tr class="sum"><td class="c"></td><td><b>Cộng</b></td>'
+                +'<td class="c">x</td><td class="c">x</td><td class="c">x</td><td class="c">x</td><td class="c">x</td>'
+                +'<td class="r">'+tong.toLocaleString('vi-VN')+'</td></tr></tfoot>'
+                +'</table>'
+                +'<div class="total-words">- Tổng số tiền (viết bằng chữ): <i>'+docTienVND(tong)+'</i></div>'
+                +'<div style="margin:4px 0 0">- Số chứng từ gốc kèm theo: <span class="fill">................................</span></div>'
+                +'<div class="sign-wrap">'
+                +'<div class="sign-date">TP. HCM, ngày '+day+' tháng '+mon+' năm '+yr+'</div>'
+                +'<div class="signs">'
+                +'<div class="col"><div class="role">Người lập phiếu</div><div class="sub">(Ký, họ tên)</div>'
+                +'<div class="space"></div>'+(employeeName?'<div class="name">'+employeeName+'</div>':'')+'</div>'
+                +'<div class="col"><div class="role">Người giao hàng</div><div class="sub">(Ký, họ tên)</div><div class="space"></div></div>'
+                +'<div class="col"><div class="role">Thủ kho</div><div class="sub">(Ký, họ tên)</div><div class="space"></div></div>'
+                +'<div class="col"><div class="role">Kế toán trưởng</div><div class="sub">(Hoặc bộ phận có nhu cầu nhập)<br>(Ký, họ tên)</div><div class="space"></div></div>'
+                +'</div></div>'
+                +'<div class="note">Ghi chú: Tùy theo đặc điểm hoạt động sản xuất kinh doanh và yêu cầu quản lý của đơn vị mình, doanh nghiệp được xây dựng, thiết kế biểu mẫu chứng từ kế toán.</div>'
+                +'</div></body></html>';
+            var win=window.open('','_blank','width=920,height=750');
+            if(win){win.document.write(html);win.document.close();}
+        })
+        .catch(function(){showToast('Không thể tải dữ liệu để in!','error');});
+};
 
 // Modal thêm/sửa NCC kèm gán nguyên liệu NCC cung cấp — nuôi bảng SupplierIngredient
 // để lọc NCC theo nguyên liệu khi lập đơn mua hàng.
@@ -1043,9 +1479,9 @@ function openSupplierModal(id){
 
 // "Lập Phiếu Nhập" = tạo Đơn Mua Hàng (PO) trạng thái chờ duyệt.
 // Quy trình: tạo PO ở đây -> Manager duyệt ở mục Đơn Mua Hàng -> khi hàng về,
-// nhân viên lập Phiếu Nhập (Receipt) để kiểm hàng + nhập "SL Tốt" và mới cộng kho.
-// Đơn giá tự lấy từ nguyên liệu (CostPerUnit); NCC được lọc theo nguyên liệu đã chọn.
-function openReceiptModal(){
+// Admin/manager lập Đơn Mua Hàng (PO) mới chờ duyệt.
+// Phiếu nhập kho thực sự do nhân viên tạo sau khi hàng về (tab Nhập Kho ở employee portal).
+function openCreatePOModal(){
     if(!ADMIN_STORE_ID){showToast('Tài khoản admin chưa được gán storeID','error');return;}
     Promise.all([
         apiGet('/supplier/get-all').then(function(r){return r.ok?r.json():[];}),
@@ -1053,13 +1489,12 @@ function openReceiptModal(){
     ]).then(function(res){
         var supps=res[0]||[], ings=res[1]||[]; INGREDIENTS_DATA=ings;
         var ingById={}; ings.forEach(function(i){ingById[i.ingredientID]=i;});
-        // Chỉ cho chọn NCC đã được gán nguyên liệu.
-        var selectableSupps=supps.filter(function(s){return (s.ingredientIDs||[]).length>0;});
+        var selectableSupps=supps;
         var suppOpts='<option value="">-- Chọn NCC --</option>'+selectableSupps.map(function(s){return '<option value="'+s.supplierID+'">'+s.supplierName+'</option>';}).join('');
         var body=
             '<div class="form-group"><label class="form-label">Nhà cung cấp</label>'+
                 '<select id="f-rcp-supp" class="form-control">'+suppOpts+'</select>'+
-                '<div id="rcp-supp-hint" style="font-size:12px;color:#888;margin-top:4px">'+(selectableSupps.length?'':'Chưa có NCC nào được gán nguyên liệu. Hãy vào mục Nhà cung cấp để gán.')+'</div>'+
+                '<div id="rcp-supp-hint" style="font-size:12px;color:#888;margin-top:4px">'+(selectableSupps.length?'':'Chưa có nhà cung cấp nào.')+'</div>'+
             '</div>'+
             '<div class="form-group"><label class="form-label">Danh sách nguyên liệu</label>'+
                 '<div id="rcp-lines"></div>'+
@@ -1092,8 +1527,8 @@ function openReceiptModal(){
                 StoreID:ADMIN_STORE_ID, SupplierID:suppID, EmployeeID:empID, TaxRate:0, Comment:'', Items:items
             }).then(function(r){
                 if(r.status===201 || r.ok){
-                    showToast('Tạo đơn mua hàng (PO) thành công, đang chờ duyệt','success');
-                    closeModal();renderPO();
+                    showToast('Tạo đơn mua hàng (PO) thành công — đang chờ duyệt','success');
+                    closeModal();renderPO();if(document.getElementById('section-purchase-orders')&&document.getElementById('section-purchase-orders').classList.contains('active'))renderPO();
                 } else {
                     r.json().then(function(d){showToast(d.message||'Tạo đơn thất bại','error');}).catch(function(){showToast('Tạo đơn thất bại','error');});
                 }
@@ -1105,14 +1540,15 @@ function openReceiptModal(){
         var totalEl=document.getElementById('rcp-total');
 
         function currentSupplier(){
-            return selectableSupps.filter(function(s){return String(s.supplierID)===String(suppSel.value);})[0];
+            return supps.filter(function(s){return String(s.supplierID)===String(suppSel.value);})[0];
         }
-        // Options nguyên liệu lọc theo NCC đang chọn.
+        // Options nguyên liệu lọc theo NCC đang chọn. Nếu NCC chưa gán nguyên liệu thì hiện tất cả.
         function ingOptsForSupplier(){
             var s=currentSupplier();
             if(!s)return '<option value="">-- Chọn NCC trước --</option>';
-            var list=ings.filter(function(i){return (s.ingredientIDs||[]).indexOf(i.ingredientID)>=0;});
-            if(!list.length)return '<option value="">-- NCC chưa có nguyên liệu --</option>';
+            var ids=s.ingredientIDs||[];
+            var list=ids.length>0?ings.filter(function(i){return ids.indexOf(i.ingredientID)>=0;}):ings;
+            if(!list.length)return '<option value="">-- Chưa có nguyên liệu --</option>';
             return '<option value="">-- Nguyên liệu --</option>'+list.map(function(i){return '<option value="'+i.ingredientID+'">'+i.ingredientName+' ('+i.ingredientUnit+')</option>';}).join('');
         }
         function updateUnit(row){

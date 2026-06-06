@@ -274,58 +274,40 @@
         </div>
       </div>
 
+      <!-- INGREDIENT WATCH -->
+      <div style="padding:0 18px 8px;flex-shrink:0">
+        <div class="db-card">
+          <div class="db-chead" style="padding:9px 14px">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10.3 3.9l-8 14A2 2 0 004 21h16a2 2 0 001.7-3l-8-14a2 2 0 00-3.4 0zM12 9v4M12 17h.01"/></svg>
+            <h2>Theo dõi nguyên liệu</h2>
+            <div class="r"><span onclick="showTab('viewstock')" style="font-size:12px;color:#EA580C;cursor:pointer;font-weight:600">Xem tồn kho →</span></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;padding:8px 14px 10px;gap:12px">
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#B45309;margin-bottom:5px;display:flex;align-items:center;gap:4px">
+                <i class="ti-package" style="font-size:11px"></i> Sắp / đã hết hàng
+              </div>
+              <div id="dash-watch-low" class="dash-watch-list"><p class="dash-watch-empty">Đang tải...</p></div>
+            </div>
+            <div style="border-left:1px solid #F3EEE8;padding-left:12px">
+              <div style="font-size:10px;font-weight:700;color:#B45309;margin-bottom:5px;display:flex;align-items:center;gap:4px">
+                <i class="ti-time" style="font-size:11px"></i> Sắp hết hạn (7 ngày)
+              </div>
+              <div id="dash-watch-exp" class="dash-watch-list"><p class="dash-watch-empty">Đang tải...</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- TOOLSET -->
       <div class="db-tools">
-        <div class="db-tool checkin disabled" id="db-tool-in">
+        <div class="db-tool checkin disabled" id="db-tool-in" onclick="doCheckIn()">
           <div class="tic"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg></div>
           <div class="tl">Check-in</div>
         </div>
-
-        <!-- Theo dõi nguyên liệu -->
-        <div class="panel">
-            <div class="panel-header">
-                <span class="panel-title"><i class="ti-alert" style="color:#BA7517;margin-right:5px"></i>Theo dõi nguyên liệu</span>
-                <span class="see-all" onclick="showTab('viewstock')">Xem tồn kho →</span>
-            </div>
-            <div class="panel-body">
-                <div class="dash-watch-grid">
-                    <div class="dash-watch-col">
-                        <div class="dash-watch-head"><i class="ti-package"></i> Sắp / đã hết hàng</div>
-                        <div id="dash-watch-low" class="dash-watch-list">
-                            <p class="dash-watch-empty">Đang tải...</p>
-                        </div>
-                    </div>
-                    <div class="dash-watch-col">
-                        <div class="dash-watch-head"><i class="ti-time"></i> Sắp hết hạn (7 ngày)</div>
-                        <div id="dash-watch-exp" class="dash-watch-list">
-                            <p class="dash-watch-empty">Đang tải...</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Quick actions -->
-        <div class="panel">
-            <div class="panel-header">
-                <span class="panel-title"><i class="ti-bolt" style="color:#BA7517;margin-right:5px"></i>Thao tác nhanh</span>
-            </div>
-            <div class="panel-body">
-                <div class="dash-quick-actions">
-                    <div class="dash-qa-btn" onclick="showTab('invoice')">
-                        <i class="ti-plus"></i><span>Tạo đơn mới</span>
-                    </div>
-                    <div class="dash-qa-btn" onclick="showTab('stockmove')">
-                        <i class="ti-package"></i><span>Báo thiếu hàng</span>
-                    </div>
-                    <div class="dash-qa-btn" onclick="dashRequestLeave()">
-                        <i class="ti-calendar"></i><span>Xin nghỉ phép</span>
-                    </div>
-                    <div class="dash-qa-btn" onclick="dashContactManager()">
-                        <i class="ti-comment-alt"></i><span>Liên hệ quản lý</span>
-                    </div>
-                </div>
-            </div>
+        <div class="db-tool checkout disabled" id="db-tool-out" onclick="doCheckOut()">
+          <div class="tic"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h4M16 17l5-5-5-5M21 12H9"/></svg></div>
+          <div class="tl">Check-out</div>
         </div>
         <div class="db-tool brand" onclick="showTab('invoice')">
           <div class="tic"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
@@ -564,10 +546,10 @@
                     <table>
                         <thead><tr>
                             <th>Mã Receipt</th><th>Từ PO</th><th>Người nhận</th>
-                            <th>Ngày nhận</th><th>Trạng thái</th>
+                            <th>Ngày nhận</th><th>Trạng thái</th><th style="text-align:center">Chi tiết / In</th>
                         </tr></thead>
                         <tbody id="warehouse-tbody">
-                            <tr><td colspan="5" class="tbl-empty">Chưa có dữ liệu</td></tr>
+                            <tr><td colspan="6" class="tbl-empty">Chưa có dữ liệu</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -593,7 +575,8 @@
 
         <!-- Step 3: Confirm receipt → InventoryBatch -->
         <div id="wh-step-3" style="display:none">
-            <div class="panel">
+            <!-- 3a: Fill batch info form -->
+            <div id="wh-step-3-form" class="panel">
                 <div class="panel-header">
                     <span class="panel-title">✅ Xác nhận nhập kho — Thông tin batch</span>
                     <button class="btn btn-sm" onclick="whGoStep(1)"><i class="ti-home"></i> Về trang chủ kho</button>
@@ -609,6 +592,24 @@
                     <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="submitConfirmReceipt()">
                         <i class="ti-package"></i> Xác nhận nhập kho → Tạo Batch
                     </button>
+                </div>
+            </div>
+            <!-- 3b: Success screen after confirmation -->
+            <div id="wh-step-3-success" style="display:none" class="panel">
+                <div class="panel-body" style="text-align:center;padding:40px 24px">
+                    <div style="width:64px;height:64px;border-radius:50%;background:#ECFDF5;display:grid;place-items:center;margin:0 auto 16px">
+                        <svg width="32" height="32" fill="none" stroke="#047857" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+                    </div>
+                    <h3 style="font-size:18px;font-weight:800;color:#047857;margin-bottom:8px">Nhập kho thành công!</h3>
+                    <p style="color:#5A514A;font-size:13px;margin-bottom:24px">Batch nguyên liệu đã được tạo và cập nhật vào tồn kho.</p>
+                    <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap">
+                        <button id="wh-print-btn" class="btn btn-primary" style="background:#047857;border-color:#047857;display:inline-flex;align-items:center;gap:7px">
+                            <i class="ti-printer"></i> In phiếu nhập kho
+                        </button>
+                        <button class="btn btn-sm" onclick="whBackToStep1()" style="padding:10px 20px">
+                            <i class="ti-home"></i> Về trang kho
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -731,63 +732,159 @@
     <section class="emp-section" id="section-processing">
         <h1 class="page-heading"><i class="ti-cut"></i> Sơ Chế <span>Nguyên Liệu</span></h1>
 
-        <div class="two-col">
-            <!-- Form tạo phiếu sơ chế -->
-            <div class="panel">
-                <div class="panel-header">
-                    <span class="panel-title">🔪 Tạo phiếu sơ chế</span>
+        <style>
+        /* ── Sơ chế redesign ── */
+        .proc-layout{display:grid;grid-template-columns:1fr 420px;gap:18px;align-items:start}
+        @media(max-width:1100px){.proc-layout{grid-template-columns:1fr}}
+        .proc-card{background:#fff;border:1px solid #ECE6DF;border-radius:14px;box-shadow:0 1px 2px rgba(28,20,16,.04),0 8px 24px -14px rgba(28,20,16,.12);overflow:hidden}
+        .proc-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 18px;border-bottom:1px solid #ECE6DF;font-weight:700;font-size:14px}
+        .proc-card-head svg{width:17px;height:17px;color:var(--primary);flex-shrink:0}
+        .proc-card-body{padding:18px}
+        .proc-two{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+        .proc-field{margin-bottom:14px}
+        .proc-field label{display:block;font-size:12px;font-weight:700;margin-bottom:5px;color:#5A514A}
+        .proc-field label .req{color:var(--primary)}
+        .proc-field input,.proc-field select,.proc-field textarea{width:100%;font-family:inherit;font-size:13px;border:1.5px solid #ECE6DF;border-radius:9px;padding:9px 11px;background:#fff;color:#1C1917;transition:.15s}
+        .proc-field input:focus,.proc-field select:focus,.proc-field textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(234,88,12,.08)}
+        .proc-field textarea{resize:none;min-height:42px}
+        .proc-lines-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 12px}
+        .proc-lines-head strong{font-size:13px;font-weight:700}
+        .proc-add-btn{display:inline-flex;align-items:center;gap:6px;background:#FFF1E8;color:#C2410C;border:1.5px solid #FDDCBA;font-weight:600;padding:8px 14px;border-radius:10px;cursor:pointer;font-family:inherit;font-size:13px;transition:.15s}
+        .proc-add-btn:hover{background:#FDDCBA}
+        .proc-line{border:1.5px solid #ECE6DF;border-radius:12px;padding:14px;margin-bottom:12px;position:relative;background:#FAFAF9}
+        .proc-line-no{position:absolute;top:-9px;left:12px;background:var(--primary);color:#fff;font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px}
+        .proc-line-del{position:absolute;top:8px;right:8px;width:26px;height:26px;border:none;background:#fff;border-radius:7px;cursor:pointer;display:grid;place-items:center;color:#A39A91}
+        .proc-line-del:hover{background:#FEF2F2;color:#DC2626}
+        .proc-line-del svg{width:14px;height:14px}
+        .proc-line-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+        .proc-line-grid .full{grid-column:1/-1}
+        .proc-mini-label{font-size:11.5px;font-weight:700;color:#5A514A;margin-bottom:4px;display:block}
+        .proc-with-unit{position:relative}
+        .proc-with-unit .unit-badge{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;color:#A39A91;pointer-events:none;background:#F7F4EF;border-radius:4px;padding:1px 5px}
+        .proc-with-unit input{padding-right:52px}
+        .proc-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;padding-top:10px;border-top:1px dashed #ECE6DF}
+        .proc-chip{font-size:11.5px;font-weight:700;padding:4px 9px;border-radius:7px;display:inline-flex;align-items:center;gap:4px}
+        .proc-chip.cost{background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE}
+        .proc-chip.ok{background:#F0FDF4;color:#15803D;border:1px solid #BBF7D0}
+        .proc-chip.warn{background:#FFFBEB;color:#B45309;border:1px solid #FDE68A}
+        .proc-chip.err{background:#FEF2F2;color:#DC2626;border:1px solid #FECACA}
+        .proc-empty{border:2px dashed #ECE6DF;border-radius:12px;padding:24px;text-align:center;color:#A39A91;font-size:13px}
+        .proc-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
+        .proc-stat{background:#FFF1E8;border:1px solid #FDDCBA;border-radius:11px;padding:11px 13px}
+        .proc-stat .k{font-size:11px;font-weight:700;color:#C2410C;text-transform:uppercase;letter-spacing:.04em}
+        .proc-stat .v{font-size:19px;font-weight:800;margin-top:2px;color:#1C1917}
+        .proc-stat .v small{font-size:11px;font-weight:600;color:#A39A91}
+        .proc-submit{width:100%;background:var(--primary);color:#fff;border:none;font-family:inherit;font-weight:700;font-size:15px;padding:14px;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s}
+        .proc-submit:hover{background:var(--primary-dark,#C2410C)}
+        .proc-submit:disabled{background:#A39A91;cursor:not-allowed}
+        .proc-submit svg{width:18px;height:18px}
+        /* Batch cards */
+        .proc-search{position:relative;padding:10px 14px 0}
+        .proc-search svg{position:absolute;left:22px;top:50%;transform:translateY(-25%);width:15px;height:15px;color:#A39A91}
+        .proc-search input{padding-left:34px;width:100%;font-family:inherit;font-size:13px;border:1.5px solid #ECE6DF;border-radius:9px;padding:8px 11px 8px 34px;background:#fff;color:#1C1917;transition:.15s}
+        .proc-search input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(234,88,12,.08)}
+        .proc-batch-list{max-height:480px;overflow-y:auto;padding:8px 14px 14px;display:flex;flex-direction:column;gap:8px}
+        .proc-bc{border:1.5px solid #ECE6DF;border-radius:11px;padding:10px 12px;cursor:pointer;transition:.15s}
+        .proc-bc:hover{border-color:#FDDCBA;background:#FFF9F6}
+        .proc-bc-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+        .proc-bc-code{font-weight:700;color:#C2410C;font-size:13px;font-variant-numeric:tabular-nums;word-break:break-all}
+        .proc-bc-btn{flex:none;background:#FFF1E8;color:#C2410C;border:1.5px solid #FDDCBA;font-weight:600;font-size:12.5px;padding:6px 14px;border-radius:8px;cursor:pointer;font-family:inherit;white-space:nowrap;transition:.15s;letter-spacing:.01em}
+        .proc-bc-btn:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+        .proc-bc-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:#5A514A}
+        .proc-bc-meta .mat{font-weight:700;color:#1C1917}
+        .proc-bc-meta .sep{color:#A39A91}
+        .proc-bc-meta .num{font-weight:700;font-variant-numeric:tabular-nums}
+        .proc-bc-hsd{display:inline-flex;align-items:center;gap:3px;font-weight:700;font-variant-numeric:tabular-nums}
+        .proc-tag{font-size:10px;font-weight:800;padding:1px 6px;border-radius:5px}
+        .proc-tag.warn{background:#FFFBEB;color:#B45309;border:1px solid #FDE68A}
+        .proc-tag.err{background:#FEF2F2;color:#DC2626;border:1px solid #FECACA}
+        /* Inputs & selects bên trong dòng sơ chế */
+        .proc-line-grid select,.proc-line-grid input{width:100%;font-family:inherit;font-size:13px;border:1.5px solid #E2DAD3;border-radius:9px;padding:9px 12px;background:#fff;color:#1C1917;transition:.15s;box-sizing:border-box;appearance:none;-webkit-appearance:none}
+        .proc-line-grid select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A39A91' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+        .proc-line-grid select:focus,.proc-line-grid input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(234,88,12,.08);background:#fff}
+        .proc-line-grid input[type="date"]{color-scheme:light}
+        .proc-with-unit input{padding-right:52px}
+        </style>
+
+        <div class="proc-layout">
+            <!-- ── LEFT: Form ── -->
+            <div class="proc-card">
+                <div class="proc-card-head">
+                    <span style="display:flex;align-items:center;gap:8px">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                        Tạo phiếu sơ chế
+                    </span>
+                    <span style="font-size:12px;color:#A39A91;font-weight:600">Số phiếu: <strong id="proc-ticket-no" style="color:#C2410C">SC-…</strong></span>
                 </div>
-                <div class="panel-body">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Kho *</label>
-                            <select id="proc-warehouse">
-                                <option value="">-- Đang tải kho --</option>
-                            </select>
+                <div class="proc-card-body">
+                    <div class="proc-two">
+                        <div class="proc-field" style="margin-bottom:0">
+                            <label>Kho thực hiện <span class="req">*</span></label>
+                            <select id="proc-warehouse"><option value="">-- Đang tải kho --</option></select>
                         </div>
-                        <div class="form-group">
-                            <label>Ghi chú phiếu</label>
-                            <input type="text" id="proc-note" placeholder="VD: Sơ chế ca sáng">
+                        <div class="proc-field" style="margin-bottom:0">
+                            <label>Người thực hiện</label>
+                            <input type="text" id="proc-emp-name" readonly style="background:#F7F4EF;color:#5A514A">
                         </div>
                     </div>
-                    <div style="margin-top:16px">
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-                            <strong style="font-size:13px">Danh sách nguyên liệu sơ chế</strong>
-                            <button class="btn btn-sm" onclick="addProcessingRow()"><i class="ti-plus"></i> Thêm dòng</button>
-                        </div>
-                        <div id="proc-items"></div>
+                    <div class="proc-field">
+                        <label>Ghi chú phiếu</label>
+                        <textarea id="proc-note" placeholder="VD: Sơ chế ca sáng…"></textarea>
                     </div>
-                    <button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="submitProcessing()">
-                        <i class="ti-check"></i> Tạo phiếu sơ chế
+
+                    <div class="proc-lines-head">
+                        <strong>Danh sách dòng sơ chế</strong>
+                        <button class="proc-add-btn" onclick="addProcessingRow()">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                            Thêm dòng
+                        </button>
+                    </div>
+                    <div id="proc-items"></div>
+
+                    <div class="proc-summary">
+                        <div class="proc-stat"><div class="k">Số dòng</div><div class="v" id="ps-lines">0</div></div>
+                        <div class="proc-stat"><div class="k">Hao hụt TB</div><div class="v" id="ps-loss">0<small>%</small></div></div>
+                        <div class="proc-stat"><div class="k">Chi phí ước tính</div><div class="v" id="ps-cost">0<small>đ</small></div></div>
+                    </div>
+
+                    <button class="proc-submit" id="proc-submit-btn" onclick="submitProcessing()" disabled>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+                        Tạo phiếu sơ chế
                     </button>
                 </div>
             </div>
 
-            <!-- Right panel: raw batches + history -->
+            <!-- ── RIGHT: Batches + History ── -->
             <div>
-                <div class="panel">
-                    <div class="panel-header">
-                        <span class="panel-title">📦 Batch thô còn hàng (Raw)</span>
-                        <button class="btn btn-sm" onclick="loadRawBatches()"><i class="ti-reload"></i></button>
+                <div class="proc-card">
+                    <div class="proc-card-head">
+                        <span style="display:flex;align-items:center;gap:8px">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="m21 16-9 5-9-5V8l9-5 9 5z"/><path d="m3 8 9 5 9-5"/></svg>
+                            Batch thô còn hàng (Raw)
+                        </span>
+                        <span style="display:flex;align-items:center;gap:8px">
+                            <span id="proc-batch-count" style="font-size:12px;color:#A39A91;font-weight:600"></span>
+                            <button class="btn btn-sm" onclick="loadRawBatches()" style="padding:4px 10px"><i class="ti-reload"></i></button>
+                        </span>
                     </div>
-                    <div class="tbl-wrap">
-                        <table>
-                            <thead><tr>
-                                <th>Batch Code</th><th>Nguyên liệu</th>
-                                <th>Còn lại</th><th>Đơn giá/kg</th><th>HSD</th>
-                            </tr></thead>
-                            <tbody id="proc-raw-tbody">
-                                <tr><td colspan="5" class="tbl-empty">Đang tải...</td></tr>
-                            </tbody>
-                        </table>
+                    <div class="proc-search">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                        <input id="proc-batch-search" placeholder="Tìm batch code hoặc nguyên liệu…" oninput="renderProcBatches()">
+                    </div>
+                    <div class="proc-batch-list" id="proc-batch-body">
+                        <div style="text-align:center;padding:24px;color:#A39A91;font-size:13px">Đang tải…</div>
                     </div>
                 </div>
-                <div class="panel">
-                    <div class="panel-header">
-                        <span class="panel-title">📋 Lịch sử sơ chế</span>
-                        <button class="btn btn-sm" onclick="loadProcessingHistory()"><i class="ti-reload"></i></button>
+
+                <div class="proc-card" style="margin-top:16px">
+                    <div class="proc-card-head">
+                        <span style="display:flex;align-items:center;gap:8px">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+                            Lịch sử sơ chế
+                        </span>
+                        <button class="btn btn-sm" onclick="loadProcessingHistory()" style="padding:4px 10px"><i class="ti-reload"></i></button>
                     </div>
-                    <div class="tbl-wrap">
+                    <div class="tbl-wrap" style="max-height:260px;overflow-y:auto">
                         <table>
                             <thead><tr>
                                 <th>Mã phiếu</th><th>Nhân viên</th><th>Thời gian</th><th>Ghi chú</th>
@@ -939,6 +1036,40 @@
     </section>
 
 </main>
+
+<!-- ══ MODAL CHI TIẾT PHIẾU NHẬP ═══════════════════════ -->
+<div id="receipt-detail-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:0;width:96%;max-width:680px;box-shadow:0 8px 40px rgba(0,0,0,.22);overflow:hidden;max-height:90vh;display:flex;flex-direction:column;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #ECE6DF;background:#FFF4ED;flex-shrink:0">
+      <span style="font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px">
+        <svg width="18" height="18" fill="none" stroke="#C2410C" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        Chi tiết phiếu nhập kho
+      </span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button id="receipt-detail-print-btn" onclick="" style="display:none;align-items:center;gap:6px;padding:7px 14px;background:#047857;color:#fff;border:none;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">
+          <i class="ti-printer"></i> In phiếu
+        </button>
+        <button onclick="closeReceiptDetailModal()" style="padding:6px 14px;border:1px solid #ECE6DF;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;font-family:inherit">Đóng</button>
+      </div>
+    </div>
+    <div id="receipt-detail-body" style="padding:20px;overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+
+<!-- ══ MODAL XIN NGHỈ PHÉP ══════════════════════════════ -->
+<div id="leave-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:28px 24px;width:92%;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.18);">
+    <h3 style="margin:0 0 18px;font-size:17px;font-weight:700;">Xin nghỉ phép</h3>
+    <label style="font-size:13px;font-weight:600;color:#555;">Ngày xin nghỉ</label>
+    <input id="leave-date" type="date" style="display:block;width:100%;margin:6px 0 14px;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;">
+    <label style="font-size:13px;font-weight:600;color:#555;">Lý do</label>
+    <textarea id="leave-reason" rows="3" maxlength="500" placeholder="Nhập lý do xin nghỉ..." style="display:block;width:100%;margin:6px 0 18px;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;resize:vertical;box-sizing:border-box;"></textarea>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="closeLeaveModal()" style="padding:9px 20px;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:14px;cursor:pointer;">Huỷ</button>
+      <button onclick="submitLeaveRequest()" style="padding:9px 20px;border:none;border-radius:8px;background:#e8532a;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">Gửi đơn</button>
+    </div>
+  </div>
+</div>
 
 <!-- ══ TOAST ═══════════════════════════════════════════ -->
 <div id="emp-toast"></div>
