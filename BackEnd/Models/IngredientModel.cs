@@ -39,5 +39,8 @@ namespace Backend.Models{
 
         [JsonIgnore]
         public virtual ICollection<StockMovement> StockMovement { get; set; } = new List<StockMovement>();
+
+        [JsonIgnore]
+        public virtual ICollection<SupplierIngredient> SupplierIngredient { get; set; } = new List<SupplierIngredient>();
     }
 }

@@ -7,7 +7,10 @@ namespace Backend.Models.DTOs.Reponse
         public string Phone { get; set; } = null!;
         public string Email { get; set; } = null!;
         public string TaxCode { get; set; } = null!;
-        
+
         public AddressResponse Address { get; set; } = null!;
+
+        // Nguyên liệu NCC này cung cấp — FE dùng để lọc NCC theo nguyên liệu.
+        public List<int> IngredientIDs { get; set; } = new();
     }
 }

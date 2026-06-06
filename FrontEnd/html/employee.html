@@ -177,6 +177,30 @@
             </div>
         </div>
 
+        <!-- Theo dõi nguyên liệu -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title"><i class="ti-alert" style="color:#BA7517;margin-right:5px"></i>Theo dõi nguyên liệu</span>
+                <span class="see-all" onclick="showTab('viewstock')">Xem tồn kho →</span>
+            </div>
+            <div class="panel-body">
+                <div class="dash-watch-grid">
+                    <div class="dash-watch-col">
+                        <div class="dash-watch-head"><i class="ti-package"></i> Sắp / đã hết hàng</div>
+                        <div id="dash-watch-low" class="dash-watch-list">
+                            <p class="dash-watch-empty">Đang tải...</p>
+                        </div>
+                    </div>
+                    <div class="dash-watch-col">
+                        <div class="dash-watch-head"><i class="ti-time"></i> Sắp hết hạn (7 ngày)</div>
+                        <div id="dash-watch-exp" class="dash-watch-list">
+                            <p class="dash-watch-empty">Đang tải...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Quick actions -->
         <div class="panel">
             <div class="panel-header">
@@ -228,11 +252,11 @@
                         <div class="form-row-2" style="align-items: start;">
                             <div class="form-group">
                                 <label>Tên khách hàng</label>
-                                <input type="text" id="inv-customer" placeholder="Nguyễn Văn A">
+                                <input type="text" id="inv-customer" placeholder="Nguyễn Văn A" oninput="customerLookupDebounce()">
                             </div>
                             <div class="form-group">
                                 <label>Số điện thoại</label>
-                                <input type="tel" id="inv-phone" placeholder="0947 xxx xxx" oninput="phoneLookupDebounce(this.value)">
+                                <input type="tel" id="inv-phone" placeholder="0947 xxx xxx" oninput="customerLookupDebounce()">
                                 <span id="inv-phone-hint" class="phone-hint"></span>
                             </div>
                         </div>
@@ -359,7 +383,7 @@
 
         <div class="panel">
             <div class="panel-header">
-                <span class="panel-title">🪑 Sơ đồ bàn — Tầng 1</span>
+                <span class="panel-title">🪑 Sơ đồ bàn</span>
                 <button class="btn btn-primary btn-sm" onclick="openTableModal()"><i class="ti-plus"></i> Thêm bàn</button>
             </div>
             <div class="panel-body">
@@ -563,6 +587,7 @@
                             <th>Mã đơn</th>
                             <th>Khách hàng</th>
                             <th>Địa chỉ</th>
+                            <th>Hẹn giao</th>
                             <th>Trạng thái</th>
                             <th>Thanh toán</th>
                             <th>Thay đổi lúc</th>
@@ -571,7 +596,7 @@
                         </tr>
                     </thead>
                     <tbody id="delivery-done-tbody">
-                        <tr><td colspan="8" class="tbl-empty">Chưa có lịch sử</td></tr>
+                        <tr><td colspan="9" class="tbl-empty">Chưa có lịch sử</td></tr>
                     </tbody>
                 </table>
             </div>

@@ -36,7 +36,8 @@ namespace Backend.Services.Implementations
                         StreetAddress = s.Address.StreetAddress,
                         District = s.Address.District,
                         Province = s.Address.Province
-                    }
+                    },
+                    IngredientIDs = s.SupplierIngredient.Select(si => si.IngredientID).ToList()
                 })
                 .ToListAsync();
 
@@ -58,7 +59,8 @@ namespace Backend.Services.Implementations
                         StreetAddress = s.Address.StreetAddress,
                         District = s.Address.District,
                         Province = s.Address.Province
-                    }
+                    },
+                    IngredientIDs = s.SupplierIngredient.Select(si => si.IngredientID).ToList()
                 })
                 .FirstOrDefaultAsync();
 
@@ -76,6 +78,19 @@ namespace Backend.Services.Implementations
                     DeletedAt = null
 
                 };
+
+                var ingIds = createRequest.IngredientIDs?.Distinct().ToList() ?? new();
+                if (ingIds.Count > 0)
+                {
+                    var validIds = await _dbcontext.Ingredient
+                        .Where(i => ingIds.Contains(i.IngredientID) && i.DeletedAt == null)
+                        .Select(i => i.IngredientID)
+                        .ToListAsync();
+                    supplier.SupplierIngredient = validIds
+                        .Select(id => new SupplierIngredient { IngredientID = id })
+                        .ToList();
+                }
+
                 _dbcontext.Supplier.Add(supplier);
                 await _dbcontext.SaveChangesAsync();
             }catch(Exception ex)
@@ -107,6 +122,25 @@ namespace Backend.Services.Implementations
 
                 if(updateRequest.TaxCode != null)
                     supplier.TaxCode = updateRequest.TaxCode;
+
+                if(updateRequest.IngredientIDs != null)
+                {
+                    var existing = await _dbcontext.SupplierIngredient
+                        .Where(si => si.SupplierID == supplierID)
+                        .ToListAsync();
+                    _dbcontext.SupplierIngredient.RemoveRange(existing);
+
+                    var ingIds = updateRequest.IngredientIDs.Distinct().ToList();
+                    if (ingIds.Count > 0)
+                    {
+                        var validIds = await _dbcontext.Ingredient
+                            .Where(i => ingIds.Contains(i.IngredientID) && i.DeletedAt == null)
+                            .Select(i => i.IngredientID)
+                            .ToListAsync();
+                        foreach (var id in validIds)
+                            _dbcontext.SupplierIngredient.Add(new SupplierIngredient { SupplierID = supplierID, IngredientID = id });
+                    }
+                }
 
                 await _dbcontext.SaveChangesAsync();
             }catch(Exception ex)

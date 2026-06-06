@@ -33,6 +33,15 @@ namespace Backend.Controller
             return Ok(await _ticketService.GetAllTicketIn(start, end));
         }
 
+        // Kho voucher của 1 khách hàng cụ thể (NV dùng khi lập hóa đơn cho khách đã có tài khoản)
+        [Authorize]
+        [HttpGet("user-tickets/{userId}")]
+        public async Task<IActionResult> GetUserTickets(Guid userId)
+        {
+            var tickets = await _ticketService.GetMyTickets(userId);
+            return Ok(tickets);
+        }
+
         [HttpGet("get/{ticketID}")]
         public async Task<IActionResult> GetTicketByID(Guid ticketID)
         {

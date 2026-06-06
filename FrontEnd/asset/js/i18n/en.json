@@ -101,6 +101,8 @@
   "btn_other_address": "Other address",
   "price_subtotal": "Subtotal",
   "price_discount": "Discount",
+  "schedule_toggle": "Schedule delivery time",
+  "schedule_hint": "Pick a time to receive within the next 10 hours.",
   "price_shipping": "Shipping fee",
   "price_total": "Total",
   "btn_checkout": "Complete Order",

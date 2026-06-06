@@ -19,6 +19,7 @@ namespace Backend.Models {
         [Required]
         public decimal ShippingFee { get; set; }
         public string? Note { get; set; }
+        public DateTime? ScheduledAt { get; set; }
         public DateTime? DeletedAt { get; set; }
 
         public virtual ICollection<DeliveryLog> DeliveryLog { get; set; } = new List<DeliveryLog>();

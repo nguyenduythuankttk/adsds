@@ -37,7 +37,7 @@ namespace Backend.Controller {
                 if (empID == null) return Unauthorized();
                 var today = DateOnly.FromDateTime(DateTime.Now);
                 var shifts = await _shiftService.GetAllShiftIn(today);
-                var mine = shifts?.FirstOrDefault(s => s.EmployeeID == empID.Value && s.DeletedAt == null);
+                var mine = shifts?.FirstOrDefault(s => s.EmployeeID == empID.Value);
                 if (mine == null) return Ok(null);
                 return Ok(mine);
             } catch (Exception e) {
@@ -45,12 +45,14 @@ namespace Backend.Controller {
             }
         }
 
+        // Manager phân ca cho nhân viên trong store của mình. storeID lấy từ URL
+        // (FE truyền ADMIN_STORE_ID); service kiểm tra EmployeeID có thuộc store này.
         [Authorize(Roles = "Manager")]
-        [HttpPost("add")]
-        public async Task<IActionResult> AddShift([FromBody] ShiftCreateRequest request) {
+        [HttpPost("assign/{storeID}")]
+        public async Task<IActionResult> AssignShift(int storeID, [FromBody] ShiftAssignRequest request) {
             try {
-                await _shiftService.AddShift(request);
-                return Ok(new { message = "Tạo ca thành công" });
+                var shift = await _shiftService.AssignShift(storeID, request);
+                return Ok(new { message = "Phân ca thành công", data = shift });
             } catch (Exception e) {
                 return StatusCode(500, new { message = e.Message });
             }
