@@ -18,6 +18,19 @@ namespace Backend.Controller {
 
         // ── SHIFT ─────────────────────────────────────────────────────────
 
+        [Authorize(Roles = "Manager,Dining,Kitchen,Counter")]
+        [HttpGet("my-shifts")]
+        public async Task<IActionResult> GetMyShifts([FromQuery] DateOnly start, [FromQuery] DateOnly end) {
+            try {
+                var empID = GetCallerID();
+                if (empID == null) return Unauthorized();
+                var shifts = await _shiftService.GetShiftsByEmployee(empID.Value, start, end);
+                return Ok(shifts ?? []);
+            } catch (Exception e) {
+                return StatusCode(500, new { message = e.Message });
+            }
+        }
+
         [Authorize(Roles = "Manager")]
         [HttpGet("get-all/{date}")]
         public async Task<IActionResult> GetAllShifts(DateOnly date) {

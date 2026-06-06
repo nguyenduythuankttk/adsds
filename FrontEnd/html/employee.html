@@ -9,6 +9,111 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/asset/themify-icons/themify-icons.css">
     <link rel="stylesheet" href="/asset/css/employee.css">
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&display=swap" rel="stylesheet">
+    <style>
+      /* ── Dashboard redesign ── */
+      #section-dashboard { padding: 0; flex-direction: column; gap: 0; overflow: hidden; height: 100%; }
+      #section-dashboard.active { display: flex; }
+
+      /* Hero */
+      .db-hero{background:linear-gradient(120deg,#241712,#3A2418 55%,#4A2A14);padding:14px 22px;color:#fff;
+        display:flex;align-items:center;gap:0;flex-shrink:0;position:relative;overflow:hidden;border-radius:0}
+      .db-hero::after{content:"";position:absolute;right:-20px;top:-40px;width:180px;height:180px;border-radius:50%;
+        background:radial-gradient(circle,rgba(234,88,12,.3),transparent 70%);pointer-events:none}
+      .db-avatar{width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,#EA580C,#FB923C);
+        display:grid;place-items:center;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:17px;
+        margin-right:14px;position:relative;z-index:1;flex-shrink:0;color:#fff}
+      .db-seg{padding:0 18px;border-right:1px solid rgba(255,255,255,.12);position:relative;z-index:1;min-width:0}
+      .db-seg:first-of-type{padding-left:0}.db-seg:last-child{border-right:none;margin-left:auto;padding-right:0}
+      .db-seg .k{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.48)}
+      .db-seg .big{font-family:'Bricolage Grotesque',sans-serif;font-size:20px;font-weight:800;line-height:1.1;margin-top:3px;font-variant-numeric:tabular-nums}
+      .db-seg .time{font-family:'Bricolage Grotesque',sans-serif;font-size:16px;font-weight:700;margin-top:3px;white-space:nowrap}
+      .db-seg .nm{font-weight:700;font-size:14px;margin-top:3px}
+      .db-seg .nm small{display:block;font-weight:500;font-size:11px;color:rgba(255,255,255,.48);margin-top:1px}
+      .db-status{display:inline-flex;align-items:center;gap:6px;margin-top:5px;font-weight:700;font-size:13px;color:#FBBF24}
+      .db-status .dot{width:8px;height:8px;border-radius:50%;background:#FBBF24;box-shadow:0 0 0 4px rgba(251,191,36,.2)}
+      .db-status.ok .dot{background:#22C55E;box-shadow:0 0 0 4px rgba(34,197,94,.22)}.db-status.ok{color:#86EFAC}
+      .db-status.late .dot{background:#FBBF24;box-shadow:0 0 0 4px rgba(251,191,36,.2)}.db-status.late{color:#FDE68A}
+      .db-status.absent .dot{background:#EF4444;box-shadow:0 0 0 4px rgba(239,68,68,.18)}.db-status.absent{color:#FCA5A5}
+
+      /* Stats */
+      .db-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:12px 18px;flex-shrink:0}
+      .db-stat{background:#fff;border:1px solid #ECE6DF;border-radius:14px;padding:12px 14px;box-shadow:0 1px 2px rgba(28,20,16,.04),0 8px 24px -14px rgba(28,20,16,.16);display:flex;align-items:center;gap:11px}
+      .db-stat .ic{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;flex-shrink:0}
+      .db-stat .ic svg{width:19px;height:19px;stroke-width:2}
+      .db-stat .num{font-family:'Bricolage Grotesque',sans-serif;font-size:21px;font-weight:800;line-height:1}
+      .db-stat .num.empty{color:#A39A91}
+      .db-stat .lbl{color:#5A514A;font-size:12px;font-weight:600;margin-top:2px}
+      .db-stat .lbl small{display:block;color:#A39A91;font-size:10.5px;font-weight:500}
+
+      /* Mid */
+      .db-mid{flex:1;min-height:0;display:grid;grid-template-columns:1.5fr 1fr;gap:10px;padding:0 18px 14px;overflow:hidden}
+      .db-card{background:#fff;border:1px solid #ECE6DF;border-radius:16px;box-shadow:0 1px 2px rgba(28,20,16,.04),0 8px 24px -14px rgba(28,20,16,.14);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+      .db-chead{padding:11px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #ECE6DF;flex-shrink:0}
+      .db-chead svg{width:16px;height:16px;color:#EA580C;stroke-width:2}
+      .db-chead h2{font-size:14px;font-weight:700;font-family:'Plus Jakarta Sans',sans-serif}
+      .db-chead .r{margin-left:auto;display:flex;align-items:center;gap:6px}
+      .db-wklbl{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:12px;color:#5A514A;white-space:nowrap}
+      .db-nbtn{width:26px;height:26px;border:1px solid #ECE6DF;background:#fff;border-radius:7px;cursor:pointer;display:grid;place-items:center;color:#5A514A;transition:.14s}
+      .db-nbtn:hover{border-color:#EA580C;color:#EA580C}
+      .db-nbtn svg{width:12px;height:12px;stroke-width:2.4}
+
+      /* Mini calendar */
+      /* Mini calendar */
+      .db-mcal{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+      .db-mcal-head{display:grid;grid-template-columns:56px repeat(7,1fr);border-bottom:1px solid #F3EEE8;flex-shrink:0}
+      .db-mcal-head .hr{border-right:1px solid #F3EEE8}
+      .db-mcal-head .hc{text-align:center;padding:6px 2px;border-left:1px solid #F3EEE8;display:flex;flex-direction:column;align-items:center;gap:1px}
+      .db-mcal-head .hc span{font-size:9.5px;font-weight:700;color:#A39A91;text-transform:uppercase}
+      .db-mcal-head .hc strong{font-family:'Bricolage Grotesque',sans-serif;font-size:13px;font-weight:700;width:22px;height:22px;line-height:22px;border-radius:50%;display:inline-block}
+      .db-mcal-head .hc.today span{color:#EA580C}
+      .db-mcal-head .hc.today strong{background:#EA580C;color:#fff}
+      .db-mcal-body{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+      .db-mrow{display:grid;grid-template-columns:56px repeat(7,1fr);border-bottom:1px solid #F3EEE8}
+      .db-mrow:last-child{border-bottom:none}
+      .db-mlab{font-size:10px;font-weight:700;color:#A39A91;display:flex;align-items:center;justify-content:center;padding:8px 2px;text-align:center;line-height:1.2;border-right:1px solid #F3EEE8}
+      .db-mblk{border-left:1px solid #F3EEE8;display:flex;align-items:center;justify-content:center;padding:6px 2px;min-height:40px}
+      .db-mblk span{width:8px;height:8px;border-radius:50%;background:#ECE6DF;display:block}
+      .db-mblk.my span{background:#EA580C;width:10px;height:10px}
+      .db-mblk.my{background:rgba(234,88,12,.07)}
+      .db-mblk.ok span{background:#16A34A}
+      .db-mblk.late span{background:#B45309}
+      .db-mblk.absent span{background:#DC2626}
+
+      /* Tasks */
+      .db-tprog{padding:9px 14px;display:flex;align-items:center;gap:9px;border-bottom:1px solid #F3EEE8;flex-shrink:0}
+      .db-tprog .bar{flex:1;height:6px;background:#F7F4EF;border-radius:20px;overflow:hidden}
+      .db-tprog .bar i{display:block;height:100%;background:linear-gradient(90deg,#EA580C,#FB923C);border-radius:20px;transition:.4s}
+      .db-tprog .pct{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:12px;color:#EA580C}
+      .db-tlist{flex:1;overflow-y:auto;padding:5px 14px 10px}
+      .db-trow{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid #F3EEE8}
+      .db-trow:last-child{border-bottom:none}
+      .db-chk{width:19px;height:19px;border-radius:6px;border:2px solid #ECE6DF;cursor:pointer;flex-shrink:0;display:grid;place-items:center;transition:.15s;background:#fff}
+      .db-chk svg{width:10px;height:10px;stroke:#fff;stroke-width:3.2;transition:.14s}
+      .db-trow.done .db-chk{background:#EA580C;border-color:#EA580C}
+      .db-trow.done .db-tx span{color:#A39A91;text-decoration:line-through}
+      .db-trow .db-tx small{display:block;font-size:10px;color:#A39A91;font-weight:400;margin-top:1px}
+      .db-trow .db-tx{flex:1;font-weight:600;font-size:13px}
+      .db-no-task{text-align:center;color:#A39A91;font-size:12.5px;padding:20px 0;font-weight:600}
+
+      /* Toolset */
+      .db-tools{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;padding:0 18px 14px;flex-shrink:0}
+      .db-tool{background:#fff;border:1px solid #ECE6DF;border-radius:16px;padding:12px 8px;cursor:pointer;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;transition:.15s;
+        box-shadow:0 1px 2px rgba(28,20,16,.04),0 6px 20px -12px rgba(28,20,16,.14);min-height:84px}
+      .db-tool:hover{transform:translateY(-2px);border-color:#EA580C}
+      .db-tool .tic{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:#F7F4EF;color:#5A514A;transition:.15s}
+      .db-tool .tic svg{width:19px;height:19px;stroke-width:2}
+      .db-tool .tl{font-weight:700;font-size:12px;text-align:center;line-height:1.2;color:#1C1410}
+      .db-tool.checkin .tic{background:#DCFCE7;color:#16A34A}
+      .db-tool.checkin:hover{border-color:#16A34A}.db-tool.checkin:hover .tic{background:#16A34A;color:#fff}
+      .db-tool.checkout .tic{background:#FEE2E2;color:#DC2626}
+      .db-tool.checkout:hover{border-color:#DC2626}.db-tool.checkout:hover .tic{background:#DC2626;color:#fff}
+      .db-tool.brand:hover .tic{background:#EA580C;color:#fff}
+      .db-tool.disabled{opacity:.4;pointer-events:none}
+      .db-tool.done .tic{background:#16A34A;color:#fff}
+      .db-tool.done .tl{color:#16A34A}
+    </style>
 </head>
 <body>
 
@@ -81,100 +186,99 @@
     <!-- ══ TỔNG QUAN DASHBOARD ══════════════════════════ -->
     <section class="emp-section active" id="section-dashboard">
 
-        <!-- Shift banner -->
-        <div class="shift-banner">
-            <!-- Ca làm việc -->
-            <div class="shift-sec">
-                <div class="shift-label">Ca làm việc</div>
-                <div class="shift-val gold" id="dash-shift-time">Chưa xếp ca</div>
-                <div class="shift-sub-txt" id="dash-shift-pos">Đang tải...</div>
+      <!-- HERO -->
+      <div class="db-hero">
+        <div class="db-avatar" id="db-avatar">NV</div>
+        <div class="db-seg">
+          <div class="k">Ca làm việc</div>
+          <div class="time" id="db-shift-time">--:-- → --:--</div>
+        </div>
+        <div class="db-seg">
+          <div class="k">Đã làm</div>
+          <div class="big" id="db-worked">--</div>
+        </div>
+        <div class="db-seg">
+          <div class="k">Còn lại</div>
+          <div class="big" id="db-left">--</div>
+        </div>
+        <div class="db-seg">
+          <div class="k">Trạng thái</div>
+          <div class="db-status" id="db-status"><span class="dot"></span>Chưa check-in</div>
+        </div>
+        <div class="db-seg">
+          <div class="k">Nhân viên</div>
+          <div class="nm" id="db-emp-name">--<small id="db-emp-role">Đang tải...</small></div>
+        </div>
+      </div>
+
+      <!-- STATS -->
+      <div class="db-stats">
+        <div class="db-stat">
+          <div class="ic" style="background:#FFF1E8;color:#EA580C">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          </div>
+          <div><div class="num empty" id="db-bill-count">—</div><div class="lbl">Đơn ca này</div></div>
+        </div>
+        <div class="db-stat">
+          <div class="ic" style="background:#DCFCE7;color:#16A34A">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+          </div>
+          <div><div class="num empty" id="db-revenue">—</div><div class="lbl">Doanh thu ca</div></div>
+        </div>
+        <div class="db-stat">
+          <div class="ic" style="background:#E5E7FF;color:#6366F1">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/></svg>
+          </div>
+          <div><div class="num empty">—</div><div class="lbl">Đánh giá tuần</div></div>
+        </div>
+        <div class="db-stat">
+          <div class="ic" style="background:#FEF3C7;color:#B45309">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10.3 3.9l-8 14A2 2 0 004 21h16a2 2 0 001.7-3l-8-14a2 2 0 00-3.4 0zM12 9v4M12 17h.01"/></svg>
+          </div>
+          <div><div class="num empty">—</div><div class="lbl">Nguyên liệu<small>Chưa có dữ liệu</small></div></div>
+        </div>
+      </div>
+
+      <!-- MID: Calendar + Tasks -->
+      <div class="db-mid">
+        <!-- Mini calendar -->
+        <div class="db-card">
+          <div class="db-chead">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>
+            <h2>Lịch ca của tôi</h2>
+            <div class="r">
+              <button class="db-nbtn" onclick="dbWkShift(-1)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <span class="db-wklbl" id="db-wk-label">Tuần này</span>
+              <button class="db-nbtn" onclick="dbWkShift(1)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
             </div>
-            <!-- Đã làm -->
-            <div class="shift-sec">
-                <div class="shift-label">Đã làm</div>
-                <div class="shift-val" id="dash-worked">--</div>
-            </div>
-            <!-- Còn lại -->
-            <div class="shift-sec">
-                <div class="shift-label">Còn lại</div>
-                <div class="shift-val" id="dash-remaining">--</div>
-            </div>
-            <!-- Trạng thái -->
-            <div class="shift-sec">
-                <div class="shift-label">Trạng thái</div>
-                <div class="shift-val sm" id="dash-checkin-status" style="color:#9FE1CB">
-                    <span class="shift-status-dot"></span>Đúng giờ
-                </div>
-            </div>
-            <!-- Quản lý ca -->
-            <div class="shift-sec">
-                <div class="shift-label">Quản lý ca</div>
-                <div class="shift-val sm" id="dash-shift-manager">--</div>
-                <div class="shift-sub-txt">Liên hệ nội bộ</div>
-            </div>
-            <!-- Tiến độ nhiệm vụ -->
-            <div class="shift-sec shift-sec-prog">
-                <div class="shift-prog-hd">
-                    <span>Nhiệm vụ ca</span>
-                    <strong id="dash-task-pct">0%</strong>
-                </div>
-                <div class="shift-prog-track">
-                    <div class="shift-prog-fill" id="dash-task-fill"></div>
-                </div>
-                <div class="shift-prog-foot" id="dash-task-progress">0/0 xong</div>
-            </div>
+          </div>
+          <div class="db-mcal">
+            <div class="db-mcal-head" id="db-mcal-head"><div style="border-right:1px solid #F3EEE8"></div></div>
+            <div class="db-mcal-body" id="db-mcal-body"></div>
+          </div>
         </div>
 
-        <!-- Metric cards -->
-        <div class="dash-cards">
-            <div class="dash-card">
-                <div class="dash-card-icon orange"><i class="ti-receipt"></i></div>
-                <div class="dash-card-num" id="dash-bill-count">—</div>
-                <div class="dash-card-lbl">Đơn ca này</div>
-                <div class="dash-card-delta up" id="dash-bill-delta"></div>
-            </div>
-            <div class="dash-card">
-                <div class="dash-card-icon green"><i class="ti-money"></i></div>
-                <div class="dash-card-num" id="dash-revenue">—</div>
-                <div class="dash-card-lbl">Doanh thu ca</div>
-                <div class="dash-card-delta up" id="dash-rev-delta"></div>
-            </div>
-            <div class="dash-card">
-                <div class="dash-card-icon blue"><i class="ti-star"></i></div>
-                <div class="dash-card-num" id="dash-rating">—</div>
-                <div class="dash-card-lbl">Đánh giá tuần</div>
-                <div class="dash-card-delta up" id="dash-rating-delta"></div>
-            </div>
-            <div class="dash-card">
-                <div class="dash-card-icon red"><i class="ti-alert"></i></div>
-                <div class="dash-card-num" id="dash-lowstock">—</div>
-                <div class="dash-card-lbl">Nguyên liệu theo dõi</div>
-                <div class="dash-card-delta warn" id="dash-lowstock-note">Đang kiểm tra...</div>
-            </div>
+        <!-- Tasks -->
+        <div class="db-card">
+          <div class="db-chead">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 11l3 3 8-8M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+            <h2>Nhiệm vụ ca</h2>
+          </div>
+          <div class="db-tprog">
+            <span class="pct" id="db-t-pct">0%</span>
+            <div class="bar"><i id="db-t-bar" style="width:0%"></i></div>
+          </div>
+          <div class="db-tlist" id="db-tlist">
+            <div class="db-no-task">Đang tải nhiệm vụ...</div>
+          </div>
         </div>
+      </div>
 
-        <!-- Two col: Recent orders + Tasks -->
-        <div class="dash-two-col">
-            <div class="panel">
-                <div class="panel-header">
-                    <span class="panel-title"><i class="ti-receipt" style="color:#BA7517;margin-right:5px"></i>Đơn hàng gần đây</span>
-                    <span class="see-all" onclick="showTab('invoice')">Xem tất cả →</span>
-                </div>
-                <div class="panel-body">
-                    <div id="dash-orders-body">
-                        <p style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0">Đang tải...</p>
-                    </div>
-                </div>
-            </div>
-            <div class="panel">
-                <div class="panel-header">
-                    <span class="panel-title"><i class="ti-check-box" style="color:#BA7517;margin-right:5px"></i>Nhiệm vụ ca</span>
-                    <span style="font-size:11px;color:var(--muted)" id="dash-task-progress">0/5 xong</span>
-                </div>
-                <div class="panel-body">
-                    <div id="dash-tasks-body"></div>
-                </div>
-            </div>
+      <!-- TOOLSET -->
+      <div class="db-tools">
+        <div class="db-tool checkin disabled" id="db-tool-in">
+          <div class="tic"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg></div>
+          <div class="tl">Check-in</div>
         </div>
 
         <!-- Theo dõi nguyên liệu -->
@@ -223,6 +327,23 @@
                 </div>
             </div>
         </div>
+        <div class="db-tool brand" onclick="showTab('invoice')">
+          <div class="tic"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+          <div class="tl">Tạo đơn mới</div>
+        </div>
+        <div class="db-tool brand" onclick="showTab('stockmove')">
+          <div class="tic"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4v10l8 4 8-4V7zM4 7l8 4 8-4M12 11v10"/></svg></div>
+          <div class="tl">Báo thiếu hàng</div>
+        </div>
+        <div class="db-tool brand" onclick="dashRequestLeave()">
+          <div class="tic"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4M9 14l2 2 4-4"/></svg></div>
+          <div class="tl">Xin nghỉ phép</div>
+        </div>
+        <div class="db-tool brand" onclick="dashContactManager()">
+          <div class="tic"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+          <div class="tl">Liên hệ quản lý</div>
+        </div>
+      </div>
 
     </section>
     <!-- ══════════════════════════════════════════════════ -->

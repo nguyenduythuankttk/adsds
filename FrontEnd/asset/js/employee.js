@@ -12,19 +12,22 @@
         window.location.href = 'index.html';
         return;
     }
-    if (isTokenExpired()) {
-        clearAuth();
-        window.location.href = 'index.html';
-        return;
-    }
     var el = document.getElementById('header-name');
     if (el) el.textContent = name || 'Nhân viên';
-    var avatarEl = document.getElementById('dash-avatar');
+    // db-avatar initials
+    var avatarEl = document.getElementById('db-avatar');
     if (avatarEl) {
         var parts = (name || '').trim().split(' ');
         avatarEl.textContent = parts.length >= 2
             ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
             : (name || 'NV').slice(0, 2).toUpperCase();
+    }
+    // Fill employee name in hero
+    var nameEl = document.getElementById('db-emp-name');
+    if (nameEl) {
+        var small = nameEl.querySelector('small');
+        nameEl.textContent = name || 'Nhân viên';
+        if (small) nameEl.appendChild(small);
     }
 })();
 setInterval(function(){if(isTokenExpired()){clearAuth();window.location.href='index.html';}},60000);
@@ -60,18 +63,279 @@ function toast(msg, type) {
     t._timer = setTimeout(function () { t.className = ''; }, 2800);
 }
 
+// ── Dashboard state ─────────────────────────────────────────────────────────
+var DB_SHIFT      = null;   // ShiftResponse from GET /shift/my-shift
+var DB_TASKS      = [];     // ShiftTask[] from GET /shift/task/by-shift/{id}
+var DB_WK_OFFSET  = 0;      // week offset for mini calendar (0 = this week)
+var DB_WEEK_SHIFTS = [];    // ShiftResponse[] for the displayed week
+
 function renderDashboard() {
+    dbLoadMyShift();
+    dbLoadWeekShifts();
+    dbRenderHeroFromLocal();
     updateDashStats();
     renderDashOrders();
     renderDashIngredientWatch();
     loadInvoicesFromAPI(/*silent=*/true);
 }
 
+// Fill hero from localStorage shiftStatus (fast, available immediately at login)
+function dbRenderHeroFromLocal() {
+    var name = localStorage.getItem('fullName') || 'Nhân viên';
+    var role = localStorage.getItem('role') || '';
+    var nameEl = document.getElementById('db-emp-name');
+    if (nameEl) {
+        var roleLabel = role === 'admin' ? 'Quản lý' : 'Nhân viên';
+        nameEl.innerHTML = name + '<small>' + roleLabel + '</small>';
+    }
+    var ss = localStorage.getItem('shiftStatus');
+    if (!ss) return;
+    try { ss = JSON.parse(ss); } catch (e) { return; }
+    if (!ss.hasShift) return;
+    dbFillHero(ss);
+}
+
+function dbFillHero(ss) {
+    var fmt = function (d) {
+        if (!d) return '--:--';
+        var dt = new Date(d);
+        return dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+    };
+    var timeEl = document.getElementById('db-shift-time');
+    if (timeEl) timeEl.textContent = fmt(ss.timeIn || ss.TimeIn) + ' → ' + fmt(ss.timeOut || ss.TimeOut);
+
+    // Worked / remaining
+    var now = new Date();
+    var inT = new Date(ss.checkIn || ss.CheckIn || ss.timeIn || ss.TimeIn);
+    var outT = new Date(ss.timeOut || ss.TimeOut);
+    var workedMs = Math.max(0, now - inT);
+    var leftMs   = Math.max(0, outT - now);
+    var fmtH = function (ms) {
+        var h = Math.floor(ms / 3600000);
+        var m = Math.floor((ms % 3600000) / 60000);
+        return h + 'g' + (m < 10 ? '0' : '') + m + 'p';
+    };
+    var wEl = document.getElementById('db-worked');
+    var lEl = document.getElementById('db-left');
+    if (wEl) wEl.textContent = fmtH(workedMs);
+    if (lEl) lEl.textContent = fmtH(leftMs);
+
+    // Status badge
+    var statusMap = {
+        OnTime:     { label: 'Đúng giờ',    cls: 'ok' },
+        Late:       { label: 'Đi trễ',      cls: 'late' },
+        EarlyLeave: { label: 'Về sớm',      cls: 'late' },
+        Absent:     { label: 'Vắng mặt',    cls: 'absent' },
+        Completed:  { label: 'Đã hoàn thành', cls: 'ok' },
+        Scheduled:  { label: 'Chưa check-in', cls: '' }
+    };
+    var st = ss.status || ss.Status || 'Scheduled';
+    var info = statusMap[st] || { label: st, cls: '' };
+    var stEl = document.getElementById('db-status');
+    if (stEl) {
+        stEl.innerHTML = '<span class="dot"></span>' + info.label;
+        stEl.className = 'db-status ' + info.cls;
+    }
+
+    // Check-in / check-out tool buttons
+    var cinEl  = document.getElementById('db-tool-in');
+    var coutEl = document.getElementById('db-tool-out');
+    if (cinEl) {
+        if (ss.checkIn || ss.CheckIn) {
+            cinEl.classList.add('done');
+            cinEl.querySelector('.tl').textContent = 'Đã check-in ' + fmt(ss.checkIn || ss.CheckIn);
+        } else {
+            cinEl.classList.remove('disabled', 'done');
+            cinEl.querySelector('.tl').textContent = 'Check-in';
+        }
+    }
+    if (coutEl) coutEl.title = 'Check-out tự động khi hết ca';
+}
+
+// Load today's shift from API then load tasks
+function dbLoadMyShift() {
+    apiGet('/shift/my-shift')
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (sh) {
+            DB_SHIFT = sh;
+            if (!sh) {
+                var timeEl = document.getElementById('db-shift-time');
+                if (timeEl) timeEl.textContent = 'Chưa có ca hôm nay';
+                dbRenderTasks([]);
+                return;
+            }
+            // Merge into hero (overrides localStorage with fresh data)
+            dbFillHero(sh);
+            // Load tasks
+            dbLoadTasks(sh.shiftID || sh.ShiftID);
+        })
+        .catch(function (e) { console.warn('[dbLoadMyShift]', e); });
+}
+
+function dbLoadWeekShifts() {
+    var now = new Date();
+    var dayOfWeek = now.getDay();
+    var mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    var monday = new Date(now);
+    monday.setDate(now.getDate() + mondayOffset + DB_WK_OFFSET * 7);
+    var sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    var fmtDate = function (d) { return d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }); };
+    var start = fmtDate(monday);
+    var end = fmtDate(sunday);
+    apiGet('/shift/my-shifts?start=' + start + '&end=' + end)
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (shifts) {
+            DB_WEEK_SHIFTS = Array.isArray(shifts) ? shifts : [];
+            dbRenderMiniCal();
+        })
+        .catch(function () { DB_WEEK_SHIFTS = []; dbRenderMiniCal(); });
+}
+
+function dbLoadTasks(shiftID) {
+    if (!shiftID) { dbRenderTasks([]); return; }
+    apiGet('/shift/task/by-shift/' + shiftID)
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (tasks) {
+            DB_TASKS = Array.isArray(tasks) ? tasks : [];
+            dbRenderTasks(DB_TASKS);
+        })
+        .catch(function () { dbRenderTasks([]); });
+}
+
+function dbRenderTasks(tasks) {
+    var list  = document.getElementById('db-tlist');
+    var pct   = document.getElementById('db-t-pct');
+    var bar   = document.getElementById('db-t-bar');
+    if (!list) return;
+    if (!tasks.length) {
+        list.innerHTML = '<div class="db-no-task">Không có nhiệm vụ nào trong ca này.</div>';
+        if (pct) pct.textContent = '0%';
+        if (bar) bar.style.width = '0%';
+        return;
+    }
+    var done = tasks.filter(function (t) { return t.isCompleted || t.IsCompleted; }).length;
+    var ratio = Math.round((done / tasks.length) * 100);
+    if (pct) pct.textContent = ratio + '%';
+    if (bar) bar.style.width = ratio + '%';
+    list.innerHTML = tasks.map(function (t) {
+        var tid     = t.taskID || t.TaskID;
+        var title   = t.title || t.Title || '';
+        var isDone  = !!(t.isCompleted || t.IsCompleted);
+        var doneAt  = t.completedAt || t.CompletedAt;
+        var doneBy  = t.completedByName || '';
+        var sub     = isDone
+            ? ('Xong ' + (doneAt ? new Date(doneAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '') + (doneBy ? ' · ' + doneBy : ''))
+            : '';
+        return '<div class="db-trow' + (isDone ? ' done' : '') + '">'
+            + '<div class="db-chk" onclick="dbCompleteTask(\'' + tid + '\')">'
+            + (isDone ? '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>' : '')
+            + '</div>'
+            + '<div class="db-tx"><span>' + title + '</span>'
+            + (sub ? '<small>' + sub + '</small>' : '') + '</div>'
+            + '</div>';
+    }).join('');
+}
+
+function dbCompleteTask(taskID) {
+    var task = DB_TASKS.find(function (t) { return (t.taskID || t.TaskID) === taskID; });
+    if (!task || task.isCompleted || task.IsCompleted) return;
+    apiFetch('PATCH', '/shift/task/' + taskID + '/complete')
+        .then(function (r) {
+            if (r.ok) {
+                task.isCompleted = true;
+                task.completedAt = new Date().toISOString();
+                dbRenderTasks(DB_TASKS);
+                toast('Đã đánh dấu hoàn thành!', 'success');
+            } else {
+                toast('Không thể cập nhật nhiệm vụ.', 'error');
+            }
+        })
+        .catch(function () { toast('Lỗi mạng khi cập nhật.', 'error'); });
+}
+
+// Mini calendar (week view, shows today's shift block)
+function dbRenderMiniCal() {
+    var now = new Date();
+    var dayOfWeek = now.getDay(); // 0=Sun
+    var mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    var monday = new Date(now);
+    monday.setDate(now.getDate() + mondayOffset + DB_WK_OFFSET * 7);
+
+    var days  = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+    var dates = [];
+    for (var i = 0; i < 7; i++) {
+        var d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        dates.push(d);
+    }
+
+    // Header
+    var head = document.getElementById('db-mcal-head');
+    if (head) {
+        head.innerHTML = '<div class="hr" style="border-right:1px solid #F3EEE8"></div>'
+            + days.map(function (dy, i) {
+                var dt = dates[i];
+                var isToday = dt.toDateString() === now.toDateString();
+                return '<div class="hc' + (isToday ? ' today' : '') + '"><span>' + dy + '</span><strong>' + dt.getDate() + '</strong></div>';
+            }).join('');
+    }
+
+    // Week label
+    var lbl = document.getElementById('db-wk-label');
+    if (lbl) {
+        if (DB_WK_OFFSET === 0) lbl.textContent = 'Tuần này';
+        else if (DB_WK_OFFSET === -1) lbl.textContent = 'Tuần trước';
+        else if (DB_WK_OFFSET === 1) lbl.textContent = 'Tuần sau';
+        else {
+            lbl.textContent = dates[0].getDate() + '/' + (dates[0].getMonth() + 1) + ' – '
+                + dates[6].getDate() + '/' + (dates[6].getMonth() + 1);
+        }
+    }
+
+    // Body: 3 shift rows
+    var body = document.getElementById('db-mcal-body');
+    if (!body) return;
+    var shiftDefs = [
+        { key: 'sang',  label: 'Ca sáng',  start: 6,  end: 14 },
+        { key: 'chieu', label: 'Ca chiều', start: 14, end: 22 },
+        { key: 'dem',   label: 'Ca đêm',   start: 22, end: 30 }
+    ];
+    var todayStr = now.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+
+    body.innerHTML = shiftDefs.map(function (sd) {
+        var cells = dates.map(function (dt) {
+            var dtStr = dt.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+            var matchShift = DB_WEEK_SHIFTS.find(function (s) {
+                var sDate = new Date(s.timeIn || s.TimeIn);
+                var sDateStr = sDate.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+                var sHour = sDate.getHours();
+                var sKey = sHour >= 6 && sHour < 14 ? 'sang' : sHour >= 14 && sHour < 22 ? 'chieu' : sHour >= 22 ? 'dem' : null;
+                return sDateStr === dtStr && sKey === sd.key;
+            });
+            var cls = matchShift ? ' my' : '';
+            if (matchShift) {
+                var st = matchShift.status || matchShift.Status || '';
+                if (st === 'Late') cls += ' late';
+                else if (st === 'Absent') cls += ' absent';
+                else if (st === 'OnTime' || st === 'Completed') cls += ' ok';
+            }
+            return '<div class="db-mblk' + cls + '">' + (matchShift ? '<span></span>' : '') + '</div>';
+        }).join('');
+        return '<div class="db-mrow"><div class="db-mlab">' + sd.label + '</div>' + cells + '</div>';
+    }).join('');
+}
+
+function dbWkShift(delta) {
+    DB_WK_OFFSET += delta;
+    dbLoadWeekShifts();
+}
+
 function updateDashStats() {
     var count   = INVOICES.length;
     var revenue = INVOICES.reduce(function (s, inv) { return s + inv.total; }, 0);
-    var countEl   = document.getElementById('dash-bill-count');
-    var revenueEl = document.getElementById('dash-revenue');
+    var countEl   = document.getElementById('db-bill-count');
+    var revenueEl = document.getElementById('db-revenue');
     if (countEl)   countEl.textContent = count || '—';
     if (revenueEl) revenueEl.textContent = count ? revenue.toLocaleString('vi-VN') + 'đ' : '—';
     // Thẻ "Nguyên liệu theo dõi" do renderDashIngredientWatch() phụ trách —
@@ -2515,5 +2779,5 @@ document.addEventListener('visibilitychange', function () {
 });
 
 // Khởi tạo trang
-showTab('invoice');
+showTab('dashboard');
 loadAvailableTickets();

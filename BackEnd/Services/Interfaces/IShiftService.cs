@@ -9,6 +9,7 @@ namespace Backend.Services.Interface{
         Task<ShiftResponse?> GetShiftByID(Guid ID);
         Task<List<ShiftResponse>> GetShiftsByStore(int storeID, DateOnly start, DateOnly end);
         Task<List<ShiftResponse>> GetShiftsByEmployee(Guid employeeID, DateOnly start, DateOnly end);
+        Task AddShift(ShiftCreateRequest request);
         Task<ShiftResponse> AssignShift(int storeID, ShiftAssignRequest request);
         Task UpdateShift(ShiftUpdateRequest request, Guid shiftID);
         Task SoftDeleteShift(Guid ID);

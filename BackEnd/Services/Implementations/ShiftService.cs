@@ -82,6 +82,18 @@ namespace Backend.Services.Implementations{
             return list.Select(Project).ToList();
         }
 
+        public async Task AddShift(ShiftCreateRequest request) {
+            var employee = await _dbContext.Employee
+                .AsNoTracking()
+                .FirstOrDefaultAsync(e => e.UserID == request.EmployeeID && e.DeleteAt == null)
+                ?? throw new Exception("Nhân viên không tồn tại");
+            await AssignShift(employee.StoreID, new ShiftAssignRequest {
+                EmployeeID = request.EmployeeID,
+                TimeIn = request.TimeIn,
+                TimeOut = request.TimeOut
+            });
+        }
+
         public async Task<ShiftResponse> AssignShift(int storeID, ShiftAssignRequest request) {
             // Validate nhân viên có nằm trong store admin đang quản lý không
             var employee = await _dbContext.Employee
