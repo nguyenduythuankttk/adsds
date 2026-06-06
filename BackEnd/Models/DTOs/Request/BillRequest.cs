@@ -23,6 +23,8 @@ namespace Backend.Models.DTOs.Request{
         public PaymentMethods PaymentMethods { get; set; }
         public string? Note { get; set; }
         public string? NoteForDelivery {get; set;}
+        // Giờ hẹn giao hàng khách chọn (null = giao ngay). Phải trong vòng 10 giờ tới.
+        public DateTime? ScheduledAt {get; set;}
         public decimal? MoneyReceived {get; set; }
         public decimal? MoneyGiveBack {get; set; }
         public Guid? EmployeID {get; set;}

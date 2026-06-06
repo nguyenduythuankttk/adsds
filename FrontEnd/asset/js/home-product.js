@@ -9,6 +9,8 @@
     var addrDropdownOpen = false;
     var allStores        = [];
     var selectedStore    = null;
+    var homeAvail        = { map: {}, loaded: false };  // tình trạng còn hàng theo varient
+    var homeLastProducts = [];                          // cache để vẽ lại khi đổi store
     var storeDropdownOpen = false;
     var userPickedStore  = false;
 
@@ -88,6 +90,7 @@
                 var arrow = document.getElementById('cq-store-arrow');
                 if (arrow) arrow.classList.remove('open');
                 renderStoreSelected(); renderStoreList(); updateCQShipping();
+                loadHomeAvailability();
             });
             listEl.appendChild(item);
         });
@@ -111,6 +114,7 @@
                 if (listEl) listEl.classList.remove('open');
                 if (arrow)  arrow.classList.remove('open');
                 renderStoreSelected(); renderStoreList();
+                loadHomeAvailability();
             })
             .catch(function () {
                 if (el) el.innerHTML = '<span class="cq-store-loading">Không thể tải cửa hàng.</span>';
@@ -629,6 +633,10 @@
 
     // ── Add to cart ───────────────────────────────────────────────────────────
     window.homeAddToCart = function (varientId, name, price) {
+        if (isVarientOut(homeAvail, varientId)) {
+            showToast('"' + name + '" đã hết hàng tại cửa hàng này.');
+            return;
+        }
         if (!isLoggedIn()) {
             var modal = document.getElementById('login-modal');
             if (modal) modal.classList.add('active');
@@ -640,6 +648,17 @@
         saveCart(); updateCartBadge(); renderCart();
         showToast('Đã thêm "' + name + '" vào giỏ hàng!');
     };
+
+    // Tải tình trạng còn hàng theo cửa hàng hiện tại rồi vẽ lại danh sách sản
+    // phẩm để làm mờ + chặn chọn những món đã hết nguyên liệu.
+    function loadHomeAvailability() {
+        var sid = selectedStore ? (selectedStore.storeID || selectedStore.StoreID) : null;
+        if (!sid) { homeAvail = { map: {}, loaded: false }; return; }
+        fetchVarientAvailability(sid).then(function (a) {
+            homeAvail = a;
+            if (homeLastProducts.length) renderProducts(homeLastProducts);
+        });
+    }
 
     // ── Products ──────────────────────────────────────────────────────────────
     var RANK_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32'];
@@ -679,24 +698,30 @@
             ? '<span class="product-rank-badge" style="background:' + rankColor + '">#' + rank + '</span>'
             : '';
 
-        return '<div class="product-card home-prod-card">' +
+        var out      = isVarientOut(homeAvail, vid);
+        var soldCls  = out ? ' sold-out' : '';
+        var outBadge = out ? '<span class="product-soldout-badge">HẾT HÀNG</span>' : '';
+        var btnAttr  = out ? ' disabled aria-disabled="true" title="Hết hàng"' : '';
+        return '<div class="product-card home-prod-card' + soldCls + '">' +
             '<div class="product-image-wrapper">' +
             rankBadge +
+            outBadge +
             (img ? '<img src="' + img + '" alt="' + name + '" loading="lazy">'
                  : '<div class="img-placeholder">🍗</div>') +
-            (sold > 0 ? '<span class="product-badge">BÁN CHẠY</span>' : '') +
+            (sold > 0 && !out ? '<span class="product-badge">BÁN CHẠY</span>' : '') +
             '</div>' +
             '<div class="product-info">' +
             '<h3 class="product-name">' + name + '</h3>' +
             '<p class="product-price">' + formatPrice(price) + '</p>' +
             (sold > 0 ? '<p class="product-sold-count">Đã bán: ' + sold + '</p>' : '') +
-            '<button class="add-to-cart-btn-static" ' +
+            '<button class="add-to-cart-btn-static"' + btnAttr + ' ' +
             'onclick="homeAddToCart(' + vid + ',\'' + name.replace(/'/g, "\\'") + '\',' + price + ')">' +
-            '<i class="ti-shopping-cart"></i> THÊM VÀO GIỎ</button>' +
+            '<i class="ti-shopping-cart"></i> ' + (out ? 'HẾT HÀNG' : 'THÊM VÀO GIỎ') + '</button>' +
             '</div></div>';
     }
 
     function renderProducts(products) {
+        homeLastProducts = products || [];
         var container = document.getElementById('home-product-container');
         if (!container) return;
         if (!products || products.length === 0) {
@@ -745,10 +770,17 @@
         loadFeatured();
     };
 
-    ['hs-name', 'hs-min', 'hs-max'].forEach(function (id) {
-        var el = document.getElementById(id);
-        if (el) el.addEventListener('keydown', function (e) { if (e.key === 'Enter') window.homeSearch(); });
-    });
+    // Thanh tìm kiếm header: chuyển sang trang menu để hiển thị kết quả
+    // (hoạt động kể cả khi chưa đăng nhập, thống nhất với user.html)
+    var headerSearch = document.getElementById('hs-name');
+    if (headerSearch) {
+        headerSearch.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter') return;
+            var q = headerSearch.value.trim();
+            if (!q) return;
+            window.location.href = 'menu.html?search=' + encodeURIComponent(q);
+        });
+    }
 
     // ── Combo Modal ───────────────────────────────────────────────────────────
     function openComboModal(people, title, comboKey) {

@@ -2715,3 +2715,105 @@ body {
     color: #c0392b;
     font-weight: 600;
 }
+
+/* ── Hẹn giờ giao hàng ── */
+.cq-schedule-section {
+    padding: 10px 20px 4px;
+    border-top: 1.5px solid #f0ebe6;
+}
+.cq-schedule-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+.cq-schedule-toggle input {
+    width: 16px;
+    height: 16px;
+    accent-color: #e8472a;
+    cursor: pointer;
+}
+.cq-schedule-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #444;
+}
+.cq-schedule-body { margin-top: 8px; }
+.cq-schedule-input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1.5px solid #e8e0da;
+    border-radius: 10px;
+    font-size: 13px;
+    font-family: inherit;
+    background: #faf8f6;
+    color: #333;
+    outline: none;
+    transition: border-color 0.2s;
+}
+.cq-schedule-input:focus { border-color: #e8472a; }
+.cq-schedule-hint {
+    margin-top: 5px;
+    font-size: 11.5px;
+    color: #999;
+}
+
+/* ── Món hết hàng (làm mờ + chặn chọn) ───────────────────────────────────── */
+.menu-card .menu-card-soldout-badge { display: none; }
+.menu-card.sold-out { opacity: .55; filter: grayscale(.35); cursor: default; }
+.menu-card.sold-out:hover { box-shadow: none; transform: none; }
+.menu-card.sold-out .menu-card-soldout-badge {
+    display: inline-block;
+    position: absolute;
+    top: 10px; left: 10px;
+    background: #ef4444; color: #fff;
+    font-size: 11px; font-weight: 800; letter-spacing: .4px;
+    padding: 4px 10px; border-radius: 999px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.18);
+    z-index: 2;
+}
+.menu-card.sold-out .menu-add-btn,
+.menu-card .menu-add-btn[disabled] {
+    background: #d1d5db !important;
+    cursor: not-allowed !important;
+    pointer-events: none;
+}
+.card-size-chip.chip-out {
+    color: #9ca3af;
+    background: #f3f4f6;
+    text-decoration: line-through;
+}
+
+/* Card sản phẩm ở trang chủ (home-product) */
+.home-prod-card.sold-out { opacity: .55; filter: grayscale(.35); }
+.home-prod-card.sold-out .add-to-cart-btn-static {
+    background: #d1d5db !important;
+    color: #6b7280 !important;
+    cursor: not-allowed !important;
+    pointer-events: none;
+}
+.home-prod-card .product-soldout-badge {
+    position: absolute; top: 8px; left: 8px;
+    background: #ef4444; color: #fff;
+    font-size: 11px; font-weight: 800; letter-spacing: .4px;
+    padding: 4px 10px; border-radius: 999px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.18);
+    z-index: 2;
+}
+
+/* Nút size trong modal chi tiết sản phẩm */
+.pd-size-btn.sold-out {
+    opacity: .55; cursor: not-allowed;
+    background: #f3f4f6;
+}
+.pd-size-btn .pd-size-out {
+    margin-left: 6px;
+    background: #fee2e2; color: #7f1d1d;
+    font-size: 10px; font-weight: 700;
+    padding: 2px 6px; border-radius: 999px;
+}
+.pd-add-btn.disabled, .pd-add-btn[disabled] {
+    background: #d1d5db !important;
+    cursor: not-allowed !important;
+}

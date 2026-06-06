@@ -17,6 +17,8 @@ namespace Backend.Models.DTOs.Reponse{
         public PaymentStatus PaymentStatus { get; set; }
         public string? PaymentReference { get; set; }
         public DateTime? PaidAt { get; set; }
+        // Giờ hẹn giao hàng (null nếu đơn không hẹn giờ hoặc không phải đơn giao).
+        public DateTime? ScheduledAt { get; set; }
     }
 
     // Trả về cho FE ngay sau khi tạo bill BankTransfer

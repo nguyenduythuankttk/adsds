@@ -59,6 +59,89 @@ function apiPost(path, body, noAuth)       { return apiFetch('POST',   path, bod
 function apiPut(path, body)                { return apiFetch('PUT',    path, body); }
 function apiDelete(path)                   { return apiFetch('DELETE', path); }
 
+// ─── Tình trạng còn hàng theo ProductVarient của 1 cửa hàng ─────────────────
+// Dùng chung cho trang nhân viên (lập hóa đơn) và trang khách (menu, trang chủ):
+// làm mờ + chặn chọn những món mà nguyên liệu đã hết. Trả về object dạng
+// { map: { varientId: { available, maxServings } }, loaded: bool }.
+// loaded=false ⇒ chưa xác định được (fail-open: KHÔNG làm mờ món nào).
+function buildAvailMap(list) {
+    var map = {};
+    (Array.isArray(list) ? list : []).forEach(function (x) {
+        var id = x.productVarientID != null ? x.productVarientID : x.ProductVarientID;
+        if (id == null) return;
+        var avail = (x.isAvailable !== undefined) ? x.isAvailable : x.IsAvailable;
+        var max   = (x.maxServings  !== undefined) ? x.maxServings  : x.MaxServings;
+        map[id] = { available: avail !== false, maxServings: (max == null ? -1 : Number(max)) };
+    });
+    return { map: map, loaded: true };
+}
+
+// Fallback khi backend chưa có endpoint /product/availability: tự tính từ công
+// thức + tồn kho của store. Khớp logic BillService.ConsumeIngredients (chỉ lô
+// đã sơ chế, còn hàng, chưa hết hạn; nhu cầu mỗi phần = QtyAfterProcess).
+function computeAvailabilityClientSide(storeID) {
+    var asArr = function (d) { return Array.isArray(d) ? d : (d && d.data ? d.data : []); };
+    return Promise.all([
+        apiGet('/recipe/get-all', true).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }),
+        apiGet('/inventorybatch/by-store/' + storeID, true).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; })
+    ]).then(function (res) {
+        var recipes = asArr(res[0]), batches = asArr(res[1]);
+        var today = new Date(); today.setHours(0, 0, 0, 0);
+
+        var stockByIng = {};
+        batches.forEach(function (b) {
+            var type   = b.batchType || b.BatchType;
+            var status = b.status || b.Status;
+            var qty    = Number(b.quantityOnHand != null ? b.quantityOnHand : b.QuantityOnHand) || 0;
+            var exp    = b.exp || b.Exp;
+            if (type !== 'Processed' || status !== 'Available' || qty <= 0) return;
+            if (exp && new Date(exp) < today) return;
+            var ingId = b.ingredientID != null ? b.ingredientID : b.IngredientID;
+            stockByIng[ingId] = (stockByIng[ingId] || 0) + qty;
+        });
+
+        var byVarient = {};
+        recipes.forEach(function (r) {
+            if ((r.deletedAt || r.DeletedAt)) return;
+            var vid   = r.productVarientID != null ? r.productVarientID : r.ProductVarientID;
+            var ingId = r.ingredientID != null ? r.ingredientID : r.IngredientID;
+            var need  = Number(r.qtyAfterProcess != null ? r.qtyAfterProcess : r.QtyAfterProcess) || 0;
+            if (!byVarient[vid]) byVarient[vid] = [];
+            byVarient[vid].push({ ingId: ingId, need: need });
+        });
+
+        var map = {};
+        Object.keys(byVarient).forEach(function (vid) {
+            var maxServings = Infinity;
+            byVarient[vid].forEach(function (it) {
+                if (it.need <= 0) return;
+                var avail = stockByIng[it.ingId] || 0;
+                maxServings = Math.min(maxServings, Math.floor(avail / it.need));
+            });
+            if (maxServings === Infinity) maxServings = -1; // mọi need <= 0
+            map[vid] = { available: maxServings !== 0, maxServings: maxServings };
+        });
+        return { map: map, loaded: true };
+    }).catch(function () { return { map: {}, loaded: false }; });
+}
+
+function fetchVarientAvailability(storeID) {
+    if (!storeID) return Promise.resolve({ map: {}, loaded: false });
+    return apiGet('/product/availability/' + storeID, true)
+        .then(function (r) {
+            if (!r.ok) throw new Error('no endpoint');
+            return r.json().then(buildAvailMap);
+        })
+        .catch(function () { return computeAvailabilityClientSide(storeID); });
+}
+
+// true nếu món đã hết hàng (chỉ khi đã tải được dữ liệu tồn kho).
+function isVarientOut(avail, varientId) {
+    if (!avail || !avail.loaded) return false;
+    var info = avail.map[varientId];
+    return info ? info.available === false : false;
+}
+
 function luuThongTinNhanVien(data) {
     setToken(data.acessToken || data.AcessToken || data.accessToken || data.AccessToken);
     localStorage.setItem('fullName',   data.fullName   || data.FullName   || '');

@@ -4,6 +4,7 @@ using Backend.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BackEnd.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260606004535_AddDeliveryScheduledAt")]
+    partial class AddDeliveryScheduledAt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -737,14 +740,8 @@ namespace BackEnd.Migrations
                     b.Property<int>("ProductVarientID")
                         .HasColumnType("int");
 
-                    b.Property<decimal>("BatchSize")
-                        .HasColumnType("decimal(65,30)");
-
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime(6)");
-
-                    b.Property<bool>("IsConsumable")
-                        .HasColumnType("tinyint(1)");
 
                     b.Property<decimal>("QtyAfterProcess")
                         .HasColumnType("decimal(65,30)");
@@ -1057,21 +1054,6 @@ namespace BackEnd.Migrations
                     b.HasKey("SupplierID");
 
                     b.ToTable("Supplier");
-                });
-
-            modelBuilder.Entity("Backend.Models.SupplierIngredient", b =>
-                {
-                    b.Property<int>("SupplierID")
-                        .HasColumnType("int");
-
-                    b.Property<int>("IngredientID")
-                        .HasColumnType("int");
-
-                    b.HasKey("SupplierID", "IngredientID");
-
-                    b.HasIndex("IngredientID");
-
-                    b.ToTable("SupplierIngredient");
                 });
 
             modelBuilder.Entity("Backend.Models.Ticket", b =>
@@ -1722,25 +1704,6 @@ namespace BackEnd.Migrations
                     b.Navigation("Employee");
                 });
 
-            modelBuilder.Entity("Backend.Models.SupplierIngredient", b =>
-                {
-                    b.HasOne("Backend.Models.Ingredient", "Ingredient")
-                        .WithMany("SupplierIngredient")
-                        .HasForeignKey("IngredientID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Backend.Models.Supplier", "Supplier")
-                        .WithMany("SupplierIngredient")
-                        .HasForeignKey("SupplierID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Ingredient");
-
-                    b.Navigation("Supplier");
-                });
-
             modelBuilder.Entity("Backend.Models.Ticket", b =>
                 {
                     b.HasOne("Backend.Models.User", "User")
@@ -1826,8 +1789,6 @@ namespace BackEnd.Migrations
                     b.Navigation("Recipe");
 
                     b.Navigation("StockMovement");
-
-                    b.Navigation("SupplierIngredient");
                 });
 
             modelBuilder.Entity("Backend.Models.InventoryBatch", b =>
@@ -1895,8 +1856,6 @@ namespace BackEnd.Migrations
             modelBuilder.Entity("Backend.Models.Supplier", b =>
                 {
                     b.Navigation("Address");
-
-                    b.Navigation("SupplierIngredient");
                 });
 
             modelBuilder.Entity("Backend.Models.Ticket", b =>

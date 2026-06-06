@@ -63,12 +63,16 @@
     var cqStoreList      = document.getElementById('cq-store-list');
     var cqTicketSelect   = document.getElementById('cq-ticket-select');
     var cqTicketInfo     = document.getElementById('cq-ticket-info');
+    var cqScheduleCheck  = document.getElementById('cq-schedule-check');
+    var cqScheduleBody   = document.getElementById('cq-schedule-body');
+    var cqScheduleTime   = document.getElementById('cq-schedule-time');
 
     // ── State ────────────────────────────────────────────────────────────────
     // cart item: { varientId, name, price, qty }
     var cart              = [];
     var pendingItem       = null;
     var allProducts       = [];
+    var menuAvail         = { map: {}, loaded: false };  // tình trạng còn hàng theo varient
     var allProductsByType = { food: [], combo: [], addon: [], drink: [] };
     var upsellItems       = [];
     var upsellIdx         = 0;
@@ -193,6 +197,7 @@
                 renderStoreSelected();
                 renderStoreList();
                 updateCQShipping();
+                loadMenuAvailability();
             });
             cqStoreList.appendChild(item);
         });
@@ -213,6 +218,7 @@
                 if (cqStoreArrow) cqStoreArrow.classList.remove('open');
                 renderStoreSelected();
                 renderStoreList();
+                loadMenuAvailability();
             })
             .catch(function () {
                 if (cqStoreSelected) cqStoreSelected.innerHTML = '<span class="cq-store-loading">Không thể tải cửa hàng.</span>';
@@ -336,26 +342,35 @@
         return list.reduce(function (min, v) { return v.price < min.price ? v : min; }, list[0]);
     }
 
+    function varOut(vid) { return isVarientOut(menuAvail, vid); }
+
     function makeCardHTML(p) {
         var variants    = variantsBySize(p);   // size nhỏ → lớn
         var defaultV    = variants[0];          // mặc định = size nhỏ nhất
         var escapedName = p.productName.replace(/"/g, '&quot;');
+        var defaultOut  = varOut(defaultV.productVarientID);
+        // Card "hết hàng" hoàn toàn khi mọi biến thể đều hết — để làm mờ cả thẻ.
+        var allOut      = variants.every(function (v) { return varOut(v.productVarientID); });
 
         var sizeHTML = '';
         if (variants.length > 1) {
             sizeHTML = '<div class="card-size-list">';
             variants.forEach(function (v, i) {
-                sizeHTML += '<button class="card-size-chip' + (i === 0 ? ' selected' : '') + '"' +
+                var chipOut = varOut(v.productVarientID);
+                sizeHTML += '<button class="card-size-chip' + (i === 0 ? ' selected' : '') + (chipOut ? ' chip-out' : '') + '"' +
                     ' data-vid="' + v.productVarientID + '" data-price="' + v.price + '"' +
+                    ' data-out="' + (chipOut ? '1' : '0') + '"' +
                     ' data-size="' + (v.size || '') + '" data-for-people="' + (v.forPeople || '') + '">' +
                     (SIZE_SHORT[v.size] || v.size) + '</button>';
             });
             sizeHTML += '</div>';
         }
 
-        return '<div class="menu-card" data-category="' + p.productType.toLowerCase() +
+        return '<div class="menu-card' + (defaultOut ? ' sold-out' : '') + (allOut ? ' sold-out-all' : '') +
+               '" data-category="' + p.productType.toLowerCase() +
                '" data-name="' + escapedName + '" data-product-id="' + p.productID + '">' +
                '<div class="menu-card-img-wrap">' +
+               '<span class="menu-card-soldout-badge">Hết hàng</span>' +
                (p.image ? '<img src="' + p.image + '" alt="' + escapedName + '" loading="lazy">' :
                           '<div class="menu-card-img-placeholder">🍗</div>') +
                '</div>' +
@@ -368,7 +383,8 @@
                '<button class="menu-add-btn" data-varient-id="' + defaultV.productVarientID +
                '" data-price="' + defaultV.price + '" data-name="' + escapedName +
                '" data-size="' + (defaultV.size || '') + '" data-for-people="' + (defaultV.forPeople || '') +
-               '" aria-label="Thêm ' + escapedName + ' vào giỏ"><i class="ti-plus"></i></button>' +
+               '" data-out="' + (defaultOut ? '1' : '0') + '"' + (defaultOut ? ' disabled' : '') +
+               ' aria-label="Thêm ' + escapedName + ' vào giỏ"><i class="ti-plus"></i></button>' +
                '</div></div></div>';
     }
 
@@ -397,6 +413,8 @@
     // ── URL param: ?category=combo1|combo2|combo3|combo4 ─────────────────────
     var COMBO_PEOPLE_MAP = { combo1: 1, combo2: 2, combo3: 3, combo4: 4 };
     var initCombo = COMBO_PEOPLE_MAP[(new URLSearchParams(window.location.search)).get('category')] || 0;
+    // ── URL param: ?search=<từ khoá> (từ thanh tìm kiếm ở trang khác chuyển sang) ──
+    var initSearch = ((new URLSearchParams(window.location.search)).get('search') || '').trim();
 
     // ── Filter state ─────────────────────────────────────────────────────────
     var filterState = {
@@ -633,6 +651,17 @@
             .catch(function () { return []; });
     }
 
+    // Tải tình trạng còn hàng theo cửa hàng hiện tại rồi vẽ lại menu để làm
+    // mờ + chặn chọn những món đã hết nguyên liệu. Gọi mỗi khi đổi store.
+    function loadMenuAvailability() {
+        var sid = selectedStore ? (selectedStore.storeID || selectedStore.StoreID) : null;
+        if (!sid) { menuAvail = { map: {}, loaded: false }; return; }
+        fetchVarientAvailability(sid).then(function (a) {
+            menuAvail = a;
+            if (allProducts.length) applyFilterAndSort();
+        });
+    }
+
     function loadAllProducts() {
         allProducts = [];
         TYPE_KEYS.forEach(function (key) {
@@ -792,25 +821,36 @@
             : null;
         pdSelectedVariant = matched || variants[0];
 
+        function updatePdAddBtn() {
+            var out = pdSelectedVariant && varOut(pdSelectedVariant.productVarientID);
+            pdAddBtn.disabled = !!out;
+            pdAddBtn.classList.toggle('disabled', !!out);
+            pdAddBtn.title = out ? 'Hết hàng tại cửa hàng này' : '';
+        }
+
         if (variants.length > 1) {
             pdSizeSection.classList.add('visible');
             pdSizeList.innerHTML = '';
             variants.forEach(function (v) {
                 var btn = document.createElement('button');
-                btn.className = 'pd-size-btn' + (v === pdSelectedVariant ? ' selected' : '');
+                var out = varOut(v.productVarientID);
+                btn.className = 'pd-size-btn' + (v === pdSelectedVariant ? ' selected' : '') + (out ? ' sold-out' : '');
                 var peopleHtml = v.forPeople
                     ? '<span class="pd-size-people"><i class="ti-user"></i> ' + v.forPeople + ' người</span>'
                     : '';
+                var outBadge = out ? '<span class="pd-size-out">Hết</span>' : '';
                 btn.innerHTML =
                     '<span class="pd-size-name">' + (SIZE_LABEL[v.size] || v.size) + '</span>' +
                     peopleHtml +
-                    '<span class="pd-size-price">' + formatPrice(v.price) + '</span>';
+                    '<span class="pd-size-price">' + formatPrice(v.price) + '</span>' +
+                    outBadge;
                 btn.addEventListener('click', function () {
                     pdSelectedVariant = v;
                     pdSizeList.querySelectorAll('.pd-size-btn').forEach(function (b) { b.classList.remove('selected'); });
                     btn.classList.add('selected');
                     pdPrice.textContent = formatPrice(v.price);
                     renderPdPeople(v);
+                    updatePdAddBtn();
                 });
                 pdSizeList.appendChild(btn);
             });
@@ -820,10 +860,15 @@
 
         pdPrice.textContent = formatPrice(pdSelectedVariant.price);
         renderPdPeople(pdSelectedVariant);
+        updatePdAddBtn();
 
         // Add-to-cart button
         pdAddBtn.onclick = function () {
             if (!pdSelectedVariant) return;
+            if (varOut(pdSelectedVariant.productVarientID)) {
+                flashMenuMsg('Món này đã hết hàng tại cửa hàng đang chọn.');
+                return;
+            }
             var label = buildVariantLabel(pdSelectedVariant.size, pdSelectedVariant.forPeople);
             addToCart(product.productName, pdSelectedVariant.price, pdSelectedVariant.productVarientID, label);
             closePDModal();
@@ -1079,7 +1124,26 @@
         updateCartTotal();
     }
 
+    // Thông báo nổi gọn (không phụ thuộc markup) cho trường hợp món đã hết.
+    function flashMenuMsg(msg) {
+        var el = document.getElementById('menu-flash-msg');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'menu-flash-msg';
+            el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 18px;border-radius:10px;font-size:14px;z-index:99999;opacity:0;transition:opacity .2s;box-shadow:0 6px 20px rgba(0,0,0,.25);pointer-events:none';
+            document.body.appendChild(el);
+        }
+        el.textContent = msg;
+        el.style.opacity = '1';
+        clearTimeout(el._t);
+        el._t = setTimeout(function () { el.style.opacity = '0'; }, 2200);
+    }
+
     function addToCart(name, price, varientId, variantLabel) {
+        if (isVarientOut(menuAvail, varientId)) {
+            flashMenuMsg('Món "' + name + '" đã hết hàng tại cửa hàng này.');
+            return;
+        }
         if (!isLoggedIn()) {
             pendingItem = { name: name, price: price, varientId: varientId, variantLabel: variantLabel || '' };
             openAuthModal(name);
@@ -1125,6 +1189,7 @@
         // Cập nhật giá hiển thị và data của nút "+"
         var price = parseFloat(chip.dataset.price) || 0;
         var vid   = parseInt(chip.dataset.vid, 10);
+        var out   = chip.dataset.out === '1';
         var priceEl = card.querySelector('.menu-card-price');
         if (priceEl) priceEl.textContent = formatPrice(price);
         var addBtn = card.querySelector('.menu-add-btn');
@@ -1133,6 +1198,12 @@
             addBtn.dataset.price     = price;
             addBtn.dataset.size      = chip.dataset.size || '';
             addBtn.dataset.forPeople = chip.dataset.forPeople || '';
+            addBtn.dataset.out       = out ? '1' : '0';
+            addBtn.disabled          = out;
+        }
+        // Làm mờ/bỏ mờ cả thẻ theo biến thể đang chọn (trừ khi mọi size đều hết).
+        if (!card.classList.contains('sold-out-all')) {
+            card.classList.toggle('sold-out', out);
         }
     });
 
@@ -1370,6 +1441,60 @@
 
     var MAX_DELIVERY_KM = 50;
 
+    // ── Hẹn giờ giao hàng ─────────────────────────────────────────────────────
+    var SCHEDULE_MAX_HOURS = 10;
+
+    // Date → value cho input datetime-local theo giờ local: "YYYY-MM-DDTHH:mm".
+    function toLocalInputValue(date) {
+        var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+        return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate())
+            + 'T' + pad(date.getHours()) + ':' + pad(date.getMinutes());
+    }
+
+    // Giới hạn ô chọn giờ: từ bây giờ tới +10 giờ.
+    function refreshScheduleBounds() {
+        if (!cqScheduleTime) return;
+        var now = new Date();
+        var max = new Date(now.getTime() + SCHEDULE_MAX_HOURS * 3600 * 1000);
+        cqScheduleTime.min = toLocalInputValue(now);
+        cqScheduleTime.max = toLocalInputValue(max);
+    }
+
+    // Đọc giờ hẹn đã chọn → { ok, scheduledAt?, msg? }. Không tick = giao ngay (ok, không kèm giờ).
+    function readScheduledAt() {
+        if (!cqScheduleCheck || !cqScheduleCheck.checked) return { ok: true };
+        var v = cqScheduleTime && cqScheduleTime.value;
+        if (!v) return { ok: false, msg: 'Vui lòng chọn giờ hẹn giao hàng.' };
+        var picked = new Date(v);
+        var now    = new Date();
+        if (isNaN(picked.getTime()) || picked <= now)
+            return { ok: false, msg: 'Giờ hẹn giao hàng phải ở thời điểm trong tương lai.' };
+        if (picked.getTime() > now.getTime() + SCHEDULE_MAX_HOURS * 3600 * 1000)
+            return { ok: false, msg: 'Chỉ được hẹn giao trong vòng ' + SCHEDULE_MAX_HOURS + ' giờ tới.' };
+        return { ok: true, scheduledAt: picked.toISOString() };
+    }
+
+    function resetSchedule() {
+        if (!cqScheduleCheck) return;
+        cqScheduleCheck.checked = false;
+        if (cqScheduleTime) cqScheduleTime.value = '';
+        if (cqScheduleBody) cqScheduleBody.style.display = 'none';
+    }
+
+    if (cqScheduleCheck) {
+        cqScheduleCheck.addEventListener('change', function () {
+            if (cqScheduleCheck.checked) {
+                refreshScheduleBounds();
+                cqScheduleBody.style.display = '';
+                // gợi ý mặc định: 1 giờ kể từ bây giờ
+                if (!cqScheduleTime.value)
+                    cqScheduleTime.value = toLocalInputValue(new Date(Date.now() + 60 * 60 * 1000));
+            } else {
+                cqScheduleBody.style.display = 'none';
+            }
+        });
+    }
+
     function setCheckoutBlocked(blocked, message) {
         if (!cqCheckoutBtn) return;
         cqCheckoutBtn.disabled = blocked;
@@ -1464,6 +1589,7 @@
         selectedTicket = null;
         if (cqTicketSelect) { cqTicketSelect.value = ''; }
         if (cqTicketInfo)   { cqTicketInfo.style.display = 'none'; }
+        resetSchedule();
         if (cqAddrList)   cqAddrList.classList.remove('open');
         if (cqAddrArrow)  cqAddrArrow.classList.remove('open');
         if (cqStoreList)  cqStoreList.classList.remove('open');
@@ -1485,6 +1611,9 @@
             return;
         }
 
+        var schedule = readScheduledAt();
+        if (!schedule.ok) { alert(schedule.msg); return; }
+
         var userId   = localStorage.getItem('userId');
         var products = cart.map(function (i) { return { ProductVarientID: i.varientId, qty: i.qty }; });
         var paymentRadio = document.querySelector('input[name="cq-payment"]:checked');
@@ -1500,6 +1629,7 @@
             products:       products
         };
         if (ticketID) body.TicketID = ticketID;
+        if (schedule.scheduledAt) body.ScheduledAt = schedule.scheduledAt;
         apiPost('/bill/create-delivery', body)
         .then(function (res) {
             if (!res.ok) return res.text().then(function (t) { throw new Error(t); });
@@ -1674,5 +1804,11 @@
     updateCartBadge();
     renderCart();
     loadAllProducts();
+
+    // Nếu được chuyển từ thanh tìm kiếm trang khác (?search=...) → tự chạy tìm kiếm
+    if (initSearch && searchInput) {
+        searchInput.value = initSearch;
+        searchInput.dispatchEvent(new Event('input'));
+    }
 
 })();

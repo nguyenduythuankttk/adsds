@@ -9,6 +9,7 @@ namespace Backend.Models.DTOs.Request{
         public Guid AddressID { get; set; }
         public decimal ShippingFee { get; set; }
         public string? Note { get; set; }
+        public DateTime? ScheduledAt { get; set; }
     }
     public class DeliveryUpdateRequest{
         public Guid? EmployeeID { get; set; }

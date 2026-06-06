@@ -63,6 +63,7 @@ function toast(msg, type) {
 function renderDashboard() {
     updateDashStats();
     renderDashOrders();
+    renderDashIngredientWatch();
     loadInvoicesFromAPI(/*silent=*/true);
 }
 
@@ -73,10 +74,88 @@ function updateDashStats() {
     var revenueEl = document.getElementById('dash-revenue');
     if (countEl)   countEl.textContent = count || '—';
     if (revenueEl) revenueEl.textContent = count ? revenue.toLocaleString('vi-VN') + 'đ' : '—';
-    var lowstockEl   = document.getElementById('dash-lowstock');
-    var lowstockNote = document.getElementById('dash-lowstock-note');
-    if (lowstockEl)   lowstockEl.textContent = '—';
-    if (lowstockNote) lowstockNote.textContent = 'Chưa có dữ liệu';
+    // Thẻ "Nguyên liệu theo dõi" do renderDashIngredientWatch() phụ trách —
+    // không đụng vào đây để polling hóa đơn không ghi đè dữ liệu tồn kho.
+}
+
+// ── Theo dõi nguyên liệu trên dashboard ──────────────────────────────────
+// Đọc báo cáo tồn kho của cửa hàng rồi liệt kê: nguyên liệu sắp/đã hết và lô
+// sắp hết hạn, để nhân viên chủ động báo kho. Ngưỡng "sắp hết" theo đơn vị.
+var DASH_LOW_THRESHOLD = { Unit: 10, Gram: 500, Milliliter: 500, Kilogram: 2, Liter: 2 };
+function dashLowThreshold(unit) {
+    return DASH_LOW_THRESHOLD[unit] != null ? DASH_LOW_THRESHOLD[unit] : 5;
+}
+
+function dashWatchRow(name, badge) {
+    return '<div class="dash-watch-row"><span class="dash-watch-name">' + name + '</span>' + badge + '</div>';
+}
+
+function renderDashIngredientWatch() {
+    var storeId = localStorage.getItem('storeId');
+    var lowEl   = document.getElementById('dash-lowstock');
+    var noteEl  = document.getElementById('dash-lowstock-note');
+    var outBox  = document.getElementById('dash-watch-low');
+    var expBox  = document.getElementById('dash-watch-exp');
+    if (lowEl)  lowEl.textContent  = '…';
+    if (noteEl) noteEl.textContent = 'Đang kiểm tra...';
+    if (outBox) outBox.innerHTML = '<p class="dash-watch-empty">Đang tải...</p>';
+    if (expBox) expBox.innerHTML = '<p class="dash-watch-empty">Đang tải...</p>';
+
+    if (!storeId) {
+        if (lowEl)  lowEl.textContent  = '—';
+        if (noteEl) noteEl.textContent = 'Chưa có cửa hàng';
+        return;
+    }
+
+    apiGet('/inventorybatch/store-report/' + storeId)
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (rep) {
+            if (!rep) throw new Error('no data');
+            var ings = pAsArray(rep.ingredients || rep.Ingredients);
+
+            var outList = [], lowList = [], expList = [];
+            ings.forEach(function (g) {
+                var name = g.ingredientName || g.IngredientName || ('#' + (g.ingredientID || g.IngredientID));
+                var unit = g.ingredientUnit || g.IngredientUnit || '';
+                var qty  = Number(g.totalOnHand   != null ? g.totalOnHand   : g.TotalOnHand)   || 0;
+                var exp  = Number(g.expiringCount != null ? g.expiringCount : g.ExpiringCount) || 0;
+                if (qty <= 0)                            outList.push({ name: name, unit: unit, qty: qty });
+                else if (qty <= dashLowThreshold(unit))  lowList.push({ name: name, unit: unit, qty: qty });
+                if (exp > 0)                             expList.push({ name: name, unit: unit, count: exp });
+            });
+            lowList.sort(function (a, b) { return a.qty - b.qty; });
+            expList.sort(function (a, b) { return b.count - a.count; });
+
+            var shortage  = outList.length + lowList.length;
+            var attention = shortage + expList.length;
+            if (lowEl)  lowEl.textContent = attention ? String(attention) : '0';
+            if (noteEl) noteEl.textContent = attention
+                ? (shortage + ' sắp/hết · ' + expList.length + ' sắp hết hạn')
+                : 'Tồn kho ổn định';
+
+            if (outBox) {
+                var rows = outList.map(function (x) {
+                    return dashWatchRow(x.name, '<span class="badge badge-red">Đã hết</span>');
+                }).concat(lowList.map(function (x) {
+                    return dashWatchRow(x.name, '<span class="badge badge-orange">Còn ' + pNum(x.qty) + ' ' + x.unit + '</span>');
+                }));
+                outBox.innerHTML = rows.length ? rows.join('')
+                    : '<p class="dash-watch-empty">Không có nguyên liệu sắp/đã hết 👍</p>';
+            }
+            if (expBox) {
+                var erows = expList.map(function (x) {
+                    return dashWatchRow(x.name, '<span class="badge badge-yellow">' + x.count + ' lô ≤ 7 ngày</span>');
+                });
+                expBox.innerHTML = erows.length ? erows.join('')
+                    : '<p class="dash-watch-empty">Không có lô sắp hết hạn 👍</p>';
+            }
+        })
+        .catch(function () {
+            if (lowEl)  lowEl.textContent  = '—';
+            if (noteEl) noteEl.textContent = 'Lỗi tải dữ liệu';
+            if (outBox) outBox.innerHTML = '<p class="dash-watch-empty">Lỗi tải dữ liệu</p>';
+            if (expBox) expBox.innerHTML = '<p class="dash-watch-empty">Lỗi tải dữ liệu</p>';
+        });
 }
 
 function renderDashOrders() {
@@ -690,37 +769,68 @@ function onInvTypeChange() {
     if (type === 'dine-in') loadAvailableTickets();
 }
 
-var _phoneLookupTimer = null;
-function phoneLookupDebounce(val) {
-    clearTimeout(_phoneLookupTimer);
-    var hint = document.getElementById('inv-phone-hint');
-    if (!val || val.replace(/\D/g, '').length < 10) {
+// UserID của khách đã khớp tài khoản (theo tên + SĐT). Dùng để nạp kho voucher của khách.
+var _matchedUserId = null;
+var _customerLookupTimer = null;
+
+// Chuẩn hóa tên để so khớp: bỏ khoảng trắng thừa + không phân biệt hoa/thường.
+function normalizeName(s) {
+    return (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function customerLookupDebounce() {
+    clearTimeout(_customerLookupTimer);
+    _customerLookupTimer = setTimeout(customerLookup, 600);
+}
+
+// Tra cứu tài khoản khách theo tên + SĐT đã nhập. Nếu tìm được, nạp kho voucher
+// của khách đó vào dropdown "Mã giảm giá"; nếu không, reset về "không dùng mã".
+function customerLookup() {
+    var phoneEl = document.getElementById('inv-phone');
+    var nameEl  = document.getElementById('inv-customer');
+    var hint    = document.getElementById('inv-phone-hint');
+    var phone   = (phoneEl ? phoneEl.value : '').replace(/\D/g, '');
+    var nameInput = nameEl ? nameEl.value.trim() : '';
+
+    // Cần tối thiểu 1 SĐT hợp lệ để tra cứu
+    if (phone.length < 10) {
         if (hint) { hint.textContent = ''; hint.className = 'phone-hint'; }
+        _matchedUserId = null;
+        resetVoucherSelect();
         return;
     }
     if (hint) { hint.textContent = 'Đang tra cứu...'; hint.className = 'phone-hint'; }
-    _phoneLookupTimer = setTimeout(function () {
-        apiGet('/user/get-all')
-            .then(function (r) { return r.ok ? r.json() : []; })
-            .then(function (data) {
-                var users = Array.isArray(data) ? data : (data.data || []);
-                var phone = val.replace(/\D/g, '');
-                var found = users.find(function (u) {
-                    return (u.phone || u.Phone || '').replace(/\D/g, '') === phone;
-                });
-                if (found) {
-                    var name = found.fullName || found.FullName || '';
-                    var customerEl = document.getElementById('inv-customer');
-                    if (customerEl && !customerEl.value) customerEl.value = name;
-                    if (hint) { hint.textContent = '✓ ' + name; hint.className = 'phone-hint ok'; }
-                } else {
-                    if (hint) { hint.textContent = 'Khách mới'; hint.className = 'phone-hint muted'; }
+    apiGet('/user/get-all')
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (data) {
+            var users = Array.isArray(data) ? data : (data.data || []);
+            var found = users.find(function (u) {
+                var uPhone = (u.phone || u.Phone || '').replace(/\D/g, '');
+                if (uPhone !== phone) return false;
+                // NV đã gõ tên → yêu cầu khớp cả tên; chưa gõ thì chỉ cần SĐT.
+                if (nameInput) {
+                    return normalizeName(u.fullName || u.FullName) === normalizeName(nameInput);
                 }
-            })
-            .catch(function () {
-                if (hint) { hint.textContent = ''; hint.className = 'phone-hint'; }
+                return true;
             });
-    }, 600);
+            if (found) {
+                var name = found.fullName || found.FullName || '';
+                if (nameEl && !nameEl.value.trim()) nameEl.value = name;
+                if (hint) { hint.textContent = '✓ ' + name; hint.className = 'phone-hint ok'; }
+                _matchedUserId = found.userID || found.UserID || null;
+                loadCustomerVouchers(_matchedUserId);
+            } else {
+                // SĐT có trong hệ thống nhưng tên không khớp → coi như khách lẻ (không có kho voucher).
+                if (hint) { hint.textContent = 'Khách mới'; hint.className = 'phone-hint muted'; }
+                _matchedUserId = null;
+                resetVoucherSelect();
+            }
+        })
+        .catch(function () {
+            if (hint) { hint.textContent = ''; hint.className = 'phone-hint'; }
+            _matchedUserId = null;
+            resetVoucherSelect();
+        });
 }
 
 function dashRequestLeave() {
@@ -744,7 +854,7 @@ function showTab(name) {
 
     var renders = {
         dashboard:  renderDashboard,
-        invoice:    function () { renderInvCatTabs(); renderInvMenu(); loadInvoicesFromAPI(); loadAvailableTables(); onInvTypeChange(); },
+        invoice:    function () { renderInvCatTabs(); renderInvMenu(); loadInvAvailability(); loadInvoicesFromAPI(); loadAvailableTables(); onInvTypeChange(); },
         table:      renderTables,
         warehouse:  renderWarehouse,
         processing: renderProcessing,
@@ -776,6 +886,7 @@ var MENU            = [];
 var MENU_RAW        = [];
 var INVOICES        = [];
 var INV_CART        = {};
+var INV_AVAIL       = { map: {}, loaded: false };  // tình trạng còn hàng theo varient
 var TABLES          = [];
 var WAREHOUSE_LOG   = [];
 var STOCK_MOVEMENTS = [];
@@ -823,37 +934,80 @@ var TABLE_STATUS_CYCLE = ['Available', 'Occupied', 'Reserved'];
         });
         renderInvCatTabs();
         renderInvMenu();
+        loadInvAvailability();
     }).catch(function (err) { console.error('[loadMenu]', err); });
+
+// Tải tình trạng còn hàng theo cửa hàng của nhân viên rồi vẽ lại menu để làm
+// mờ + chặn chọn những món đã hết nguyên liệu.
+function loadInvAvailability() {
+    var storeId = localStorage.getItem('storeId');
+    fetchVarientAvailability(storeId).then(function (avail) {
+        INV_AVAIL = avail;
+        renderInvMenu();
+    });
+}
 })();
 
+// Dropdown "Mã giảm giá" nay phản ánh kho voucher của khách đã khớp tài khoản.
+// Gọi lại sau khi render/đổi loại đơn: nếu đã khớp khách thì nạp lại kho của khách, ngược lại reset.
 function loadAvailableTickets() {
+    if (_matchedUserId) loadCustomerVouchers(_matchedUserId);
+    else resetVoucherSelect();
+}
+
+// Nạp kho voucher của 1 khách cụ thể, lọc các voucher còn hiệu lực (chưa dùng, chưa xóa, trong hạn).
+function loadCustomerVouchers(userId) {
     var sel = document.getElementById('inv-ticket');
-    if (!sel) return;
-    var today = todayVN();
-    var end7  = new Date(Date.now() + 7 * 86400000).toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
-    apiGet('/ticket/get-all/' + today + '/' + end7)
+    if (!sel || !userId) return;
+    apiGet('/ticket/user-tickets/' + encodeURIComponent(userId))
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (data) {
-            var now = today;
-            var valid = (data || []).filter(function (tk) {
+            var now = todayVN();
+            var valid = (Array.isArray(data) ? data : []).filter(function (tk) {
                 return !tk.usedAt && !tk.deletedAt &&
                        (tk.startDate || '') <= now &&
                        (tk.endDate   || '') >= now;
             });
-            sel.innerHTML = '<option value="">-- Không dùng mã --</option>';
-            valid.forEach(function (tk) {
-                var code = (tk.ticketID || '').toString().slice(0, 8).toUpperCase();
-                var discPct = Math.round((tk.discount || 0) * 100);
-                var opt = document.createElement('option');
-                opt.value = tk.ticketID || '';
-                opt.dataset.discount = tk.discount || 0;
-                opt.textContent = code + ' – Giảm ' + discPct + '% (HSD: ' + (tk.endDate || '') + ')';
-                sel.appendChild(opt);
-            });
-            sel.dataset.ticketId = '';
-            sel.dataset.discount = 0;
+            populateVoucherSelect(sel, valid);
         })
-        .catch(function () {});
+        .catch(function () { resetVoucherSelect(); });
+}
+
+// Đổ danh sách voucher vào dropdown; giữ lựa chọn cũ nếu vẫn còn hợp lệ.
+function populateVoucherSelect(sel, valid) {
+    var prev = sel.dataset.ticketId || '';
+    sel.innerHTML = '<option value="">-- Không dùng mã --</option>';
+    valid.forEach(function (tk) {
+        var code = (tk.ticketID || '').toString().slice(0, 8).toUpperCase();
+        var discPct = Math.round((tk.discount || 0) * 100);
+        var opt = document.createElement('option');
+        opt.value = tk.ticketID || '';
+        opt.dataset.discount = tk.discount || 0;
+        opt.textContent = code + ' – Giảm ' + discPct + '% (HSD: ' + (tk.endDate || '') + ')';
+        sel.appendChild(opt);
+    });
+    if (prev && sel.querySelector('option[value="' + prev + '"]')) {
+        sel.value = prev;
+        onTicketSelect(sel);
+    } else {
+        sel.value = '';
+        sel.dataset.ticketId = '';
+        sel.dataset.discount = 0;
+        updateInvTotal();
+        calcChange();
+    }
+}
+
+// Reset dropdown về trạng thái không có voucher (khách lẻ / chưa khớp tài khoản).
+function resetVoucherSelect() {
+    var sel = document.getElementById('inv-ticket');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- Không dùng mã --</option>';
+    sel.value = '';
+    sel.dataset.ticketId = '';
+    sel.dataset.discount = 0;
+    updateInvTotal();
+    calcChange();
 }
 
 function onTicketSelect(sel) {
@@ -919,6 +1073,9 @@ function renderInvMenu() {
     container.innerHTML = filtered.map(function (m) {
         var qty        = INV_CART[m.id] || 0;
         var selected   = qty > 0 ? ' selected' : '';
+        var out        = isVarientOut(INV_AVAIL, m.id);
+        var soldClass  = out ? ' sold-out' : '';
+        var soldBadge  = out ? '<div class="menu-card-soldout-badge">Hết hàng</div>' : '';
         var emoji      = CAT_EMOJI[m.type] || '🍽️';
         var imgHtml    = m.image
             ? '<img class="menu-card-img" src="' + m.image + '" alt="' + m.name
@@ -926,7 +1083,11 @@ function renderInvMenu() {
               + '<div class="menu-card-img-placeholder" style="display:none">' + emoji + '</div>'
             : '<div class="menu-card-img-placeholder">' + emoji + '</div>';
         var forPeople  = m.forPeople ? '<div class="menu-card-for">👥 ' + m.forPeople + ' người</div>' : '';
-        return '<div class="menu-card' + selected + '" id="menu-card-' + m.id + '">'
+        var addBtn     = out
+            ? '<button class="qty-btn" disabled title="Hết hàng">+</button>'
+            : '<button class="qty-btn" onclick="invQty(' + m.id + ',1)">+</button>';
+        return '<div class="menu-card' + selected + soldClass + '" id="menu-card-' + m.id + '">'
+            + soldBadge
             + imgHtml
             + '<div class="menu-card-body">'
             +   '<div class="menu-card-name">' + m.name + '</div>'
@@ -936,7 +1097,7 @@ function renderInvMenu() {
             + '<div class="menu-card-ctrl">'
             +   '<button class="qty-btn" onclick="invQty(' + m.id + ',-1)">−</button>'
             +   '<span class="qty-num" id="inv-qty-' + m.id + '">' + qty + '</span>'
-            +   '<button class="qty-btn" onclick="invQty(' + m.id + ',1)">+</button>'
+            +   addBtn
             + '</div>'
             + '</div>';
     }).join('');
@@ -944,6 +1105,7 @@ function renderInvMenu() {
 }
 
 function invQty(id, delta) {
+    if (delta > 0 && isVarientOut(INV_AVAIL, id)) { toast('Món này đã hết nguyên liệu', 'error'); return; }
     INV_CART[id] = Math.max(0, (INV_CART[id] || 0) + delta);
     if (!INV_CART[id]) delete INV_CART[id];
     var el = document.getElementById('inv-qty-' + id);
@@ -1087,7 +1249,8 @@ function createInvoice() {
         });
         var phoneHint = document.getElementById('inv-phone-hint');
         if (phoneHint) { phoneHint.textContent = ''; phoneHint.className = 'phone-hint'; }
-        if (ticketEl) { ticketEl.value = ''; ticketEl.dataset.discount = 0; ticketEl.dataset.ticketId = ''; }
+        _matchedUserId = null;
+        resetVoucherSelect();
         loadAvailableTables();
         renderInvMenu();
         loadInvoicesFromAPI(/*silent=*/false);
@@ -1286,17 +1449,68 @@ function cycleTableStatus(tableId) {
     });
 }
 
+// Popup thêm bàn mới: nhập số bàn + số lượng khách (không còn chọn tầng).
 function openTableModal() {
-    var num = prompt('Nhập số bàn mới:');
-    var cap = prompt('Sức chứa (số người):');
-    if (!num || !cap) return;
-    var storeId = localStorage.getItem('storeId');
-    apiPost('/diningtable/add', { StoreID: storeId, TableNumber: parseInt(num), SeatingCapacity: parseInt(cap) })
-        .then(function (r) {
-            if (!r.ok) throw new Error();
-            renderTables();
-            toast('Đã thêm Bàn ' + num);
-        }).catch(function () { toast('Lỗi thêm bàn!', 'error'); });
+    var overlay = document.createElement('div');
+    overlay.className = 'cash-modal-overlay';
+    overlay.innerHTML =
+        '<div class="cash-modal" role="dialog" aria-modal="true">'
+      +   '<div class="cash-modal-head"><i class="ti-plus"></i><span>Thêm bàn mới</span></div>'
+      +   '<div class="cash-modal-body">'
+      +     '<div class="form-group" style="margin-bottom:14px">'
+      +       '<label>Số bàn</label>'
+      +       '<input type="number" min="1" class="tbl-num" placeholder="VD: 12" autocomplete="off">'
+      +     '</div>'
+      +     '<div class="form-group" style="margin-bottom:6px">'
+      +       '<label>Số lượng khách</label>'
+      +       '<input type="number" min="1" class="tbl-cap" placeholder="VD: 4" autocomplete="off">'
+      +     '</div>'
+      +     '<div class="cash-error tbl-error"></div>'
+      +   '</div>'
+      +   '<div class="cash-modal-foot">'
+      +     '<button type="button" class="btn cash-cancel">Huỷ</button>'
+      +     '<button type="button" class="btn btn-primary tbl-ok"><i class="ti-check"></i> Thêm bàn</button>'
+      +   '</div>'
+      + '</div>';
+    document.body.appendChild(overlay);
+
+    var numEl = overlay.querySelector('.tbl-num');
+    var capEl = overlay.querySelector('.tbl-cap');
+    var errEl = overlay.querySelector('.tbl-error');
+    var okBtn = overlay.querySelector('.tbl-ok');
+
+    function close() {
+        document.removeEventListener('keydown', onKey);
+        overlay.remove();
+    }
+    function onKey(e) {
+        if (e.key === 'Escape') close();
+        else if (e.key === 'Enter') submit();
+    }
+    function submit() {
+        var num = parseInt(numEl.value, 10);
+        var cap = parseInt(capEl.value, 10);
+        if (!num || num < 1) { errEl.textContent = 'Vui lòng nhập số bàn hợp lệ.'; numEl.focus(); return; }
+        if (!cap || cap < 1) { errEl.textContent = 'Vui lòng nhập số lượng khách hợp lệ.'; capEl.focus(); return; }
+        var storeId = localStorage.getItem('storeId');
+        okBtn.disabled = true;
+        apiPost('/diningtable/add', { StoreID: storeId, TableNumber: num, SeatingCapacity: cap })
+            .then(function (r) {
+                if (!r.ok) throw new Error();
+                close();
+                renderTables();
+                toast('Đã thêm Bàn ' + num);
+            }).catch(function () {
+                okBtn.disabled = false;
+                errEl.textContent = 'Lỗi thêm bàn! Vui lòng thử lại.';
+            });
+    }
+
+    overlay.querySelector('.cash-cancel').addEventListener('click', close);
+    okBtn.addEventListener('click', submit);
+    overlay.addEventListener('mousedown', function (e) { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', onKey);
+    setTimeout(function () { numEl.focus(); }, 30);
 }
 
 // NHẬP KHO — Warehouse Stepper
@@ -1974,6 +2188,33 @@ function fmtDeliveryTime(raw) {
     return m[4] + ':' + m[5] + ' ' + m[3] + '/' + m[2] + '/' + m[1];
 }
 
+// Đơn hẹn giờ chỉ được bắt đầu giao từ 15 phút trước giờ hẹn.
+var DELIVERY_LEAD_MINUTES = 15;
+
+// Định dạng Date (giờ local trình duyệt) → "HH:mm dd/MM/yyyy".
+function fmtClock(date) {
+    var p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return p(date.getHours()) + ':' + p(date.getMinutes()) + ' '
+        + p(date.getDate()) + '/' + p(date.getMonth() + 1) + '/' + date.getFullYear();
+}
+
+// Giờ hẹn giao của đơn (Date) hoặc null nếu không hẹn giờ.
+function getScheduledAt(d) {
+    var raw = d.scheduledAt || d.ScheduledAt;
+    if (!raw) return null;
+    var dt = new Date(raw);
+    return isNaN(dt.getTime()) ? null : dt;
+}
+
+// Cổng chặn bắt đầu giao: { allowed, earliest? } — chặn nếu chưa tới 15' trước giờ hẹn.
+function deliveryStartGate(d) {
+    var sched = getScheduledAt(d);
+    if (!sched) return { allowed: true };
+    var earliest = new Date(sched.getTime() - DELIVERY_LEAD_MINUTES * 60000);
+    if (new Date() < earliest) return { allowed: false, earliest: earliest };
+    return { allowed: true };
+}
+
 // Ô "Trạng thái": badge tĩnh nếu đã kết thúc, ngược lại là dropdown đổi trạng thái.
 function deliveryStatusCell(delivId, status) {
     var label = DELIVERY_STATUS_LABEL[status] || status || '—';
@@ -2041,11 +2282,20 @@ function renderDeliveryLocal() {
             var user     = d.user || d.User || {};
             var customer = user.fullName || user.FullName || ('BillID: ' + String(billId).slice(0, 8));
             var address  = getDeliveryAddrText(d);
+            var sched    = getScheduledAt(d);
+            var gate     = deliveryStartGate(d);
+            var schedHtml = sched
+                ? '<div class="del-sched' + (gate.allowed ? '' : ' del-sched-wait') + '"><i class="ti-time"></i> Hẹn giao: '
+                    + fmtDeliveryTime(d.scheduledAt || d.ScheduledAt)
+                    + (gate.allowed ? '' : ' · chỉ giao được từ ' + fmtClock(gate.earliest))
+                    + '</div>'
+                : '';
             return '<div class="delivery-item">'
                 + '<div class="del-info">'
                 + '<div class="del-id">Đơn: ' + String(billId).slice(0, 8).toUpperCase() + '</div>'
                 + '<div class="del-customer">' + customer + '</div>'
                 + '<div class="del-addr"><i class="ti-location-pin"></i> ' + address + '</div>'
+                + schedHtml
                 + '</div>'
                 + '<div style="display:flex;gap:8px;align-items:center">'
                 + '<input type="text" placeholder="Ghi chú..." style="padding:6px 10px;border:1px solid #e8e8e8;border-radius:6px;font-size:12px;width:160px" id="del-note-' + delivId + '">'
@@ -2057,7 +2307,7 @@ function renderDeliveryLocal() {
 
     var tbody = document.getElementById('delivery-done-tbody');
     if (!done.length) {
-        tbody.innerHTML = '<tr><td colspan="8" class="tbl-empty">Chưa có lịch sử</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="tbl-empty">Chưa có lịch sử</td></tr>';
         return;
     }
     tbody.innerHTML = done.map(function (d) {
@@ -2066,6 +2316,7 @@ function renderDeliveryLocal() {
         var user     = d.user || d.User || {};
         var customer = user.fullName || user.FullName || ('BillID: ' + String(billId).slice(0, 8));
         var address  = getDeliveryAddrText(d);
+        var schedTxt = getScheduledAt(d) ? fmtDeliveryTime(d.scheduledAt || d.ScheduledAt) : '—';
         var lastLog  = latestDeliveryLog(d) || {};
         var status   = canonDeliveryStatus(lastLog.status || lastLog.Status || '');
         var at       = fmtDeliveryTime(lastLog.changeAt || lastLog.ChangeAt || '');
@@ -2076,6 +2327,7 @@ function renderDeliveryLocal() {
             + '<td><strong style="color:var(--primary)">' + String(billId).slice(0, 8).toUpperCase() + '</strong></td>'
             + '<td>' + customer + '</td>'
             + '<td style="font-size:12px;color:var(--muted)">' + address + '</td>'
+            + '<td style="font-size:12px">' + schedTxt + '</td>'
             + '<td>' + deliveryStatusCell(delivId, status) + '</td>'
             + '<td>' + paymentCell(d.bill || d.Bill) + '</td>'
             + '<td style="font-size:12px">' + at + '</td>'
@@ -2085,10 +2337,74 @@ function renderDeliveryLocal() {
     }).join('');
 }
 
+// Popup nhập tiền mặt khi xác nhận "Đã giao" (thay cho prompt() mặc định).
+// Trả về Promise: số tiền khách đưa (>= due), hoặc null nếu huỷ.
+function cashModal(due) {
+    return new Promise(function (resolve) {
+        var overlay = document.createElement('div');
+        overlay.className = 'cash-modal-overlay';
+        overlay.innerHTML =
+            '<div class="cash-modal" role="dialog" aria-modal="true">'
+          +   '<div class="cash-modal-head"><i class="ti-money"></i><span>Thu tiền giao hàng</span></div>'
+          +   '<div class="cash-modal-body">'
+          +     '<div class="cash-row"><span>Tổng cần thu</span><strong class="cash-due">' + due.toLocaleString('vi-VN') + 'đ</strong></div>'
+          +     '<label class="cash-label">Số tiền khách đưa (VND)</label>'
+          +     '<input type="text" inputmode="numeric" class="cash-input" placeholder="0" autocomplete="off">'
+          +     '<div class="cash-row"><span>Tiền thừa</span><strong class="cash-change">0đ</strong></div>'
+          +     '<div class="cash-error"></div>'
+          +   '</div>'
+          +   '<div class="cash-modal-foot">'
+          +     '<button type="button" class="btn cash-cancel">Huỷ</button>'
+          +     '<button type="button" class="btn btn-primary cash-ok">Xác nhận</button>'
+          +   '</div>'
+          + '</div>';
+        document.body.appendChild(overlay);
+
+        var input  = overlay.querySelector('.cash-input');
+        var change = overlay.querySelector('.cash-change');
+        var errEl  = overlay.querySelector('.cash-error');
+
+        function readMoney() { return Number((input.value || '').replace(/[^\d]/g, '')) || 0; }
+        function onInput() {
+            var raw = (input.value || '').replace(/[^\d]/g, '');
+            input.value = raw ? Number(raw).toLocaleString('vi-VN') : '';
+            var diff = readMoney() - due;
+            change.textContent = (diff >= 0 ? diff : 0).toLocaleString('vi-VN') + 'đ';
+            change.style.color = diff >= 0 ? '#1aaa55' : 'var(--muted)';
+            errEl.textContent  = '';
+        }
+        function close(val) {
+            document.removeEventListener('keydown', onKey);
+            overlay.remove();
+            resolve(val);
+        }
+        function submit() {
+            var money = readMoney();
+            if (money < due) {
+                errEl.textContent = 'Số tiền khách đưa chưa đủ tổng cần thu.';
+                input.focus();
+                return;
+            }
+            close(money);
+        }
+        function onKey(e) {
+            if (e.key === 'Escape') close(null);
+            else if (e.key === 'Enter') submit();
+        }
+
+        input.addEventListener('input', onInput);
+        overlay.querySelector('.cash-cancel').addEventListener('click', function () { close(null); });
+        overlay.querySelector('.cash-ok').addEventListener('click', submit);
+        overlay.addEventListener('mousedown', function (e) { if (e.target === overlay) close(null); });
+        document.addEventListener('keydown', onKey);
+        setTimeout(function () { input.focus(); }, 30);
+    });
+}
+
 // Kiểm tra điều kiện & lấy tiền mặt khi xác nhận "Đã giao".
 //  - Thẻ / chuyển khoản: chỉ cho giao khi ĐÃ thanh toán; chưa thanh toán → chặn.
-//  - Tiền mặt: hiện popup nhập số tiền khách đưa, phải >= tổng cần thu (gồm ship).
-// Trả về: { ok:true, money?:number } để tiếp tục; { ok:false } nếu huỷ popup;
+//  - Tiền mặt: mở popup nhập số tiền khách đưa, phải >= tổng cần thu (gồm ship).
+// Trả về Promise: { ok:true, money?:number } để tiếp tục; { ok:false } nếu huỷ popup;
 //         { ok:false, blocked:true, msg } nếu vi phạm điều kiện (hiển thị lỗi).
 function askDeliveryCash(d) {
     var bill   = d.bill || d.Bill || {};
@@ -2098,17 +2414,15 @@ function askDeliveryCash(d) {
 
     // Thẻ / chuyển khoản: bắt buộc đã thanh toán mới được giao.
     if (method !== 'cash') {
-        if (!paid) return { ok: false, blocked: true, msg: 'Đơn thẻ/chuyển khoản chưa thanh toán — không thể xác nhận đã giao.' };
-        return { ok: true };   // đã thanh toán online → không cần tiền mặt
+        if (!paid) return Promise.resolve({ ok: false, blocked: true, msg: 'Đơn thẻ/chuyển khoản chưa thanh toán — không thể xác nhận đã giao.' });
+        return Promise.resolve({ ok: true });   // đã thanh toán online → không cần tiền mặt
     }
 
-    // Tiền mặt: nhập số tiền khách đưa, phải đủ tổng cần thu.
-    var input = prompt('Tổng cần thu: ' + due.toLocaleString('vi-VN') + 'đ\nNhập số tiền khách đưa (VND):', '');
-    if (input === null) return { ok: false };
-    var money = parseFloat(input || '0') || 0;
-    if (money < due) return { ok: false, blocked: true,
-        msg: 'Số tiền khách đưa (' + money.toLocaleString('vi-VN') + 'đ) chưa đủ tổng cần thu (' + due.toLocaleString('vi-VN') + 'đ).' };
-    return { ok: true, money: money };
+    // Tiền mặt: nhập số tiền khách đưa, phải đủ tổng cần thu (popup tự kiểm tra >= due).
+    return cashModal(due).then(function (money) {
+        if (money === null) return { ok: false };
+        return { ok: true, money: money };
+    });
 }
 
 // Bắt đầu giao đơn đang chờ: Pending → Đang giao (OnTheWay).
@@ -2119,6 +2433,15 @@ function startDelivery(deliveryId) {
         return (x.deliveryID || x.DeliveryID) == deliveryId;
     });
     if (!d) return;
+
+    // Đơn hẹn giờ: chặn bắt đầu giao khi chưa tới 15 phút trước giờ hẹn.
+    var gate = deliveryStartGate(d);
+    if (!gate.allowed) {
+        toast('Đơn có hẹn giờ — chỉ được bắt đầu giao từ ' + fmtClock(gate.earliest)
+            + ' (15 phút trước giờ hẹn).', 'error');
+        return;
+    }
+
     var noteEl = document.getElementById('del-note-' + deliveryId);
     var note   = noteEl ? noteEl.value.trim() : '';
 
@@ -2152,28 +2475,35 @@ function changeDeliveryStatus(deliveryId, selectEl) {
         ChangeAt: new Date().toISOString()
     };
 
-    // Giao thành công: thẻ/CK phải đã thanh toán; tiền mặt phải nhập đủ tiền khách đưa.
-    if (newStatus === 'Delivered') {
-        var cash = askDeliveryCash(d);
-        if (!cash.ok) {
-            if (cash.blocked) toast(cash.msg, 'error');
-            renderDeliveryLocal();   // trả dropdown về trạng thái cũ
-            return;
-        }
-        if (cash.money !== undefined) body.MoneyReceived = cash.money;
+    function doUpdate() {
+        selectEl.disabled = true;
+        apiPut('/delivery/update/' + deliveryId, body).then(function (r) {
+                if (!r.ok) return r.text().then(function (t) { throw new Error(t); });
+                toast('Đã cập nhật trạng thái đơn ' + String(d.billID || d.BillID || '').slice(0, 8).toUpperCase()
+                    + ' → ' + (DELIVERY_STATUS_LABEL[newStatus] || newStatus));
+                renderDelivery();   // tải lại để cập nhật "Thay đổi lúc" & "Nhân viên giao" từ server
+            }).catch(function (err) {
+                selectEl.disabled = false;
+                renderDeliveryLocal();   // trả dropdown về trạng thái hiện tại
+                toast('Lỗi cập nhật trạng thái: ' + (err.message || ''), 'error');
+            });
     }
 
-    selectEl.disabled = true;
-    apiPut('/delivery/update/' + deliveryId, body).then(function (r) {
-            if (!r.ok) return r.text().then(function (t) { throw new Error(t); });
-            toast('Đã cập nhật trạng thái đơn ' + String(d.billID || d.BillID || '').slice(0, 8).toUpperCase()
-                + ' → ' + (DELIVERY_STATUS_LABEL[newStatus] || newStatus));
-            renderDelivery();   // tải lại để cập nhật "Thay đổi lúc" & "Nhân viên giao" từ server
-        }).catch(function (err) {
-            selectEl.disabled = false;
-            renderDeliveryLocal();   // trả dropdown về trạng thái hiện tại
-            toast('Lỗi cập nhật trạng thái: ' + (err.message || ''), 'error');
+    // Giao thành công: thẻ/CK phải đã thanh toán; tiền mặt phải nhập đủ tiền khách đưa.
+    if (newStatus === 'Delivered') {
+        askDeliveryCash(d).then(function (cash) {
+            if (!cash.ok) {
+                if (cash.blocked) toast(cash.msg, 'error');
+                renderDeliveryLocal();   // trả dropdown về trạng thái cũ
+                return;
+            }
+            if (cash.money !== undefined) body.MoneyReceived = cash.money;
+            doUpdate();
         });
+        return;
+    }
+
+    doUpdate();
 }
 
 // Khi user rời tab trình duyệt rồi quay lại, refresh ngay để bắt kịp bill mới

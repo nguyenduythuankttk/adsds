@@ -66,6 +66,17 @@
         });
     });
 
+    // Search bar: trang tài khoản không có lưới sản phẩm → chuyển sang menu.html để tìm
+    var searchInput = document.getElementById('hs-name');
+    if (searchInput) {
+        searchInput.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter') return;
+            var q = searchInput.value.trim();
+            if (!q) return;
+            window.location.href = 'menu.html?search=' + encodeURIComponent(q);
+        });
+    }
+
     var logoutBtn = document.getElementById('btn-logout');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', function (e) {
@@ -241,6 +252,8 @@ function showBillModal(idx) {
 
     var deliveryAddr  = o.address || o.Address || null;
     var deliveryText  = formatAddressText(deliveryAddr);
+    var scheduledRaw  = o.scheduledAt || o.ScheduledAt || null;
+    var scheduledText = scheduledRaw ? String(scheduledRaw).replace('T', ' ').slice(0, 16) : null;
 
     // Items table
     var details  = o.detail || o.Detail || o.billDetail || o.BillDetail || [];
@@ -307,6 +320,7 @@ function showBillModal(idx) {
         (storeName ? '<div class="bill-meta-row"><span class="bill-meta-lbl">Cửa hàng</span><span class="bill-meta-val">' + storeName + '</span></div>' : '') +
         (storeAddr ? '<div class="bill-meta-row"><span class="bill-meta-lbl">Địa chỉ CH</span><span class="bill-meta-val">' + storeAddr + '</span></div>' : '') +
         (deliveryText ? '<div class="bill-meta-row"><span class="bill-meta-lbl">Giao đến</span><span class="bill-meta-val">' + deliveryText + '</span></div>' : '') +
+        (scheduledText ? '<div class="bill-meta-row"><span class="bill-meta-lbl">Hẹn giao</span><span class="bill-meta-val">' + scheduledText + '</span></div>' : '') +
         (tableID ? '<div class="bill-meta-row"><span class="bill-meta-lbl">Bàn số</span><span class="bill-meta-val">' + tableID + '</span></div>' : '') +
         (note ? '<div class="bill-meta-row"><span class="bill-meta-lbl">Ghi chú</span><span class="bill-meta-val">' + note + '</span></div>' : '') +
         '</div>' +
