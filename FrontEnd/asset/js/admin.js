@@ -1053,16 +1053,18 @@ function openReceiptModal(){
     ]).then(function(res){
         var supps=res[0]||[], ings=res[1]||[]; INGREDIENTS_DATA=ings;
         var ingById={}; ings.forEach(function(i){ingById[i.ingredientID]=i;});
-        var ingOpts='<option value="">-- Nguyên liệu --</option>'+ings.map(function(i){return '<option value="'+i.ingredientID+'">'+i.ingredientName+' ('+i.ingredientUnit+')</option>';}).join('');
+        // Chỉ cho chọn NCC đã được gán nguyên liệu.
+        var selectableSupps=supps.filter(function(s){return (s.ingredientIDs||[]).length>0;});
+        var suppOpts='<option value="">-- Chọn NCC --</option>'+selectableSupps.map(function(s){return '<option value="'+s.supplierID+'">'+s.supplierName+'</option>';}).join('');
         var body=
+            '<div class="form-group"><label class="form-label">Nhà cung cấp</label>'+
+                '<select id="f-rcp-supp" class="form-control">'+suppOpts+'</select>'+
+                '<div id="rcp-supp-hint" style="font-size:12px;color:#888;margin-top:4px">'+(selectableSupps.length?'':'Chưa có NCC nào được gán nguyên liệu. Hãy vào mục Nhà cung cấp để gán.')+'</div>'+
+            '</div>'+
             '<div class="form-group"><label class="form-label">Danh sách nguyên liệu</label>'+
                 '<div id="rcp-lines"></div>'+
                 '<button type="button" class="btn-secondary" id="btn-add-rcp-line" style="margin-top:8px;padding:6px 14px;font-size:13px">+ Thêm dòng</button>'+
                 '<div id="rcp-total" style="text-align:right;font-weight:700;margin-top:8px;color:var(--primary)"></div>'+
-            '</div>'+
-            '<div class="form-group"><label class="form-label">Nhà cung cấp</label>'+
-                '<select id="f-rcp-supp" class="form-control"><option value="">-- Chọn nguyên liệu trước --</option></select>'+
-                '<div id="rcp-supp-hint" style="font-size:12px;color:#888;margin-top:4px"></div>'+
             '</div>';
         openModal('Lập Phiếu Nhập (Store #'+ADMIN_STORE_ID+')', body, function(){
             var suppID=parseInt(document.getElementById('f-rcp-supp').value)||0;
@@ -1100,33 +1102,22 @@ function openReceiptModal(){
 
         var ll=document.getElementById('rcp-lines');
         var suppSel=document.getElementById('f-rcp-supp');
-        var suppHint=document.getElementById('rcp-supp-hint');
         var totalEl=document.getElementById('rcp-total');
 
-        function refreshSuppliers(){
-            var ids=[];
-            document.querySelectorAll('.rcp-line-row').forEach(function(row){
-                var iid=parseInt(row.querySelector('.f-rcp-ing').value)||0;
-                if(iid>0 && ids.indexOf(iid)<0)ids.push(iid);
-            });
-            var prev=suppSel.value;
-            if(!ids.length){
-                suppSel.innerHTML='<option value="">-- Chọn nguyên liệu trước --</option>';
-                suppHint.textContent='';return;
-            }
-            // NCC phải cung cấp ĐỦ tất cả nguyên liệu đã chọn (giao của các tập).
-            var matches=supps.filter(function(s){
-                var sids=s.ingredientIDs||[];
-                return ids.every(function(id){return sids.indexOf(id)>=0;});
-            });
-            if(!matches.length){
-                suppSel.innerHTML='<option value="">-- Không có NCC phù hợp --</option>';
-                suppHint.textContent='Không có nhà cung cấp nào cung cấp đủ các nguyên liệu đã chọn. Hãy gán nguyên liệu cho NCC ở mục Nhà cung cấp.';
-                return;
-            }
-            suppHint.textContent='';
-            suppSel.innerHTML='<option value="">-- Chọn NCC --</option>'+matches.map(function(s){return '<option value="'+s.supplierID+'">'+s.supplierName+'</option>';}).join('');
-            if(prev && matches.some(function(s){return String(s.supplierID)===String(prev);}))suppSel.value=prev;
+        function currentSupplier(){
+            return selectableSupps.filter(function(s){return String(s.supplierID)===String(suppSel.value);})[0];
+        }
+        // Options nguyên liệu lọc theo NCC đang chọn.
+        function ingOptsForSupplier(){
+            var s=currentSupplier();
+            if(!s)return '<option value="">-- Chọn NCC trước --</option>';
+            var list=ings.filter(function(i){return (s.ingredientIDs||[]).indexOf(i.ingredientID)>=0;});
+            if(!list.length)return '<option value="">-- NCC chưa có nguyên liệu --</option>';
+            return '<option value="">-- Nguyên liệu --</option>'+list.map(function(i){return '<option value="'+i.ingredientID+'">'+i.ingredientName+' ('+i.ingredientUnit+')</option>';}).join('');
+        }
+        function updateUnit(row){
+            var ing=ingById[parseInt(row.querySelector('.f-rcp-ing').value)||0];
+            row.querySelector('.f-rcp-unitprice').textContent=ing?(fv(Number(ing.costPerUnit)||0)+' đ/'+ing.ingredientUnit):'—';
         }
         function refreshTotal(){
             var total=0;
@@ -1142,28 +1133,33 @@ function openReceiptModal(){
             });
             if(totalEl)totalEl.textContent='Tạm tính: '+fv(total)+' đ';
         }
-        function onLineChange(){refreshSuppliers();refreshTotal();}
+        // Đổi NCC -> dựng lại options nguyên liệu cho mọi dòng, giữ lựa chọn nếu vẫn hợp lệ.
+        function rebuildIngOptions(){
+            var opts=ingOptsForSupplier();
+            document.querySelectorAll('.rcp-line-row').forEach(function(row){
+                var sel=row.querySelector('.f-rcp-ing'), prev=sel.value;
+                sel.innerHTML=opts;
+                sel.value=(prev && sel.querySelector('option[value="'+prev+'"]'))?prev:'';
+                updateUnit(row);
+            });
+            refreshTotal();
+        }
+        suppSel.addEventListener('change',rebuildIngOptions);
 
         function addRow(){
             var row=document.createElement('div');
             row.className='rcp-line-row';
             row.style.cssText='display:flex;gap:6px;align-items:center;margin-bottom:6px;';
             row.innerHTML=
-                '<select class="form-control f-rcp-ing" style="flex:2">'+ingOpts+'</select>'+
+                '<select class="form-control f-rcp-ing" style="flex:2">'+ingOptsForSupplier()+'</select>'+
                 '<input class="form-control f-rcp-qty" type="number" placeholder="Số lượng" min="0" step="0.01" style="flex:1">'+
                 '<span class="f-rcp-unitprice" style="flex:1.2;font-size:12px;color:#666;text-align:right">—</span>'+
                 '<span class="f-rcp-linetotal" style="flex:1.2;font-size:12px;font-weight:700;text-align:right">—</span>'+
                 '<button type="button" class="btn-del" style="padding:4px 8px"><i class="ti-trash"></i></button>';
             ll.appendChild(row);
-            var ingSel=row.querySelector('.f-rcp-ing');
-            var unitEl=row.querySelector('.f-rcp-unitprice');
-            ingSel.addEventListener('change',function(){
-                var ing=ingById[parseInt(this.value)||0];
-                unitEl.textContent=ing?(fv(Number(ing.costPerUnit)||0)+' đ/'+ing.ingredientUnit):'—';
-                onLineChange();
-            });
+            row.querySelector('.f-rcp-ing').addEventListener('change',function(){updateUnit(row);refreshTotal();});
             row.querySelector('.f-rcp-qty').addEventListener('input',refreshTotal);
-            row.querySelector('.btn-del').addEventListener('click',function(){row.remove();onLineChange();});
+            row.querySelector('.btn-del').addEventListener('click',function(){row.remove();refreshTotal();});
         }
         document.getElementById('btn-add-rcp-line').addEventListener('click',addRow);
         addRow();
