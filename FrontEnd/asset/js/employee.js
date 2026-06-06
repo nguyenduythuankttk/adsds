@@ -143,13 +143,27 @@ function dbFillHero(ss) {
     if (cinEl) {
         if (ss.checkIn || ss.CheckIn) {
             cinEl.classList.add('done');
+            cinEl.classList.remove('disabled');
             cinEl.querySelector('.tl').textContent = 'Đã check-in ' + fmt(ss.checkIn || ss.CheckIn);
         } else {
             cinEl.classList.remove('disabled', 'done');
             cinEl.querySelector('.tl').textContent = 'Check-in';
         }
     }
-    if (coutEl) coutEl.title = 'Check-out tự động khi hết ca';
+    if (coutEl) {
+        if (ss.checkOut || ss.CheckOut) {
+            coutEl.classList.add('done');
+            coutEl.classList.remove('disabled');
+            coutEl.querySelector('.tl').textContent = 'Đã check-out ' + fmt(ss.checkOut || ss.CheckOut);
+        } else if (ss.checkIn || ss.CheckIn) {
+            coutEl.classList.remove('disabled', 'done');
+            coutEl.querySelector('.tl').textContent = 'Check-out';
+        } else {
+            coutEl.classList.add('disabled');
+            coutEl.classList.remove('done');
+            coutEl.querySelector('.tl').textContent = 'Check-out';
+        }
+    }
 }
 
 // Load today's shift from API then load tasks
@@ -454,17 +468,34 @@ function pAsArray(d) { return Array.isArray(d) ? d : (d && d.data ? d.data : [])
 var PROC_WAREHOUSES  = [];
 var PROC_RAW_BATCHES = [];
 var PROC_INGREDIENTS = [];
+var PROC_LINES       = []; // {id, batchIdx, take, outIngID, outQty, mfd, exp}
 var PROC_ROW_SEQ     = 0;
+var _procNF          = new Intl.NumberFormat('vi-VN');
 
 function renderProcessing() {
+    PROC_LINES = [];
     var box = document.getElementById('proc-items');
     if (box) box.innerHTML = '';
+
+    // Số phiếu
+    var tn = document.getElementById('proc-ticket-no');
+    if (tn) {
+        var n = new Date(), p2 = function(x){return String(x).padStart(2,'0');};
+        tn.textContent = 'SC-' + n.getFullYear() + p2(n.getMonth()+1) + p2(n.getDate()) + '-001';
+    }
+    // Tên nhân viên
+    var en = document.getElementById('proc-emp-name');
+    if (en) en.value = localStorage.getItem('employeeName') || localStorage.getItem('fullName') || '';
+
+    // Load tất cả nguyên liệu (không lọc Unit)
     apiGet('/ingredient/get-all')
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (d) { PROC_INGREDIENTS = pAsArray(d); })
         .catch(function () { PROC_INGREDIENTS = []; });
+
     loadProcWarehouses();
     loadProcessingHistory();
+    recalcProc();
 }
 
 function loadProcWarehouses() {
@@ -477,7 +508,8 @@ function loadProcWarehouses() {
             if (sel) {
                 sel.innerHTML = PROC_WAREHOUSES.length
                     ? PROC_WAREHOUSES.map(function (w) {
-                        return '<option value="' + w.warehouseID + '">Kho #' + w.warehouseID + ' (sức chứa ' + w.capacity + ')</option>';
+                        return '<option value="' + w.warehouseID + '">Kho #' + w.warehouseID
+                            + ' (sức chứa ' + _procNF.format(w.capacity) + ')</option>';
                       }).join('')
                     : '<option value="">-- Không có kho --</option>';
             }
@@ -487,8 +519,8 @@ function loadProcWarehouses() {
 }
 
 function loadRawBatches() {
-    var tb = document.getElementById('proc-raw-tbody');
-    if (tb) tb.innerHTML = '<tr><td colspan="5" class="tbl-empty">Đang tải...</td></tr>';
+    var body = document.getElementById('proc-batch-body');
+    if (body) body.innerHTML = '<div style="text-align:center;padding:24px;color:#A39A91;font-size:13px">Đang tải…</div>';
     apiGet('/inventorybatch/available-raw')
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (d) {
@@ -498,23 +530,209 @@ function loadRawBatches() {
                 var wh = b.warehouseID || (b.warehouse && b.warehouse.warehouseID);
                 return whIds.length ? whIds.indexOf(wh) >= 0 : true;
             });
-            if (!tb) return;
-            if (!PROC_RAW_BATCHES.length) {
-                tb.innerHTML = '<tr><td colspan="5" class="tbl-empty">Không có batch thô</td></tr>';
-                return;
-            }
-            tb.innerHTML = PROC_RAW_BATCHES.map(function (b) {
-                var ing = b.ingredient || {};
-                return '<tr>'
-                    + '<td><strong style="color:var(--primary)">' + (b.batchCode || String(b.batchID).slice(0, 8)) + '</strong></td>'
-                    + '<td>' + (ing.ingredientName || ('#' + b.ingredientID)) + '</td>'
-                    + '<td><strong>' + pNum(b.quantityOnHand) + '</strong> ' + (ing.ingredientUnit || '') + '</td>'
-                    + '<td>' + pNum(b.unitCost) + 'đ</td>'
-                    + '<td>' + (b.exp || '—') + '</td>'
-                    + '</tr>';
-            }).join('');
+            renderProcBatches();
         })
-        .catch(function () { if (tb) tb.innerHTML = '<tr><td colspan="5" class="tbl-empty">Lỗi tải dữ liệu</td></tr>'; });
+        .catch(function () {
+            var body = document.getElementById('proc-batch-body');
+            if (body) body.innerHTML = '<div style="text-align:center;padding:24px;color:#DC2626;font-size:13px">Lỗi tải dữ liệu</div>';
+        });
+}
+
+function renderProcBatches() {
+    var q = ((document.getElementById('proc-batch-search') || {}).value || '').toLowerCase().trim();
+    var filtered = PROC_RAW_BATCHES.filter(function (b) {
+        if (!q) return true;
+        var code = (b.batchCode || '').toLowerCase();
+        var mat  = b.ingredient ? (b.ingredient.ingredientName || '').toLowerCase() : '';
+        return code.indexOf(q) >= 0 || mat.indexOf(q) >= 0;
+    });
+    var cnt = document.getElementById('proc-batch-count');
+    if (cnt) cnt.textContent = filtered.length + ' batch';
+    var body = document.getElementById('proc-batch-body');
+    if (!body) return;
+    if (!filtered.length) {
+        body.innerHTML = '<div style="text-align:center;padding:24px;color:#A39A91;font-size:13px">Không tìm thấy batch nào.</div>';
+        return;
+    }
+    var now = new Date();
+    body.innerHTML = filtered.map(function (b) {
+        var idx  = PROC_RAW_BATCHES.indexOf(b);
+        var ing  = b.ingredient || {};
+        var unit = ing.ingredientUnit || '';
+        var pu   = unit === 'Gram' ? 'kg' : (unit === 'Liter' ? 'L' : unit);
+        var expStr = b.exp || '';
+        var expBadge = '', expColor = '#5A514A';
+        if (expStr) {
+            var days = Math.round((new Date(expStr) - now) / 86400000);
+            if (days <= 7)  { expBadge = '<span class="proc-tag err">' + days + 'n</span>'; expColor = '#DC2626'; }
+            else if (days <= 15) { expBadge = '<span class="proc-tag warn">' + days + 'n</span>'; expColor = '#B45309'; }
+        }
+        return '<div class="proc-bc" onclick="addProcessingRow(' + idx + ')">'
+            + '<div class="proc-bc-top">'
+            +   '<span class="proc-bc-code">' + (b.batchCode || String(b.batchID).slice(0,8)) + '</span>'
+            +   '<button class="proc-bc-btn" onclick="event.stopPropagation();addProcessingRow(' + idx + ')">+ Chọn</button>'
+            + '</div>'
+            + '<div class="proc-bc-meta">'
+            +   '<span class="mat">' + (ing.ingredientName || '#' + b.ingredientID) + '</span>'
+            +   '<span class="sep">·</span>'
+            +   '<span class="num">' + _procNF.format(b.quantityOnHand) + ' <span style="color:#A39A91;font-weight:500">' + unit + '</span></span>'
+            +   '<span class="sep">·</span>'
+            +   '<span>' + _procNF.format(b.unitCost) + 'đ<span style="color:#A39A91;font-weight:500">/' + pu + '</span></span>'
+            +   '<span class="sep">·</span>'
+            +   '<span class="proc-bc-hsd" style="color:' + expColor + '">HSD ' + expStr + ' ' + expBadge + '</span>'
+            + '</div>'
+            + '</div>';
+    }).join('');
+}
+
+function addProcessingRow(preIdx) {
+    if (!PROC_RAW_BATCHES.length) { toast('Chưa có batch thô để sơ chế', 'error'); return; }
+    var id      = ++PROC_ROW_SEQ;
+    var bIdx    = (preIdx !== undefined && preIdx !== null) ? +preIdx : 0;
+    var today   = todayVN();
+    var expD    = new Date(); expD.setDate(expD.getDate() + 7);
+    var expDef  = expD.toLocaleDateString('sv-SE');
+    var autoIngID = String((PROC_RAW_BATCHES[bIdx] || {}).ingredientID || '');
+    PROC_LINES.push({ id: id, batchIdx: bIdx, take: '', outIngID: autoIngID, outQty: '', mfd: today, exp: expDef });
+    renderProcLines();
+    recalcProc();
+}
+
+function removeProcLine(id) {
+    PROC_LINES = PROC_LINES.filter(function (l) { return l.id !== id; });
+    renderProcLines();
+    recalcProc();
+}
+
+function onProcField(id, key, val) {
+    var l = null;
+    for (var i = 0; i < PROC_LINES.length; i++) { if (PROC_LINES[i].id === id) { l = PROC_LINES[i]; break; } }
+    if (!l) return;
+    l[key] = (key === 'batchIdx') ? +val : val;
+    if (key === 'batchIdx') {
+        var b = PROC_RAW_BATCHES[l.batchIdx] || {};
+        l.outIngID = String(b.ingredientID || '');
+        renderProcLines();
+    }
+    updateProcCalc(id);
+    recalcProc();
+}
+
+function renderProcLines() {
+    var box = document.getElementById('proc-items');
+    if (!box) return;
+    if (!PROC_LINES.length) {
+        box.innerHTML = '<div class="proc-empty">Chưa có dòng nào. Bấm <strong>Thêm dòng</strong> hoặc nhấn <strong>Chọn</strong> một batch bên phải.</div>';
+        return;
+    }
+    var ingOpts = PROC_INGREDIENTS.length
+        ? '<option value="">-- Chọn thành phẩm --</option>'
+          + PROC_INGREDIENTS.map(function (i) {
+              return '<option value="' + i.ingredientID + '">' + (i.ingredientName||'') + ' (' + (i.ingredientUnit||'') + ')</option>';
+            }).join('')
+        : '<option value="">-- Đang tải nguyên liệu --</option>';
+
+    box.innerHTML = PROC_LINES.map(function (l, idx) {
+        var b    = PROC_RAW_BATCHES[l.batchIdx] || PROC_RAW_BATCHES[0] || {};
+        var unit = (b.ingredient || {}).ingredientUnit || '';
+        var rawOpts = PROC_RAW_BATCHES.map(function (rb, ri) {
+            var ri_ing = rb.ingredient || {};
+            return '<option value="' + ri + '"' + (ri === l.batchIdx ? ' selected' : '') + '>'
+                + (rb.batchCode || String(rb.batchID).slice(0,8))
+                + ' — ' + (ri_ing.ingredientName||'')
+                + ' (còn ' + _procNF.format(rb.quantityOnHand) + ' ' + (ri_ing.ingredientUnit||'') + ')'
+                + '</option>';
+        }).join('');
+        var selIngOpts = ingOpts.replace('value="' + l.outIngID + '"', 'value="' + l.outIngID + '" selected');
+        return '<div class="proc-line" id="proc-line-' + l.id + '">'
+            + '<span class="proc-line-no">Dòng ' + (idx+1) + '</span>'
+            + '<button class="proc-line-del" onclick="removeProcLine(' + l.id + ')" title="Xóa">'
+            +   '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2" width="14" height="14"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+            + '</button>'
+            + '<div class="proc-line-grid">'
+            +   '<div class="full"><span class="proc-mini-label">Batch thô đầu vào</span>'
+            +     '<select onchange="onProcField(' + l.id + ',\'batchIdx\',this.value)">' + rawOpts + '</select></div>'
+            +   '<div><span class="proc-mini-label">KL lấy ra</span>'
+            +     '<div class="proc-with-unit">'
+            +       '<input type="number" min="0" step="any" placeholder="0" value="' + (l.take||'') + '"'
+            +       ' oninput="onProcField(' + l.id + ',\'take\',this.value)">'
+            +       '<span class="unit-badge">' + unit + '</span>'
+            +     '</div></div>'
+            +   '<div><span class="proc-mini-label">KL thành phẩm</span>'
+            +     '<div class="proc-with-unit">'
+            +       '<input type="number" min="0" step="any" placeholder="0" value="' + (l.outQty||'') + '"'
+            +       ' oninput="onProcField(' + l.id + ',\'outQty\',this.value)">'
+            +       '<span class="unit-badge">' + unit + '</span>'
+            +     '</div></div>'
+            +   '<div class="full"><span class="proc-mini-label">Thành phẩm đầu ra <span style="color:var(--primary)">*</span></span>'
+            +     '<select onchange="onProcField(' + l.id + ',\'outIngID\',this.value)">' + selIngOpts + '</select></div>'
+            +   '<div><span class="proc-mini-label">NSX</span>'
+            +     '<input type="date" value="' + l.mfd + '" oninput="onProcField(' + l.id + ',\'mfd\',this.value)"></div>'
+            +   '<div><span class="proc-mini-label">HSD</span>'
+            +     '<input type="date" value="' + l.exp + '" oninput="onProcField(' + l.id + ',\'exp\',this.value)"></div>'
+            + '</div>'
+            + '<div class="proc-chips" id="proc-chips-' + l.id + '"></div>'
+            + '</div>';
+    }).join('');
+
+    for (var k = 0; k < PROC_LINES.length; k++) updateProcCalc(PROC_LINES[k].id);
+}
+
+function updateProcCalc(id) {
+    var box = document.getElementById('proc-chips-' + id); if (!box) return;
+    var l = null;
+    for (var i = 0; i < PROC_LINES.length; i++) { if (PROC_LINES[i].id === id) { l = PROC_LINES[i]; break; } }
+    if (!l) return;
+    var b    = PROC_RAW_BATCHES[l.batchIdx] || {};
+    var ing  = b.ingredient || {};
+    var unit = ing.ingredientUnit || '';
+    var take = parseFloat(l.take) || 0, out = parseFloat(l.outQty) || 0;
+    var mult = unit === 'Gram' ? 1/1000 : 1; // đơn giá theo kg/L
+    var cost = Math.round(take * mult * (b.unitCost || 0));
+    var chips = '<span class="proc-chip cost">🔥 Chi phí: ' + _procNF.format(cost) + 'đ</span>';
+    if (take > 0 && take > (b.quantityOnHand || 0)) {
+        chips += '<span class="proc-chip err">⚠ Vượt tồn kho (' + _procNF.format(b.quantityOnHand) + ' ' + unit + ')</span>';
+    }
+    if (take > 0 && out > 0) {
+        if (out > take) {
+            chips += '<span class="proc-chip err">⚠ KL thành phẩm > KL lấy ra</span>';
+        } else {
+            var loss = take - out, pct = loss / take * 100;
+            chips += '<span class="proc-chip ' + (pct <= 10 ? 'ok' : 'warn') + '">♻ Hao hụt: '
+                + _procNF.format(Math.round(loss)) + ' ' + unit + ' (' + pct.toFixed(1) + '%)</span>';
+        }
+    }
+    box.innerHTML = chips;
+}
+
+function recalcProc() {
+    var totalCost = 0, lossSum = 0, lossN = 0;
+    for (var i = 0; i < PROC_LINES.length; i++) {
+        var l    = PROC_LINES[i];
+        var b    = PROC_RAW_BATCHES[l.batchIdx] || {};
+        var unit = (b.ingredient || {}).ingredientUnit || '';
+        var take = parseFloat(l.take) || 0, out = parseFloat(l.outQty) || 0;
+        totalCost += take * (unit === 'Gram' ? 1/1000 : 1) * (b.unitCost || 0);
+        if (take > 0 && out > 0 && out <= take) { lossSum += (take - out) / take * 100; lossN++; }
+    }
+    var el = document.getElementById('ps-lines');  if (el) el.textContent = PROC_LINES.length;
+    var el2 = document.getElementById('ps-loss');
+    if (el2) el2.innerHTML = (lossN ? (lossSum / lossN).toFixed(1) : '0') + '<small>%</small>';
+    var el3 = document.getElementById('ps-cost');
+    if (el3) el3.innerHTML = _procNF.format(Math.round(totalCost)) + '<small>đ</small>';
+
+    var btn = document.getElementById('proc-submit-btn');
+    if (!btn) return;
+    var ok = PROC_LINES.length > 0;
+    if (ok) {
+        for (var j = 0; j < PROC_LINES.length; j++) {
+            var lj = PROC_LINES[j], bj = PROC_RAW_BATCHES[lj.batchIdx] || {};
+            var tj = parseFloat(lj.take) || 0, oj = parseFloat(lj.outQty) || 0;
+            var maxQty = bj.quantityOnHand || 0;
+            if (tj <= 0 || oj <= 0 || oj > tj || (maxQty > 0 && tj > maxQty) || !lj.mfd || !lj.exp) { ok = false; break; }
+        }
+    }
+    btn.disabled = !ok;
 }
 
 function loadProcessingHistory() {
@@ -531,13 +749,10 @@ function loadProcessingHistory() {
             });
             list.sort(function (a, b) { return new Date(b.processedAt) - new Date(a.processedAt); });
             if (!tb) return;
-            if (!list.length) {
-                tb.innerHTML = '<tr><td colspan="4" class="tbl-empty">Chưa có dữ liệu</td></tr>';
-                return;
-            }
+            if (!list.length) { tb.innerHTML = '<tr><td colspan="4" class="tbl-empty">Chưa có dữ liệu</td></tr>'; return; }
             tb.innerHTML = list.map(function (p) {
                 return '<tr>'
-                    + '<td><strong style="color:var(--primary)">' + String(p.processingID).slice(0, 8) + '...</strong></td>'
+                    + '<td><strong style="color:var(--primary)">' + String(p.processingID).slice(0,8) + '…</strong></td>'
                     + '<td>' + ((p.employee && p.employee.fullName) || '—') + '</td>'
                     + '<td>' + pDateTime(p.processedAt) + '</td>'
                     + '<td>' + (p.note || '—') + '</td>'
@@ -547,101 +762,61 @@ function loadProcessingHistory() {
         .catch(function () { if (tb) tb.innerHTML = '<tr><td colspan="4" class="tbl-empty">Lỗi tải dữ liệu</td></tr>'; });
 }
 
-function addProcessingRow() {
-    var box = document.getElementById('proc-items');
-    if (!box) return;
-    if (!PROC_RAW_BATCHES.length) { toast('Chưa có batch thô để sơ chế', 'error'); return; }
-    // Output chỉ được là nguyên liệu đơn vị "Unit" (thành phẩm sau sơ chế)
-    var unitIngs = PROC_INGREDIENTS.filter(function (i) { return (i.ingredientUnit || i.IngredientUnit) === 'Unit'; });
-    if (!unitIngs.length) {
-        toast('Chưa có nguyên liệu thành phẩm (đơn vị Unit). Cần seed nguyên liệu sơ chế trước.', 'error');
-        return;
-    }
-    var id = ++PROC_ROW_SEQ;
-    var rawOpts = PROC_RAW_BATCHES.map(function (b) {
-        var ing = b.ingredient || {};
-        return '<option value="' + b.batchID + '">' + (b.batchCode || String(b.batchID).slice(0, 8))
-            + ' — ' + (ing.ingredientName || '') + ' (còn ' + pNum(b.quantityOnHand) + (ing.ingredientUnit || '') + ')</option>';
-    }).join('');
-    var ingOpts = unitIngs.map(function (i) {
-        return '<option value="' + i.ingredientID + '">' + i.ingredientName + ' (' + i.ingredientUnit + ')</option>';
-    }).join('');
-    var today = todayVN();
-    var row = document.createElement('div');
-    row.className = 'proc-row';
-    row.id = 'proc-row-' + id;
-    row.style.cssText = 'border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:10px;background:#fafafa';
-    row.innerHTML =
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
-        +   '<strong style="font-size:12px;color:var(--primary)">Dòng #' + id + '</strong>'
-        +   '<button class="btn btn-sm" style="color:var(--red)" onclick="removeProcessingRow(' + id + ')"><i class="ti-trash"></i></button>'
-        + '</div>'
-        + '<div class="form-row-2">'
-        +   '<div class="form-group"><label>Batch thô nguồn *</label><select class="pr-src">' + rawOpts + '</select></div>'
-        +   '<div class="form-group"><label>Lượng lấy (theo đơn vị batch) *</label><input type="number" class="pr-inputkg" step="0.001" min="0.001" placeholder="VD: 500"></div>'
-        + '</div>'
-        + '<div class="form-row-2">'
-        +   '<div class="form-group"><label>Nguyên liệu thành phẩm *</label><select class="pr-outing">' + ingOpts + '</select></div>'
-        +   '<div class="form-group"><label>Số thành phẩm (miếng/phần) *</label><input type="number" class="pr-pieces" step="1" min="1" placeholder="VD: 5"></div>'
-        + '</div>'
-        + '<div class="form-row-2">'
-        +   '<div class="form-group"><label>Số túi</label><input type="number" class="pr-bag" step="1" min="0" value="0"></div>'
-        +   '<div class="form-group"><label>Miếng/túi</label><input type="number" class="pr-ppb" step="1" min="0" value="0"></div>'
-        + '</div>'
-        + '<div class="form-row-2">'
-        +   '<div class="form-group"><label>NSX *</label><input type="date" class="pr-mfd" value="' + today + '"></div>'
-        +   '<div class="form-group"><label>HSD *</label><input type="date" class="pr-exp"></div>'
-        + '</div>'
-        + '<div class="form-group"><label>Ghi chú hao hụt</label><input type="text" class="pr-waste" placeholder="VD: Xương vụn ~0.1kg"></div>';
-    box.appendChild(row);
-}
-
-function removeProcessingRow(id) {
-    var el = document.getElementById('proc-row-' + id);
-    if (el) el.remove();
-}
-
 function submitProcessing() {
     var whSel = document.getElementById('proc-warehouse');
     var warehouseID = parseInt(whSel && whSel.value, 10);
     if (!warehouseID) { toast('Vui lòng chọn kho', 'error'); return; }
-    var rows = document.querySelectorAll('#proc-items .proc-row');
-    if (!rows.length) { toast('Thêm ít nhất 1 dòng nguyên liệu sơ chế', 'error'); return; }
+    if (!PROC_LINES.length) { toast('Thêm ít nhất 1 dòng sơ chế', 'error'); return; }
 
-    var items = [];
-    var valid = true;
-    Array.prototype.forEach.call(rows, function (row) {
-        var g = function (sel) { var e = row.querySelector(sel); return e ? e.value : ''; };
-        var src = g('.pr-src'), inputKg = parseFloat(g('.pr-inputkg')), outIng = parseInt(g('.pr-outing'), 10),
-            pieces = parseInt(g('.pr-pieces'), 10), bag = parseInt(g('.pr-bag'), 10) || 0,
-            ppb = parseInt(g('.pr-ppb'), 10) || 0, mfd = g('.pr-mfd'), exp = g('.pr-exp'), waste = g('.pr-waste');
-        if (!src || !inputKg || !outIng || !pieces || !mfd || !exp) { valid = false; return; }
+    var items = [], valid = true;
+    for (var i = 0; i < PROC_LINES.length; i++) {
+        var l  = PROC_LINES[i];
+        var b  = PROC_RAW_BATCHES[l.batchIdx] || {};
+        var tk = parseFloat(l.take), oq = parseFloat(l.outQty);
+        if (!b.batchID || !tk || !l.outIngID || !oq || !l.mfd || !l.exp) { valid = false; break; }
         items.push({
-            SourceBatchID: src, InputKg: inputKg, OutputIngredientID: outIng, OutputPieces: pieces,
-            BagCount: bag, PiecesPerBag: ppb, Mfd: mfd, Exp: exp, WasteNote: waste || null
+            SourceBatchID:      b.batchID,
+            InputKg:            tk,
+            OutputIngredientID: parseInt(l.outIngID, 10),
+            OutputPieces:       Math.round(oq),
+            BagCount:           0,
+            PiecesPerBag:       0,
+            Mfd:                l.mfd,
+            Exp:                l.exp,
+            WasteNote:          null
         });
-    });
-    if (!valid) { toast('Điền đầy đủ các trường có dấu *', 'error'); return; }
+    }
+    if (!valid) { toast('Điền đầy đủ các trường bắt buộc', 'error'); return; }
 
-    var body = {
+    var btn = document.getElementById('proc-submit-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Đang tạo…'; }
+
+    apiPost('/processing/create', {
         EmployeeID:  localStorage.getItem('employeeId'),
         WarehouseID: warehouseID,
         Note:        (document.getElementById('proc-note') || {}).value || null,
         Items:       items
-    };
-    apiPost('/processing/create', body)
-        .then(function (r) {
-            if (!r.ok) return r.text().then(function (t) { throw new Error(t || ('HTTP ' + r.status)); });
-            return r.json();
-        })
-        .then(function () {
-            toast('Tạo phiếu sơ chế thành công!', 'success');
-            document.getElementById('proc-items').innerHTML = '';
-            var n = document.getElementById('proc-note'); if (n) n.value = '';
-            loadRawBatches();
-            loadProcessingHistory();
-        })
-        .catch(function (e) { toast('Lỗi tạo phiếu: ' + (e.message || ''), 'error'); });
+    })
+    .then(function (r) {
+        if (!r.ok) return r.text().then(function (t) { throw new Error(t || ('HTTP ' + r.status)); });
+        return r.json();
+    })
+    .then(function () {
+        toast('Tạo phiếu sơ chế thành công!', 'success');
+        PROC_LINES = [];
+        renderProcLines();
+        var n = document.getElementById('proc-note'); if (n) n.value = '';
+        recalcProc();
+        loadRawBatches();
+        loadProcessingHistory();
+    })
+    .catch(function (e) {
+        toast('Lỗi tạo phiếu: ' + (e.message || ''), 'error');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" width="17" height="17"><path d="M20 6 9 17l-5-5"/></svg> Tạo phiếu sơ chế';
+        }
+    });
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1097,12 +1272,93 @@ function customerLookup() {
         });
 }
 
+function doCheckIn() {
+    var ss = null;
+    try { ss = JSON.parse(localStorage.getItem('shiftStatus') || 'null'); } catch (e) {}
+    if (!ss || !ss.hasShift) {
+        toast('Bạn không có ca làm việc hôm nay.', 'error'); return;
+    }
+    if (ss.checkIn || ss.CheckIn) {
+        var t = new Date(ss.checkIn || ss.CheckIn);
+        toast('Bạn đã check-in lúc ' + t.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }), 'success'); return;
+    }
+    var now = new Date();
+    ss.checkIn = now.toISOString();
+    localStorage.setItem('shiftStatus', JSON.stringify(ss));
+    dbFillHero(ss);
+    toast('Check-in thành công lúc ' + now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }), 'success');
+}
+
+function doCheckOut() {
+    var ss = null;
+    try { ss = JSON.parse(localStorage.getItem('shiftStatus') || 'null'); } catch (e) {}
+    if (!ss || !ss.hasShift) {
+        toast('Bạn không có ca làm việc hôm nay.', 'error'); return;
+    }
+    if (!(ss.checkIn || ss.CheckIn)) {
+        toast('Bạn chưa check-in!', 'error'); return;
+    }
+    if (ss.checkOut || ss.CheckOut) {
+        var t = new Date(ss.checkOut || ss.CheckOut);
+        toast('Bạn đã check-out lúc ' + t.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }), 'success'); return;
+    }
+    var now = new Date();
+    ss.checkOut = now.toISOString();
+    localStorage.setItem('shiftStatus', JSON.stringify(ss));
+    dbFillHero(ss);
+    toast('Check-out thành công lúc ' + now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }), 'success');
+}
+
 function dashRequestLeave() {
-    toast('Tính năng xin nghỉ phép đang phát triển.', 'success');
+    var modal = document.getElementById('leave-modal');
+    var today = new Date().toISOString().slice(0, 10);
+    document.getElementById('leave-date').value = today;
+    document.getElementById('leave-date').min = today;
+    document.getElementById('leave-reason').value = '';
+    modal.style.display = 'flex';
+}
+
+function closeLeaveModal() {
+    document.getElementById('leave-modal').style.display = 'none';
+}
+
+function submitLeaveRequest() {
+    var leaveDate = document.getElementById('leave-date').value;
+    var reason = document.getElementById('leave-reason').value.trim();
+    if (!leaveDate) { toast('Vui lòng chọn ngày xin nghỉ.', 'error'); return; }
+    if (!reason) { toast('Vui lòng nhập lý do xin nghỉ.', 'error'); return; }
+    apiPost('/leaveRequest/create', { leaveDate: leaveDate, reason: reason })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+            if (res.ok) {
+                closeLeaveModal();
+                toast('Đã gửi đơn xin nghỉ thành công!', 'success');
+            } else {
+                toast(res.d.message || 'Gửi đơn thất bại.', 'error');
+            }
+        })
+        .catch(function () { toast('Lỗi kết nối, vui lòng thử lại.', 'error'); });
 }
 
 function dashContactManager() {
-    toast('Tính năng liên hệ quản lý đang phát triển.', 'success');
+    var storeId = localStorage.getItem('storeId');
+    if (!storeId) { toast('Vui lòng liên hệ trực tiếp quản lý ca của bạn.', 'success'); return; }
+    apiGet('/employee/get-by-store/' + storeId)
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (emps) {
+            var mgr = (emps || []).find(function (e) {
+                var r2 = (e.role || e.Role || '').toLowerCase();
+                return r2 === 'manager' || r2 === 'admin';
+            });
+            if (mgr) {
+                var name = mgr.fullName || mgr.FullName || mgr.userName || mgr.UserName || '?';
+                var phone = mgr.phone || mgr.Phone || '';
+                toast('Quản lý: ' + name + (phone ? ' · ' + phone : ''), 'success');
+            } else {
+                toast('Vui lòng liên hệ trực tiếp quản lý ca của bạn.', 'success');
+            }
+        })
+        .catch(function () { toast('Vui lòng liên hệ trực tiếp quản lý ca của bạn.', 'success'); });
 }
 
 function showTab(name) {
@@ -1925,7 +2181,7 @@ function renderWhStep2(data) {
         return '<tr>'
             + '<td><strong>' + ingName + '</strong> <span style="font-size:11px;color:var(--muted)">(ID: ' + ingId + ')</span></td>'
             + '<td>' + qtyExpected + '</td>'
-            + '<td><input type="number" id="rl-qty-' + i + '" value="' + qtyExpected + '" step="0.1" min="0" oninput="updateWhReceiptTotals()" style="width:100px;padding:6px;border:1px solid var(--border);border-radius:4px;"></td>'
+            + '<td><input type="number" id="rl-qty-' + i + '" value="' + qtyExpected + '" step="0.1" min="0" oninput="updateWhReceiptTotals();syncGoodQty(' + i + ')" style="width:100px;padding:6px;border:1px solid var(--border);border-radius:4px;"></td>'
             + '<td><input type="number" id="rl-gq-' + i + '" value="' + qtyExpected + '" step="0.1" min="0" style="width:100px;padding:6px;border:1px solid var(--border);border-radius:4px;"></td>'
             + '<td><input type="number" id="rl-up-' + i + '" value="' + up + '" min="0" readonly style="background:#f3f4f6;cursor:not-allowed;width:120px;padding:6px;border:1px solid var(--border);border-radius:4px;"></td>'
             + '<td><select id="rl-wh-' + i + '" style="padding:6px;border:1px solid var(--border);border-radius:4px;">' + whOptions + '</select></td>'
@@ -1940,6 +2196,12 @@ function renderWhStep2(data) {
 
     container.innerHTML = tableHeader + tableRows + tableFooter;
     updateWhReceiptTotals();
+}
+
+function syncGoodQty(i) {
+    var qty = parseFloat(document.getElementById('rl-qty-' + i).value) || 0;
+    var gqEl = document.getElementById('rl-gq-' + i);
+    if (gqEl && parseFloat(gqEl.value) > qty) gqEl.value = qty;
 }
 
 function updateWhReceiptTotals() {
@@ -2074,12 +2336,27 @@ function submitConfirmReceipt() {
             }
             return r.json();
         }).then(function () {
-            toast('Xác nhận nhập kho thành công! Batch đã được tạo.');
-            WH_RECEIPT_ID = null; WH_PO_DATA = null;
-            whGoStep(1);
+            var confirmedId = WH_RECEIPT_ID;
+            WH_PO_DATA = null;
+            // Hiện màn hình thành công với nút in
+            var formEl    = document.getElementById('wh-step-3-form');
+            var successEl = document.getElementById('wh-step-3-success');
+            var printBtn  = document.getElementById('wh-print-btn');
+            if (formEl)    formEl.style.display    = 'none';
+            if (successEl) successEl.style.display = 'block';
+            if (printBtn && confirmedId) printBtn.onclick = function () { printReceipt(confirmedId); };
+            WH_RECEIPT_ID = null;
             loadOrderedPOs();
             renderWhHistory();
         }).catch(function (err) { toast(err.message || 'Lỗi xác nhận nhập kho!', 'error'); });
+}
+
+function whBackToStep1() {
+    var formEl    = document.getElementById('wh-step-3-form');
+    var successEl = document.getElementById('wh-step-3-success');
+    if (formEl)    formEl.style.display    = 'block';
+    if (successEl) successEl.style.display = 'none';
+    whGoStep(1);
 }
 
 function renderWhHistory() {
@@ -2098,7 +2375,7 @@ function renderWhHistoryLocal() {
     var tbody = document.getElementById('warehouse-tbody');
     if (!tbody) return;
     if (!WAREHOUSE_LOG.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="tbl-empty">Chưa có phiếu nhập</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="tbl-empty">Chưa có phiếu nhập</td></tr>';
         return;
     }
     tbody.innerHTML = WAREHOUSE_LOG.map(function (r) {
@@ -2111,14 +2388,227 @@ function renderWhHistoryLocal() {
         var status = r.Status     || r.status     || (confirmedAt ? 'Confirmed' : 'Pending');
         var statusText = status === 'Confirmed' ? 'Đã xác nhận' : 'Chờ xác nhận';
         var badgeCls   = status === 'Confirmed' ? 'badge-green' : 'badge-yellow';
+        var idStr  = String(id);
+        var printBtn = status === 'Confirmed'
+            ? '<button class="btn btn-sm" style="margin-left:4px;background:#047857;color:#fff;border:none" onclick="printReceipt(\'' + idStr + '\')" title="In phiếu"><i class="ti-printer"></i></button>'
+            : '';
         return '<tr>'
-            + '<td style="color:var(--primary);font-weight:700;font-size:12px">' + String(id).slice(0, 12) + '...</td>'
+            + '<td style="color:var(--primary);font-weight:700;font-size:12px">' + idStr.slice(0, 12) + '...</td>'
             + '<td style="font-size:12px;color:var(--muted)">' + String(poId).slice(0, 12) + '...</td>'
             + '<td>' + emp + '</td>'
             + '<td style="font-size:12px;color:var(--muted)">' + String(date).slice(0, 10) + '</td>'
             + '<td><span class="badge ' + badgeCls + '">' + statusText + '</span></td>'
+            + '<td style="white-space:nowrap">'
+            +   '<button class="btn btn-sm" onclick="viewReceiptDetail(\'' + idStr + '\')" title="Xem chi tiết"><i class="ti-eye"></i> Chi tiết</button>'
+            +   printBtn
+            + '</td>'
             + '</tr>';
     }).join('');
+}
+
+function viewReceiptDetail(receiptId) {
+    var modal = document.getElementById('receipt-detail-modal');
+    var body  = document.getElementById('receipt-detail-body');
+    if (!modal || !body) return;
+    body.innerHTML = '<div style="text-align:center;padding:24px;color:#A39A91">Đang tải...</div>';
+    modal.style.display = 'flex';
+    apiGet('/receipt/getid/' + receiptId)
+        .then(function (r) { return r.ok ? r.json() : Promise.reject('Không tìm thấy phiếu'); })
+        .then(function (d) {
+            var id  = d.ReceiptID || d.receiptID || receiptId;
+            var emp = (d.Employee && (d.Employee.FullName || d.Employee.fullName)) || '—';
+            var date = (d.DateReceive || d.dateReceive || '—').toString().slice(0, 10);
+            var confirmedAt = d.ConfirmedAt || d.confirmedAt;
+            var status = d.Status || d.status || (confirmedAt ? 'Confirmed' : 'Pending');
+            var statusText = status === 'Confirmed' ? 'Đã xác nhận' : 'Chờ xác nhận';
+            var badgeCls   = status === 'Confirmed' ? 'badge-green' : 'badge-yellow';
+            var lines  = d.ReceiptDetail || d.receiptDetail || d.Details || d.details || [];
+            var linesHtml = lines.length ? lines.map(function (l) {
+                var ingName = (l.Ingredient && (l.Ingredient.IngredientName || l.Ingredient.ingredientName)) || l.IngredientName || l.ingredientName || '—';
+                var qtyExp  = l.QuantityExpected || l.quantityExpected || 0;
+                var qtyAct  = l.QuantityActual   || l.quantityActual   || 0;
+                var qtyGood = l.GoodQuantity      || l.goodQuantity     || 0;
+                var unitPrice = l.UnitPrice || l.unitPrice || 0;
+                return '<tr>'
+                    + '<td>' + ingName + '</td>'
+                    + '<td style="text-align:right">' + Number(qtyExp).toLocaleString('vi-VN') + '</td>'
+                    + '<td style="text-align:right">' + Number(qtyAct).toLocaleString('vi-VN') + '</td>'
+                    + '<td style="text-align:right">' + Number(qtyGood).toLocaleString('vi-VN') + '</td>'
+                    + '<td style="text-align:right">' + Number(unitPrice).toLocaleString('vi-VN') + 'đ</td>'
+                    + '</tr>';
+            }).join('') : '<tr><td colspan="5" class="tbl-empty">Không có chi tiết</td></tr>';
+
+            body.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;font-size:13px">'
+                + '<div><span style="color:#A39A91;font-weight:600">Mã phiếu</span><br><strong style="color:var(--primary);word-break:break-all">' + id + '</strong></div>'
+                + '<div><span style="color:#A39A91;font-weight:600">Trạng thái</span><br><span class="badge ' + badgeCls + '">' + statusText + '</span></div>'
+                + '<div><span style="color:#A39A91;font-weight:600">Người nhận</span><br><strong>' + emp + '</strong></div>'
+                + '<div><span style="color:#A39A91;font-weight:600">Ngày nhận</span><br><strong>' + date + '</strong></div>'
+                + '</div>'
+                + '<div class="tbl-wrap"><table><thead><tr>'
+                + '<th>Nguyên liệu</th><th style="text-align:right">SL yêu cầu</th><th style="text-align:right">SL thực nhận</th><th style="text-align:right">SL tốt</th><th style="text-align:right">Đơn giá</th>'
+                + '</tr></thead><tbody>' + linesHtml + '</tbody></table></div>';
+
+            var printBtnEl = document.getElementById('receipt-detail-print-btn');
+            if (printBtnEl) {
+                if (status === 'Confirmed') {
+                    printBtnEl.style.display = 'inline-flex';
+                    printBtnEl.onclick = function () { printReceipt(id); };
+                } else {
+                    printBtnEl.style.display = 'none';
+                }
+            }
+        })
+        .catch(function (e) {
+            body.innerHTML = '<div style="color:#DC2626;padding:16px">Lỗi tải chi tiết: ' + (e.message || e) + '</div>';
+        });
+}
+
+function closeReceiptDetailModal() {
+    var modal = document.getElementById('receipt-detail-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function _docTienVND(n) {
+    if (!n || n === 0) return 'Không đồng.';
+    var d = ['không','một','hai','ba','bốn','năm','sáu','bảy','tám','chín'];
+    function g3(num, lead) {
+        var h=Math.floor(num/100),t=Math.floor((num%100)/10),u=num%10,s='';
+        if(lead||h){s+=d[h]+' trăm';if(!t&&u)s+=' lẻ';}
+        if(t>1){s+=' '+d[t]+' mươi';if(u===1)s+=' mốt';else if(u===5)s+=' lăm';else if(u)s+=' '+d[u];}
+        else if(t===1){s+=' mười';if(u===5)s+=' lăm';else if(u)s+=' '+d[u];}
+        else if(u)s+=' '+d[u];
+        return s.trim();
+    }
+    var units=['', ' nghìn', ' triệu', ' tỷ'];
+    var groups=[],tmp=n;
+    while(tmp>0){groups.unshift(tmp%1000);tmp=Math.floor(tmp/1000);}
+    var res='';
+    for(var i=0;i<groups.length;i++){if(groups[i])res+=g3(groups[i],i>0)+units[groups.length-1-i]+' ';}
+    res=res.trim().replace(/\s+/g,' ')+' đồng.';
+    return res.charAt(0).toUpperCase()+res.slice(1);
+}
+
+function printReceipt(receiptId) {
+    apiGet('/receipt/getid/' + receiptId)
+        .then(function (r) { return r.ok ? r.json() : Promise.reject('Không tìm thấy phiếu'); })
+        .then(function (d) {
+            var id       = d.ReceiptID || d.receiptID || receiptId;
+            var emp      = (d.Employee && (d.Employee.FullName || d.Employee.fullName)) || '—';
+            var supp     = (d.Supplier && (d.Supplier.SupplierName || d.Supplier.supplierName))
+                        || (d.supplier && (d.supplier.supplierName || d.supplier.SupplierName)) || '—';
+            var store    = (d.Store && (d.Store.StoreName || d.Store.storeName))
+                        || (d.store && (d.store.storeName || d.store.StoreName)) || 'Chônlibi';
+            var dateRaw  = (d.DateReceive || d.dateReceive || '').toString().slice(0, 10);
+            var day      = dateRaw.slice(8, 10) || '.....';
+            var mon      = dateRaw.slice(5, 7)  || '.....';
+            var yr       = dateRaw.slice(0, 4)  || '20.....';
+            var lines    = d.ReceiptDetail || d.receiptDetail || d.Details || d.details || [];
+            var tong     = lines.reduce(function (s, l) {
+                return s + (l.GoodQuantity || l.goodQuantity || 0) * (l.UnitPrice || l.unitPrice || 0);
+            }, 0);
+            var rowsHtml = lines.map(function (l, i) {
+                var ing      = l.Ingredient || l.ingredient || {};
+                var ingName  = ing.ingredientName || ing.IngredientName || l.IngredientName || l.ingredientName || '—';
+                var unit     = ing.ingredientUnit || ing.IngredientUnit || l.IngredientUnit || l.ingredientUnit || '';
+                var maSo     = (l.IngredientID || l.ingredientID || '').toString().slice(0,6).toUpperCase() || ('NL' + String(i+1).padStart(2,'0'));
+                var qtyExp   = l.QuantityExpected || l.quantityExpected || 0;
+                var qtyGood  = l.GoodQuantity     || l.goodQuantity     || 0;
+                var unitPrice = l.UnitPrice        || l.unitPrice        || 0;
+                var sub      = Number(qtyGood) * Number(unitPrice);
+                return '<tr><td class="c">' + (i+1) + '</td><td>' + ingName + '</td>'
+                    + '<td class="c">' + maSo + '</td>'
+                    + '<td class="c">' + unit + '</td>'
+                    + '<td class="r">' + Number(qtyExp).toLocaleString('vi-VN')   + '</td>'
+                    + '<td class="r">' + Number(qtyGood).toLocaleString('vi-VN')  + '</td>'
+                    + '<td class="r">' + Number(unitPrice).toLocaleString('vi-VN') + '</td>'
+                    + '<td class="r">' + sub.toLocaleString('vi-VN') + '</td></tr>';
+            }).join('');
+            for (var k = 0; k < 3; k++) rowsHtml += '<tr class="empty"><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
+            var html = '<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8">'
+                + '<title>Phiếu Nhập Kho - ' + id.toString().slice(0,8).toUpperCase() + '</title>'
+                + '<style>'
+                + ':root{--ink:#111;--line:#000;}*{box-sizing:border-box;}'
+                + 'body{margin:0;background:#e9eaec;font-family:"Times New Roman",Times,serif;color:var(--ink);-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+                + '.toolbar{position:sticky;top:0;z-index:10;display:flex;justify-content:center;gap:12px;padding:12px;background:#1f2937;}'
+                + '.toolbar button{font-family:system-ui,sans-serif;font-size:14px;font-weight:600;padding:8px 18px;border:0;border-radius:8px;cursor:pointer;background:#E8590C;color:#fff;}'
+                + '.toolbar .hint{color:#cbd5e1;font-family:system-ui,sans-serif;font-size:12px;align-self:center;}'
+                + '.sheet{width:210mm;min-height:297mm;margin:16px auto;padding:14mm 16mm;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.18);font-size:13.5pt;line-height:1.45;}'
+                + '.head{display:flex;justify-content:space-between;align-items:flex-start;}'
+                + '.head .left{width:48%;}.head .right{width:48%;text-align:right;}'
+                + '.mau{font-weight:700;}.tt{font-style:italic;font-size:11.5pt;line-height:1.3;}'
+                + '.title{text-align:center;margin:14px 0 2px;}'
+                + '.title h1{font-size:18pt;font-weight:700;letter-spacing:1px;margin:0;text-transform:uppercase;}'
+                + '.title .date{font-style:italic;font-size:12.5pt;}'
+                + '.nocc{display:flex;justify-content:center;gap:34px;font-size:12.5pt;margin-bottom:8px;}'
+                + '.meta p{margin:4px 0;}.fill{border-bottom:1px dotted #555;}'
+                + 'table{width:100%;border-collapse:collapse;margin:8px 0;font-size:12.5pt;}'
+                + 'th,td{border:1px solid var(--line);padding:4px 6px;vertical-align:middle;}'
+                + 'th{text-align:center;font-weight:700;}'
+                + '.c{text-align:center;}.r{text-align:right;}'
+                + '.codes td{text-align:center;font-style:italic;font-size:11pt;padding:2px;}'
+                + '.empty td{height:26px;}.sum td{font-weight:700;}'
+                + '.total-words{margin:6px 0;}'
+                + '.sign-wrap{margin-top:14px;page-break-inside:avoid;}'
+                + '.sign-date{text-align:right;font-style:italic;font-size:12.5pt;margin-right:6%;margin-bottom:6px;}'
+                + '.signs{display:flex;justify-content:space-between;text-align:center;}'
+                + '.signs .col{width:24%;}.signs .role{font-weight:700;font-size:12.5pt;}'
+                + '.signs .sub{font-style:italic;font-size:11pt;}.signs .space{height:70px;}.signs .name{font-weight:600;}'
+                + '.note{font-style:italic;font-size:10.5pt;color:#333;margin-top:16px;border-top:1px solid #999;padding-top:6px;}'
+                + '@media print{@page{size:A4;margin:12mm;}body{background:#fff;}.toolbar{display:none;}'
+                + '.sheet{width:auto;min-height:auto;margin:0;padding:0;box-shadow:none;}.note{color:#000;}}'
+                + '</style></head><body>'
+                + '<div class="toolbar"><button onclick="window.print()">🖨️ In phiếu (A4)</button>'
+                + '<span class="hint">Mẹo: trong hộp thoại in, chọn "Lưu thành PDF" để xuất file.</span></div>'
+                + '<div class="sheet">'
+                + '<div class="head"><div class="left">'
+                + '<p style="margin:2px 0">Đơn vị: <b>' + store + '</b></p>'
+                + '<p style="margin:2px 0">Bộ phận: <span class="fill">Kho nguyên liệu</span></p>'
+                + '</div><div class="right">'
+                + '<p class="mau" style="margin:2px 0">Mẫu số: 01 - VT</p>'
+                + '<p class="tt" style="margin:2px 0">(Kèm theo Thông tư số 99/2025/TT-BTC<br>ngày 27 tháng 10 năm 2025 của<br>Bộ trưởng Bộ Tài chính)</p>'
+                + '</div></div>'
+                + '<div class="title"><h1>Phiếu Nhập Kho</h1>'
+                + '<div class="date">Ngày ' + day + ' tháng ' + mon + ' năm ' + yr + '</div></div>'
+                + '<div class="nocc"><span>Số: <b>' + id.toString().slice(0,8).toUpperCase() + '</b></span>'
+                + '<span>Nợ: <span class="fill">.............</span></span>'
+                + '<span>Có: <span class="fill">.............</span></span></div>'
+                + '<div class="meta">'
+                + '<p>- Họ và tên người giao: <b>' + supp + '</b></p>'
+                + '<p>- Theo đơn đặt hàng số <b>' + id.toString().slice(0,8).toUpperCase() + '</b> ngày ' + day + ' tháng ' + mon + ' năm ' + yr + ' của <span class="fill">' + supp + '</span></p>'
+                + '<p>- Nhập tại kho: <b>Kho nguyên liệu</b> &nbsp;&nbsp; Địa điểm: <span class="fill">' + store + '</span></p>'
+                + '</div>'
+                + '<table><thead>'
+                + '<tr><th rowspan="2" style="width:5%">STT</th>'
+                + '<th rowspan="2">Tên, nhãn hiệu, quy cách, phẩm chất vật tư, dụng cụ, sản phẩm, hàng hóa</th>'
+                + '<th rowspan="2" style="width:8%">Mã số</th>'
+                + '<th rowspan="2" style="width:9%">Đơn vị tính</th>'
+                + '<th colspan="2" style="width:18%">Số lượng</th>'
+                + '<th rowspan="2" style="width:13%">Đơn giá</th>'
+                + '<th rowspan="2" style="width:16%">Thành tiền</th></tr>'
+                + '<tr><th style="width:9%">Theo chứng từ</th><th style="width:9%">Thực nhập</th></tr>'
+                + '<tr class="codes"><td>A</td><td>B</td><td>C</td><td>D</td><td>1</td><td>2</td><td>3</td><td>4</td></tr>'
+                + '</thead><tbody>' + rowsHtml + '</tbody>'
+                + '<tfoot><tr class="sum"><td class="c"></td><td><b>Cộng</b></td>'
+                + '<td class="c">x</td><td class="c">x</td><td class="c">x</td><td class="c">x</td><td class="c">x</td>'
+                + '<td class="r">' + tong.toLocaleString('vi-VN') + '</td></tr></tfoot>'
+                + '</table>'
+                + '<div class="total-words">- Tổng số tiền (viết bằng chữ): <i>' + _docTienVND(tong) + '</i></div>'
+                + '<div style="margin:4px 0 0">- Số chứng từ gốc kèm theo: <span class="fill">................................</span></div>'
+                + '<div class="sign-wrap">'
+                + '<div class="sign-date">TP. HCM, ngày ' + day + ' tháng ' + mon + ' năm ' + yr + '</div>'
+                + '<div class="signs">'
+                + '<div class="col"><div class="role">Người lập phiếu</div><div class="sub">(Ký, họ tên)</div>'
+                + '<div class="space"></div>' + (emp ? '<div class="name">' + emp + '</div>' : '') + '</div>'
+                + '<div class="col"><div class="role">Người giao hàng</div><div class="sub">(Ký, họ tên)</div><div class="space"></div></div>'
+                + '<div class="col"><div class="role">Thủ kho</div><div class="sub">(Ký, họ tên)</div><div class="space"></div></div>'
+                + '<div class="col"><div class="role">Kế toán trưởng</div><div class="sub">(Hoặc bộ phận có nhu cầu nhập)<br>(Ký, họ tên)</div><div class="space"></div></div>'
+                + '</div></div>'
+                + '<div class="note">Ghi chú: Tùy theo đặc điểm hoạt động sản xuất kinh doanh và yêu cầu quản lý của đơn vị mình, doanh nghiệp được xây dựng, thiết kế biểu mẫu chứng từ kế toán.</div>'
+                + '</div></body></html>';
+            var win = window.open('', '_blank', 'width=920,height=750');
+            if (win) { win.document.write(html); win.document.close(); }
+        })
+        .catch(function () { toast('Không thể tải dữ liệu để in!', 'error'); });
 }
 
 // BIẾN ĐỘNG KHO (local only – không có API endpoint)
