@@ -96,6 +96,21 @@ namespace Backend.Controller
             }
         }
 
+        // Tình trạng còn hàng của từng ProductVarient theo tồn kho của 1 cửa hàng.
+        // FE dùng để làm mờ + chặn chọn món đã hết nguyên liệu khi tạo bill.
+        [HttpGet("availability/{storeID}")]
+        public async Task<IActionResult> GetVarientAvailability(int storeID)
+        {
+            try
+            {
+                return Ok(await _productService.GetVarientAvailability(storeID));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred in productController.GetVarientAvailability {ex.Message}");
+            }
+        }
+
         [HttpDelete("soft-delete-varient/{productVarientID}")]
         public async Task<IActionResult> SoftDeleteProductVarient(int productVarientID)
         {

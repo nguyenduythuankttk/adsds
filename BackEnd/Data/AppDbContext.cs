@@ -41,6 +41,7 @@ namespace Backend.Data {
         public DbSet<ComboDetail> ComboDetail {get; set;}
         public DbSet<ShiftTask> ShiftTask {get; set;}
         public DbSet<BankAccount> BankAccount {get; set;}
+        public DbSet<SupplierIngredient> SupplierIngredient {get; set;}
 
         protected override void OnModelCreating(ModelBuilder modelBuilder) {
             base.OnModelCreating(modelBuilder);
@@ -276,6 +277,14 @@ namespace Backend.Data {
                 .HasForeignKey<BookingChange>("BookingID")
                 .OnDelete(DeleteBehavior.Cascade);*/
 
+
+            // Bảng nối NCC <-> Nguyên liệu (many-to-many), khóa chính tổ hợp.
+            modelBuilder.Entity<SupplierIngredient>()
+                .HasKey(x => new { x.SupplierID, x.IngredientID });
+            modelBuilder.Entity<SupplierIngredient>()
+                .HasOne(x => x.Supplier).WithMany(s => s.SupplierIngredient).HasForeignKey(x => x.SupplierID).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<SupplierIngredient>()
+                .HasOne(x => x.Ingredient).WithMany(i => i.SupplierIngredient).HasForeignKey(x => x.IngredientID).OnDelete(DeleteBehavior.Cascade);
 
             // convert string
             modelBuilder.Entity<User>()

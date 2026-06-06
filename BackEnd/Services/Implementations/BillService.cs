@@ -68,6 +68,7 @@ namespace Backend.Services.Implementations{
                     .Include(b => b.Store)
                         .ThenInclude(s => s.Address)
                     .Include(b => b.Address)
+                    .Include(b => b.DeliveryInfo)
                     .ToListAsync();
 
                 return bills.Select(b => new BillReponse
@@ -120,7 +121,8 @@ namespace Backend.Services.Implementations{
                     {
                         Status = bc.Status,
                         ChangeAt = bc.ChangeAt
-                    }).ToList()
+                    }).ToList(),
+                    ScheduledAt = b.DeliveryInfo != null ? b.DeliveryInfo.ScheduledAt : null
                 }).ToList();
             } catch (Exception e) {
                 throw new Exception("Lỗi khi lấy hóa đơn của người dùng: " + e.Message);
@@ -423,12 +425,24 @@ namespace Backend.Services.Implementations{
 
                 _dbcontext.Bill.Add(bill);
 
+                // Giờ hẹn giao: phải ở tương lai và trong vòng 10 giờ tới (null = giao ngay).
+                if (request.ScheduledAt.HasValue)
+                {
+                    var sched = request.ScheduledAt.Value;
+                    var now   = VnTime.Now;
+                    if (sched <= now)
+                        throw new InvalidOperationException("Giờ hẹn giao hàng phải ở thời điểm trong tương lai.");
+                    if (sched > now.AddHours(10))
+                        throw new InvalidOperationException("Chỉ được hẹn giao trong vòng 10 giờ tới.");
+                }
+
                 var delivery = new DeliveryInfo{
                     DeliveryID = Guid.NewGuid(),
                     BillID = bill.BillID,
                     UserID = request.UserID,
                     AddressID = addressID,
                     Note = request.NoteForDelivery,
+                    ScheduledAt = request.ScheduledAt,
                     ShippingFee = shippingFee
                 };
                 // Chỉ đưa đơn vào quản lý giao hàng (tạo log Pending) khi đã thanh toán.

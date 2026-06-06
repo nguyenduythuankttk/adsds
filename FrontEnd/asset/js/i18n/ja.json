@@ -101,6 +101,8 @@
   "btn_other_address": "別の住所",
   "price_subtotal": "小計",
   "price_discount": "割引",
+  "schedule_toggle": "配達時間を予約",
+  "schedule_hint": "10時間以内の受け取り時間を選択してください。",
   "price_shipping": "配送料",
   "price_total": "合計",
   "btn_checkout": "注文を完了",

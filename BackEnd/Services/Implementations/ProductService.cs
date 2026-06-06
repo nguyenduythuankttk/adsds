@@ -217,5 +217,74 @@ namespace Backend.Services.Implementations{
 
             return products;
         }
+
+        // Tính tình trạng còn hàng của từng ProductVarient theo tồn kho 1 cửa hàng.
+        // Phải khớp tuyệt đối với BillService.ConsumeIngredients để món hiển thị
+        // "còn hàng" đúng bằng việc tạo bill 1 phần sẽ thành công:
+        //   - chỉ lô đã sơ chế (Processed), Status Available, còn số lượng, chưa hết hạn
+        //   - thuộc kho của store
+        //   - nhu cầu mỗi phần = QtyAfterProcess của từng nguyên liệu trong công thức
+        // Món không có công thức ⇒ luôn bán được (không tiêu hao nguyên liệu).
+        public async Task<List<ProductAvailabilityResponse>> GetVarientAvailability(int storeID)
+        {
+            var today = VnTime.Today;
+
+            var recipes = await _dbContext.Receipe
+                .AsNoTracking()
+                .Where(r => r.DeletedAt == null)
+                .Select(r => new { r.ProductVarientID, r.IngredientID, r.QtyAfterProcess })
+                .ToListAsync();
+
+            var stockByIngredient = (await _dbContext.InventoryBatch
+                    .AsNoTracking()
+                    .Where(b => b.BatchType == BatchType.Processed
+                             && b.Status == BatchStatus.Available
+                             && b.QuantityOnHand > 0
+                             && b.Exp >= today
+                             && b.Warehouse.StoreID == storeID)
+                    .Select(b => new { b.IngredientID, b.QuantityOnHand })
+                    .ToListAsync())
+                .GroupBy(x => x.IngredientID)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.QuantityOnHand));
+
+            var varientIDs = await _dbContext.ProductVarient
+                .AsNoTracking()
+                .Where(v => v.DeletedAt == null && v.IsActive)
+                .Select(v => v.ProductVarientID)
+                .ToListAsync();
+
+            var recipesByVarient = recipes
+                .GroupBy(r => r.ProductVarientID)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var result = new List<ProductAvailabilityResponse>();
+            foreach (var vid in varientIDs)
+            {
+                if (!recipesByVarient.TryGetValue(vid, out var items) || items.Count == 0)
+                {
+                    result.Add(new ProductAvailabilityResponse { ProductVarientID = vid, IsAvailable = true, MaxServings = -1 });
+                    continue;
+                }
+
+                decimal maxServings = decimal.MaxValue;
+                foreach (var item in items)
+                {
+                    if (item.QtyAfterProcess <= 0) continue;
+                    var avail = stockByIngredient.GetValueOrDefault(item.IngredientID, 0m);
+                    var servings = Math.Floor(avail / item.QtyAfterProcess);
+                    if (servings < maxServings) maxServings = servings;
+                }
+                if (maxServings == decimal.MaxValue) maxServings = -1; // mọi QtyAfterProcess <= 0
+
+                result.Add(new ProductAvailabilityResponse
+                {
+                    ProductVarientID = vid,
+                    IsAvailable = maxServings != 0,
+                    MaxServings = maxServings
+                });
+            }
+
+            return result;
+        }
     }
 }

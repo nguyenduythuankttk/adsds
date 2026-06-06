@@ -101,6 +101,8 @@
   "btn_other_address": "Địa chỉ khác",
   "price_subtotal": "Tổng",
   "price_discount": "Giảm giá",
+  "schedule_toggle": "Hẹn giờ giao hàng",
+  "schedule_hint": "Chọn thời gian muốn nhận trong vòng 10 giờ tới.",
   "price_shipping": "Phí giao hàng",
   "price_total": "Tổng cộng",
   "btn_checkout": "Hoàn tất đơn hàng",

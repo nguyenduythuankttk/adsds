@@ -57,10 +57,12 @@ namespace Backend.Services.Implementations{
             foreach (var (ingredientID, totalToConsume) in demand)
             {
                 if (!batchesByIngredient.TryGetValue(ingredientID, out var batches) || batches.Count == 0)
-                    throw new Exception($"Không đủ nguyên liệu – IngredientID {ingredientID}: còn thiếu {totalToConsume}.");
+                    throw new InvalidOperationException($"Không đủ nguyên liệu – IngredientID {ingredientID}: còn thiếu {totalToConsume}.");
 
+                // FEFO + dùng hết lô dở: cận hạn trước → lô còn ít nhất → nhập sớm nhất.
                 var sortedBatches = batches
                     .OrderBy(b => b.Exp)
+                    .ThenBy(b => b.QuantityOnHand)
                     .ThenBy(b => b.ImportDate)
                     .ToList();
 
@@ -89,7 +91,7 @@ namespace Backend.Services.Implementations{
                 }
 
                 if (remaining > 0)
-                    throw new Exception($"Không đủ nguyên liệu – IngredientID {ingredientID}: còn thiếu {remaining}.");
+                    throw new InvalidOperationException($"Không đủ nguyên liệu – IngredientID {ingredientID}: còn thiếu {remaining}.");
             }
 
             await _dbcontext.SaveChangesAsync();
@@ -129,7 +131,8 @@ namespace Backend.Services.Implementations{
                     UserID = request.UserID,
                     AddressID = request.AddressID,
                     ShippingFee = request.ShippingFee,
-                    Note = request.Note
+                    Note = request.Note,
+                    ScheduledAt = request.ScheduledAt
                 };
                 _dbcontext.DeliveryInfo.Add(delivery);
                 await _dbcontext.SaveChangesAsync();
@@ -171,6 +174,21 @@ namespace Backend.Services.Implementations{
                     if ((int)updateRequest.Status <= (int)latestLog.Status)
                         throw new InvalidOperationException($"Không thể chuyển trạng thái từ {latestLog.Status} sang {updateRequest.Status}");
                 }
+
+                // Đơn có hẹn giờ: chỉ được bắt đầu giao (OnTheWay) từ 15 phút trước giờ hẹn.
+                if (updateRequest.Status == DeliveryStatus.OnTheWay && delivery.ScheduledAt.HasValue)
+                {
+                    var earliest = delivery.ScheduledAt.Value.AddMinutes(-15);
+                    if (VnTime.Now < earliest)
+                        throw new InvalidOperationException(
+                            $"Đơn hẹn giao lúc {delivery.ScheduledAt.Value:HH:mm dd/MM/yyyy}. " +
+                            $"Chỉ được bắt đầu giao từ {earliest:HH:mm dd/MM/yyyy} (15 phút trước giờ hẹn).");
+                }
+
+                // Trừ kho + cập nhật thanh toán + ghi log trạng thái phải nguyên tử.
+                // using var: nếu bất kỳ bước nào throw (vd hết nguyên liệu) thì transaction
+                // chưa commit sẽ tự rollback khi dispose → không bị trừ kho mà thiếu log.
+                using var tx = await _dbcontext.Database.BeginTransactionAsync();
 
                 // Bếp bắt đầu chuẩn bị → trừ nguyên liệu khỏi kho
                 if (updateRequest.Status == DeliveryStatus.Preparing)
@@ -216,6 +234,7 @@ namespace Backend.Services.Implementations{
                 };
                 _dbcontext.DeliveryLog.Add(newLog);
                 await _dbcontext.SaveChangesAsync();
+                await tx.CommitAsync();
             } catch (InvalidOperationException) {
                 throw;   // vi phạm nghiệp vụ → middleware trả 400 kèm thông điệp rõ ràng
             } catch (Exception e) {

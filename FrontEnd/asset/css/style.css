@@ -643,6 +643,28 @@ a.product-card {
 .delivery-btn:hover { background-color: #e6a600; }
 .delivery-btn .ti-truck { font-size: 16px; }
 
+.cart-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(220, 77, 11);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 900;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 10px;
+    font-family: 'Nunito', sans-serif;
+    transform: scale(0);
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    margin-left: 2px;
+}
+
+.cart-count.visible {
+    transform: scale(1);
+}
+
 /* ── Search  ── */
 .search-bar {
     display: flex;

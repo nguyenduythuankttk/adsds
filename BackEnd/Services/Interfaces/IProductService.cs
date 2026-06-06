@@ -15,5 +15,6 @@ namespace Backend.Services.Interface{
         Task <decimal> GetPriceByID (int productVarientID);
         Task SetIsActive(int productVarientID, bool isActive);
         Task<List<Product>> SearchProducts(ProductSearchRequest request);
+        Task<List<ProductAvailabilityResponse>> GetVarientAvailability(int storeID);
     }
 }

@@ -18,5 +18,8 @@ namespace Backend.Models {
 
         [JsonIgnore]
         public virtual Address? Address { get; set; }
+
+        [JsonIgnore]
+        public virtual ICollection<SupplierIngredient> SupplierIngredient { get; set; } = new List<SupplierIngredient>();
     }
 }
