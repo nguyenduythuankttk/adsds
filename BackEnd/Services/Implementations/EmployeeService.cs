@@ -181,7 +181,7 @@ namespace Backend.Services.Implementations
                 {
                     UserID = Guid.NewGuid(),
                     UserName = request.UserName,
-                    HashPassword = _passwordHasher.HashPassword(new Employee(), request.HashPassword),
+                    HashPassword = BCrypt.Net.BCrypt.HashPassword(request.HashPassword),
                     BirthDate = request.BirthDate,
                     Email = request.Email,
                     Phone = request.Phone,
@@ -216,7 +216,7 @@ namespace Backend.Services.Implementations
                     employee.UserName = request.UserName;
 
                 if (!string.IsNullOrEmpty(request.HashPassword))
-                    employee.HashPassword = _passwordHasher.HashPassword(employee, request.HashPassword);
+                    employee.HashPassword = BCrypt.Net.BCrypt.HashPassword(request.HashPassword);
 
                 if (request.BirthDate.HasValue)
                     employee.BirthDate = request.BirthDate.Value;

@@ -385,6 +385,46 @@
                                 </select>
                             </div>
                         </div>
+
+                        <div id="inv-delivery-group" style="display:none;border:1px dashed #ddd;border-radius:8px;padding:12px;background:#fafafa">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                                <strong style="font-size:13px">🚚 Thông tin giao hàng</strong>
+                                <small id="inv-delivery-user-status" style="font-size:11px;color:var(--muted)">Nhập số điện thoại để tra cứu khách hàng</small>
+                            </div>
+                            <div class="form-row-2">
+                                <div class="form-group">
+                                    <label>Địa chỉ đã lưu của khách</label>
+                                    <select id="inv-saved-address">
+                                        <option value="">-- Cần tra cứu khách hàng --</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="display:flex;align-items:flex-end">
+                                    <button type="button" class="btn btn-sm" id="inv-toggle-new-addr" onclick="toggleNewAddressForm()" style="width:100%">
+                                        <i class="ti-plus"></i> Nhập địa chỉ mới
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="inv-new-address-form" style="display:none;margin-top:10px;padding:10px;background:#fff;border:1px solid #eee;border-radius:6px">
+                                <div class="form-group">
+                                    <label>Số nhà / đường *</label>
+                                    <input type="text" id="inv-addr-street" placeholder="123 Lê Lợi">
+                                </div>
+                                <div class="form-row-2">
+                                    <div class="form-group">
+                                        <label>Quận / Huyện *</label>
+                                        <input type="text" id="inv-addr-district" placeholder="Hải Châu">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Tỉnh / Thành *</label>
+                                        <input type="text" id="inv-addr-province" placeholder="Đà Nẵng">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin-top:10px">
+                                <label>Ghi chú giao hàng</label>
+                                <input type="text" id="inv-delivery-note" placeholder="VD: Gọi trước khi đến, để cổng bảo vệ...">
+                            </div>
+                        </div>
                     </div>
 
                     <div style="margin-top:16px">

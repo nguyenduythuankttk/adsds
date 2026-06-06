@@ -8,4 +8,11 @@ namespace Backend.Models.DTOs.Request{
 
         public string Province { get; set; } = null!;
     }
+
+    public class StaffAddressForUserRequest {
+        public Guid UserID { get; set; }
+        public string StreetAddress { get; set; } = null!;
+        public string District { get; set; } = null!;
+        public string Province { get; set; } = null!;
+    }
 }
