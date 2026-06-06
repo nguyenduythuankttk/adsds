@@ -309,19 +309,48 @@ tbody tr:hover td { background: #fdf7f5; }
 /* ── TABLE STATUS GRID ───────────────────────────────── */
 .table-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 16px;
 }
 .table-card {
     border: 2px solid var(--border);
-    border-radius: 10px; padding: 14px 10px;
+    border-radius: 12px; padding: 16px 12px;
     text-align: center; cursor: pointer;
-    transition: all .2s; background: #fff;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    background: #fff;
     font-size: 13px; font-weight: 700;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
 }
-.table-card .tc-num { font-size: 20px; font-weight: 800; color: var(--primary); }
-.table-card .tc-cap { font-size: 11px; color: var(--muted); margin: 2px 0; }
-.table-card .tc-status { font-size: 11px; font-weight: 700; }
+.table-card .tc-num {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--primary);
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.table-card .tc-cap {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 2px 0;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.table-card .tc-status {
+    font-size: 11px;
+    font-weight: 700;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .table-card.available { border-color: #86efac; background: #f0fdf4; }
 .table-card.available .tc-status { color: #16a34a; }
 .table-card.occupied  { border-color: var(--primary); background: #fdf0ea; }

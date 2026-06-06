@@ -2,6 +2,7 @@
 // chỉnh lại hàm get endDate và startDate, nếu end > start thì đổi chỗ 2 biến
 using Backend.Services.Interface;
 using Backend.Models.DTOs.Request;
+using Backend.Models.DTOs.Reponse;
 using Backend.Models;
 using Backend.Helpers;
 using Backend.Data;
@@ -14,9 +15,10 @@ namespace Backend.Services.Implementations
     {
         private readonly AppDbContext _dbcontext;
         private readonly IUserService _userService;
-        public TicketService (AppDbContext dbcontext)
+        public TicketService (AppDbContext dbcontext, IUserService userService)
         {
             _dbcontext = dbcontext;
+            _userService = userService;
         }
         public async Task <List<Ticket>?> GetAllTicketIn(DateOnly start, DateOnly end) =>
             await _dbcontext.Ticket
@@ -65,31 +67,27 @@ namespace Backend.Services.Implementations
         {
             try
             {
-                var tickets = new List<Ticket>();
-                for (int i = 0; i < createRequest.Qty; i++)
+                var users = await _userService.GetAllUsers() ?? new List<UserResponse>();
+
+                // Mỗi user nhận Qty voucher riêng (mỗi Ticket dùng độc lập vì UsedAt nằm trên Ticket).
+                foreach (var user in users)
                 {
-                    var ticket =new Ticket
-                    {
-                        TicketID = Guid.NewGuid(),
-                        StartDate = createRequest.StartDate,
-                        EndDate = createRequest.EndDate,
-                        Discount = createRequest.Discount,
-                        DeletedAt = null
-                    };
-                    tickets.Add(ticket);
-                    _dbcontext.Ticket.Add(ticket);
-                }
-                var users = await _userService.GetAllUsers();
-                int count = users.Count;
-                for (int i = 0; i < count; i++){
                     for (int j = 0; j < createRequest.Qty; j++)
                     {
-                        var userTicket = new TicketUser
+                        var ticket = new Ticket
                         {
-                            UserID = users[i].UserID,
-                            TicketID = tickets[j].TicketID
+                            TicketID = Guid.NewGuid(),
+                            StartDate = createRequest.StartDate,
+                            EndDate = createRequest.EndDate,
+                            Discount = createRequest.Discount,
+                            DeletedAt = null
                         };
-                        _dbcontext.TicketUser.Add(userTicket);
+                        _dbcontext.Ticket.Add(ticket);
+                        _dbcontext.TicketUser.Add(new TicketUser
+                        {
+                            UserID = user.UserID,
+                            TicketID = ticket.TicketID
+                        });
                     }
                 }
                 await _dbcontext.SaveChangesAsync();
