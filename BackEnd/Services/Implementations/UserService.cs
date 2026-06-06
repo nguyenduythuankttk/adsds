@@ -61,7 +61,7 @@ namespace Backend.Services.Implementations
             try
             {
                 user.IsVerified = false;
-                user.HashPassword = _passwordHasher.HashPassword(user, user.HashPassword);
+                user.HashPassword = BCrypt.Net.BCrypt.HashPassword(user.HashPassword);
                 _dbContext.User.Add(user);
                 await _dbContext.SaveChangesAsync();
             }catch (Exception e)
@@ -88,7 +88,7 @@ namespace Backend.Services.Implementations
                     user.UserName = request.UserName;
                 
                 if(request.HashPassword != null)
-                    user.HashPassword = _passwordHasher.HashPassword(user, request.HashPassword);
+                    user.HashPassword = BCrypt.Net.BCrypt.HashPassword(request.HashPassword);
 
                 if(request.Email != null)
                     user.Email = request.Email;
