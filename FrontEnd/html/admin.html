@@ -8,6 +8,152 @@
     <link rel="stylesheet" href="/asset/themify-icons/themify-icons.css">
     <link rel="stylesheet" href="/asset/css/admin.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+    /* ── Shift Calendar ── */
+    :root{
+      --brand:#EA580C;--brand-dark:#C2410C;--brand-soft:#FFF1E8;
+      --surface:#FFFFFF;--surface-2:#F7F4EF;
+      --ink:#1C1410;--ink-2:#5A514A;--ca-muted:#A39A91;--line:#ECE6DF;--line-2:#F3EEE8;
+      --sang:#D97706;--sang-bg:#FEF3C7;--sang-ink:#854D0E;
+      --chieu:#0D9488;--chieu-bg:#CCFBF1;--chieu-ink:#0F5E57;
+      --dem:#6366F1;--dem-bg:#E5E7FF;--dem-ink:#3730A3;
+      --late:#DC2626;--late-bg:#FEE2E2;--late-ink:#991B1B;
+      --ot:#7C3AED;--ot-bg:#F3E8FF;--ot-ink:#6B21A8;
+      --ok:#16A34A;--ok-bg:#DCFCE7;--ok-ink:#15803D;
+      --ca-gutter:52px;--ca-shadow:0 1px 2px rgba(28,20,16,.04),0 10px 30px -14px rgba(28,20,16,.2);
+    }
+    .ca-nav{display:flex;align-items:center;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:3px}
+    .ca-nav button{height:30px;border:none;background:transparent;border-radius:8px;cursor:pointer;display:grid;place-items:center;color:var(--ink-2);transition:.15s;font-family:inherit}
+    .ca-nav .arrow{width:30px}
+    .ca-nav button:hover{background:var(--surface-2);color:var(--brand)}
+    .ca-nav button svg{width:16px;height:16px;stroke-width:2.2}
+    .ca-today-btn{font-weight:700;font-size:12.5px;padding:0 12px;white-space:nowrap}
+    .ca-range{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:16px;white-space:nowrap;color:var(--ink)}
+    .ca-add-btn{display:inline-flex;align-items:center;gap:7px;background:var(--brand);color:#fff;border:none;border-radius:11px;padding:9px 14px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;transition:.18s;box-shadow:0 10px 22px -10px var(--brand);white-space:nowrap}
+    .ca-add-btn:hover{background:var(--brand-dark);transform:translateY(-1px)}
+    .ca-add-btn svg{width:16px;height:16px;stroke-width:2.4}
+    .ca-add-btn.ghost{background:var(--surface);color:var(--ink-2);border:1px solid var(--line);box-shadow:none}
+    .ca-add-btn.ghost:hover{border-color:var(--brand);color:var(--brand);background:var(--surface)}
+    .ca-legend{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+    .chip{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 10px 6px 11px}
+    .chip .d{width:9px;height:9px;border-radius:4px;background:var(--c)}
+    .chip b{font-size:12.5px;font-weight:700}
+    .chip .t{font-size:11px;color:var(--ca-muted);font-variant-numeric:tabular-nums}
+    .chip .n{font-size:11px;font-weight:700;color:var(--ci);background:var(--cb);padding:2px 7px;border-radius:18px}
+    .ca-hint{margin-left:auto;font-size:11px;color:var(--ca-muted);display:flex;align-items:center;gap:5px}
+    .ca-hint .lg{width:9px;height:9px;border-radius:3px;background:var(--late)}
+    .cal{background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--ca-shadow);overflow:hidden;height:600px;display:flex;flex-direction:column}
+    .cal-head{display:grid;grid-template-columns:var(--ca-gutter) repeat(7,1fr);border-bottom:1px solid var(--line);flex-shrink:0}
+    .cal-head .tz{display:grid;place-items:center;font-size:9px;color:var(--ca-muted);font-weight:600;border-right:1px solid var(--line-2)}
+    .dh{padding:7px 6px;text-align:center;border-right:1px solid var(--line-2)}
+    .dh:last-child{border-right:none}
+    .dh .wd{font-size:10.5px;font-weight:700;letter-spacing:.03em;color:var(--ca-muted);text-transform:uppercase}
+    .dh .dn{font-family:'Bricolage Grotesque',sans-serif;font-size:17px;font-weight:700;margin-top:2px;width:30px;height:30px;line-height:30px;border-radius:50%;display:inline-block}
+    .dh.today .wd{color:var(--brand)}
+    .dh.today .dn{background:var(--brand);color:#fff}
+    .ca-body{display:grid;grid-template-columns:var(--ca-gutter) repeat(7,1fr);position:relative;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
+    .gutter{border-right:1px solid var(--line-2);position:relative;flex-shrink:0}
+    .gutter .lab{position:absolute;right:6px;font-size:9.5px;color:var(--ca-muted);font-weight:600;font-variant-numeric:tabular-nums;transform:translateY(-50%)}
+    .daycol{border-right:1px solid var(--line-2);position:relative}
+    .daycol:last-child{border-right:none}
+    .daycol.today{background:linear-gradient(180deg,rgba(234,88,12,.03),rgba(234,88,12,.01))}
+    .hline{position:absolute;left:0;right:0;border-bottom:1px solid var(--line-2)}
+    .hline.major{border-bottom-color:var(--line)}
+    .sumblk{position:absolute;left:3px;right:3px;border-radius:10px;padding:7px 8px;cursor:pointer;overflow:hidden;background:var(--cb);border:1px solid transparent;border-left:3px solid var(--c);transition:transform .14s,box-shadow .14s;z-index:2;display:flex;flex-direction:column}
+    .sumblk:hover{transform:translateY(-1px);box-shadow:0 10px 22px -8px var(--c);z-index:6}
+    .sumblk .sbh{display:flex;align-items:center;justify-content:space-between;gap:4px}
+    .sumblk .sl{font-size:10.5px;font-weight:800;color:var(--ci);text-transform:uppercase;letter-spacing:.03em}
+    .sumblk .stime{font-size:9.5px;font-weight:600;color:var(--ci);opacity:.7;font-variant-numeric:tabular-nums}
+    .stack{display:flex;margin:6px 0 4px}
+    .stack .a{width:22px;height:22px;border-radius:50%;margin-left:-6px;border:2px solid var(--cb);color:#fff;display:grid;place-items:center;font-size:8px;font-weight:800;font-family:'Bricolage Grotesque',sans-serif;flex-shrink:0}
+    .stack .a:first-child{margin-left:0}
+    .stack .more{width:22px;height:22px;border-radius:50%;margin-left:-6px;border:2px solid var(--cb);background:#fff;color:var(--ci);display:grid;place-items:center;font-size:9px;font-weight:800;flex-shrink:0}
+    .sumblk .cnt{font-family:'Bricolage Grotesque',sans-serif;font-size:14px;font-weight:800;color:var(--ci);line-height:1}
+    .sumblk .cnt small{font-family:'Plus Jakarta Sans',sans-serif;font-size:10px;font-weight:600;opacity:.7}
+    .sumblk .mini{margin-top:auto;display:flex;flex-wrap:wrap;gap:3px;padding-top:4px}
+    .mtag{font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;white-space:nowrap}
+    .mtag.ok{background:var(--ok);color:#fff}
+    .mtag.late{background:var(--late);color:#fff}
+    .mtag.wait{background:#fff;color:var(--ci);border:1px solid currentColor}
+    .mtag.ot{background:var(--ot);color:#fff}
+    .addslot{position:absolute;left:3px;right:3px;border-radius:10px;border:1.5px dashed var(--line);display:grid;place-items:center;color:var(--ca-muted);font-weight:700;font-size:10.5px;opacity:0;cursor:pointer;transition:.15s;z-index:1}
+    .daycol:hover .addslot{opacity:1}
+    .addslot:hover{border-color:var(--brand);color:var(--brand);background:var(--brand-soft)}
+    .nowline{position:absolute;left:0;right:0;height:2px;background:var(--brand);z-index:7;pointer-events:none}
+    .nowline::before{content:"";position:absolute;left:-4px;top:-4px;width:8px;height:8px;border-radius:50%;background:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+    .scrim{position:fixed;inset:0;background:rgba(28,20,16,.4);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:.25s;z-index:300}
+    .scrim.on{opacity:1;pointer-events:auto}
+    .drawer{position:fixed;top:0;right:0;height:100%;width:460px;max-width:94vw;background:var(--surface);box-shadow:-20px 0 60px -20px rgba(0,0,0,.4);transform:translateX(100%);transition:transform .3s cubic-bezier(.3,.8,.3,1);z-index:301;display:flex;flex-direction:column}
+    .drawer.on{transform:none}
+    .dh2{padding:16px 20px 12px;border-bottom:1px solid var(--line);flex-shrink:0}
+    .dh2 .row{display:flex;align-items:center;gap:10px}
+    .dh2 .ic{width:40px;height:40px;border-radius:12px;background:var(--cb);color:var(--ci);display:grid;place-items:center;flex-shrink:0}
+    .dh2 .ic svg{width:20px;height:20px;stroke-width:2}
+    .dh2 h3{font-family:'Bricolage Grotesque',sans-serif;font-size:18px;font-weight:800}
+    .dh2 .sub{font-size:12px;color:var(--ca-muted);font-weight:600;margin-top:2px}
+    .dh2 .x{margin-left:auto;width:32px;height:32px;border:none;background:var(--surface-2);border-radius:9px;cursor:pointer;color:var(--ink-2);font-size:19px;flex-shrink:0;display:grid;place-items:center}
+    .dh2 .x:hover{background:var(--line)}
+    .dstats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}
+    .dstat{background:var(--surface-2);border-radius:10px;padding:7px 5px;text-align:center}
+    .dstat .v{font-family:'Bricolage Grotesque',sans-serif;font-size:18px;font-weight:800;line-height:1}
+    .dstat .k{font-size:9.5px;color:var(--ink-2);font-weight:600;margin-top:2px}
+    .dstat.late .v{color:var(--late)}.dstat.wait .v{color:var(--ca-muted)}.dstat.ok .v{color:var(--ok)}
+    .dadd{padding:10px 20px;border-bottom:1px solid var(--line);flex-shrink:0;display:flex;justify-content:flex-end}
+    .rlist{flex:1;overflow-y:auto;padding:8px 14px 16px}
+    .rrow{border:1px solid var(--line);border-radius:12px;margin-bottom:7px;overflow:hidden;background:var(--surface);transition:.15s}
+    .rrow:hover{border-color:var(--brand)}
+    .rrow.late{border-left:3px solid var(--late)}
+    .rmain{display:flex;align-items:center;gap:10px;padding:10px 12px}
+    .rav{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-weight:800;font-family:'Bricolage Grotesque',sans-serif;font-size:12px;color:#fff;flex-shrink:0}
+    .rinfo{flex:1;min-width:0}
+    .rinfo b{font-size:13.5px;font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .rinfo .tm{font-size:11px;color:var(--ca-muted);font-weight:600;font-variant-numeric:tabular-nums;margin-top:1px;display:flex;gap:7px}
+    .rpills{display:flex;flex-direction:column;gap:2px;align-items:flex-end;flex-shrink:0;margin-right:6px}
+    .ip{font-size:9.5px;font-weight:800;padding:2px 6px;border-radius:5px;white-space:nowrap}
+    .ip.ok{background:var(--ok-bg);color:var(--ok-ink)}.ip.late{background:var(--late-bg);color:var(--late-ink)}
+    .ip.wait{background:var(--surface-2);color:var(--ca-muted)}.ip.ot{background:var(--ot-bg);color:var(--ot-ink)}
+    .del-btn{width:28px;height:28px;border:1px solid var(--line);background:var(--surface);border-radius:7px;cursor:pointer;display:grid;place-items:center;color:var(--ca-muted);transition:.15s;flex-shrink:0}
+    .del-btn:hover{border-color:var(--late);color:var(--late);background:var(--late-bg)}
+    .del-btn svg{width:13px;height:13px;stroke-width:2}
+    .tog-tasks{width:100%;background:none;border:none;border-top:1px solid var(--line-2);padding:5px;font-size:10.5px;color:var(--ca-muted);cursor:pointer;text-align:center;font-family:inherit;font-weight:600}
+    .tog-tasks:hover{color:var(--brand);background:var(--brand-soft)}
+    .task-sec{padding:8px 14px 12px 56px;border-top:1px dashed var(--line);background:var(--surface-2)}
+    .task-item{display:flex;align-items:center;gap:7px;padding:4px 0;border-bottom:1px solid var(--line-2)}
+    .task-item:last-of-type{border-bottom:none}
+    .task-tx{flex:1;font-size:11.5px;font-weight:500}
+    .task-tx.done{text-decoration:line-through;color:var(--ca-muted)}
+    .task-done-btn{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--line);background:var(--surface);cursor:pointer;display:grid;place-items:center;flex-shrink:0;transition:.15s}
+    .task-done-btn.done{background:var(--ok);border-color:var(--ok)}
+    .task-done-btn svg{width:10px;height:10px;stroke:#fff;stroke-width:3;opacity:0;transition:.1s}
+    .task-done-btn.done svg{opacity:1}
+    .task-add-row{display:flex;gap:6px;margin-top:8px}
+    .task-add-row input{flex:1;border:1px solid var(--line);border-radius:8px;padding:5px 9px;font-size:11.5px;font-family:inherit}
+    .task-add-row input:focus{outline:none;border-color:var(--brand)}
+    .task-add-row button{background:var(--brand);color:#fff;border:none;border-radius:8px;padding:5px 11px;font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:700}
+    .ca-ov{position:fixed;inset:0;background:rgba(28,20,16,.42);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:302;padding:20px}
+    .ca-ov.on{display:flex}
+    .ca-modal{background:var(--surface);border-radius:20px;width:100%;max-width:420px;box-shadow:0 30px 70px -20px rgba(0,0,0,.45);overflow:hidden;animation:capop .2s cubic-bezier(.2,.8,.3,1)}
+    @keyframes capop{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
+    .mhead{padding:16px 20px;display:flex;align-items:flex-start;gap:11px;border-bottom:1px solid var(--line)}
+    .mhead .av{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex-shrink:0;background:var(--cb);color:var(--ci)}
+    .mhead .av svg{width:20px;height:20px;stroke-width:2}
+    .mhead h3{font-family:'Bricolage Grotesque',sans-serif;font-size:17px;font-weight:800}
+    .mhead .cbadge{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;color:var(--ci);background:var(--cb);padding:3px 9px;border-radius:18px;margin-top:4px}
+    .mhead .cbadge .d{width:6px;height:6px;border-radius:50%;background:var(--c)}
+    .mhead .mx{margin-left:auto;width:30px;height:30px;border:none;background:var(--surface-2);border-radius:8px;cursor:pointer;color:var(--ink-2);font-size:17px;flex-shrink:0;display:grid;place-items:center}
+    .mbody{padding:16px 20px;display:flex;flex-direction:column;gap:12px}
+    .mfld label{font-size:10.5px;font-weight:700;color:var(--ca-muted);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:5px}
+    .mfld select,.mfld input{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:9px 11px;font:600 13.5px 'Plus Jakarta Sans',sans-serif;color:var(--ink)}
+    .mfld select:focus,.mfld input:focus{outline:none;border-color:var(--brand)}
+    .mtime-row{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end}
+    .mtime-row .arr{color:var(--ca-muted);font-weight:700;padding-bottom:10px;text-align:center}
+    .mfoot{display:flex;gap:8px;padding:0 20px 18px}
+    .mfoot .ca-add-btn{flex:1;justify-content:center;padding:9px}
+    .ca-loading{position:absolute;inset:0;background:rgba(251,249,246,.85);display:flex;align-items:center;justify-content:center;z-index:10;border-radius:18px}
+    .ca-spinner{width:32px;height:32px;border:3px solid var(--line);border-top-color:var(--brand);border-radius:50%;animation:ca-spin .6s linear infinite}
+    @keyframes ca-spin{to{transform:rotate(360deg)}}
+    </style>
 </head>
 <body>
 
@@ -396,24 +542,25 @@
             <div class="page-header">
                 <div>
                     <div class="page-title">Điều Phối Ca Làm Việc</div>
-                    <div class="page-sub">Lịch trình ca theo tuần, hỗ trợ tính lương và đánh giá hiệu suất</div>
+                    <div class="page-sub">Lịch trình ca theo tuần · Click ô để xem danh sách nhân viên</div>
                 </div>
-                <button class="btn-primary" id="btn-add-shift"><i class="ti-plus"></i> Thêm Ca</button>
-            </div>
-            <div class="two-col" style="align-items:flex-start;">
-                <div class="panel" style="max-width:300px;flex-shrink:0;">
-                    <div class="panel-header"><div class="panel-title">Định Nghĩa Ca</div></div>
-                    <ul class="shift-def-list" id="shift-def-list"></ul>
-                </div>
-                <div class="panel" style="flex:1;">
-                    <div class="panel-header"><div class="panel-title">Lịch Ca Tuần Này</div></div>
-                    <div class="tbl-wrap">
-                        <table>
-                            <thead><tr><th>Nhân Viên</th><th>Chi Nhánh</th><th>Ca</th><th>Ngày</th><th>Check-in</th><th>Check-out</th><th>Trạng Thái</th></tr></thead>
-                            <tbody id="shift-tbody"></tbody>
-                        </table>
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                    <div class="ca-nav">
+                        <button class="arrow" onclick="shiftWeek(-1)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+                        <button class="ca-today-btn" onclick="goToday()">Hôm nay</button>
+                        <button class="arrow" onclick="shiftWeek(1)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
                     </div>
+                    <div class="ca-range" id="range">–</div>
+                    <button class="ca-add-btn" onclick="openAddShiftModal(null,'sang',null)">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Thêm Ca
+                    </button>
                 </div>
+            </div>
+            <div class="ca-legend" id="legend"></div>
+            <div class="cal" style="position:relative">
+                <div id="calLoading" class="ca-loading"><div class="ca-spinner"></div></div>
+                <div class="cal-head" id="calHead"><div class="tz">GMT+7</div></div>
+                <div class="ca-body" id="calBody"></div>
             </div>
         </section>
 
@@ -522,5 +669,395 @@
 <script src="/asset/js/api.js"></script>
 <script src="/asset/js/datetime.js"></script>
 <script src="/asset/js/admin.js"></script>
+
+<!-- Roster drawer (shift calendar) -->
+<div class="scrim" id="scrim" onclick="closeRoster()"></div>
+<aside class="drawer" id="drawer">
+    <div class="dh2" id="dHead"></div>
+    <div class="dadd">
+        <button class="ca-add-btn" style="padding:7px 13px;font-size:12px" id="dAddBtn">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg>Thêm nhân viên vào ca
+        </button>
+    </div>
+    <div class="rlist" id="dList"></div>
+</aside>
+
+<!-- Add shift modal (shift calendar) -->
+<div class="ca-ov" id="caOv" onclick="if(event.target===this)closeCaModal()">
+    <div class="ca-modal" id="caModal"></div>
+</div>
+
+<script>
+/* ============================================================
+   SHIFT CALENDAR — embedded in admin.html
+============================================================ */
+var WD = ['CN','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+var DAY_START = 6, HOURS = 18;
+var LATE_GRACE = 15;
+var SHIFT_DEFS = {
+  sang:  { label:'Ca Sáng',  start:6,  end:14, vars:['--sang','--sang-bg','--sang-ink']  },
+  chieu: { label:'Ca Chiều', start:14, end:22, vars:['--chieu','--chieu-bg','--chieu-ink'] },
+  dem:   { label:'Ca Đêm',   start:22, end:6,  vars:['--dem','--dem-bg','--dem-ink']   }
+};
+var weekStart = caStartOfWeek(new Date());
+var allShifts = {};
+var CA_EMPS_DATA = [];
+var curRosterWd = null, curRosterShiftKey = null, curRosterDayDate = null;
+var HOUR_PX = 36;
+
+function caStartOfWeek(d) { var x=new Date(d); x.setHours(0,0,0,0); x.setDate(x.getDate()-x.getDay()); return x; }
+function caAddDays(d,n)   { var x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function caPad(n)         { return String(n).padStart(2,'0'); }
+function caLocalDate(d)   { return d.toLocaleDateString('sv-SE',{timeZone:'Asia/Ho_Chi_Minh'}); }
+function caInitials(n)    { var p=(n||'').trim().split(' '); return (p[0][0]+(p.length>1?p[p.length-1][0]:p[0][1]||'')).toUpperCase(); }
+function caHue(n)         { var h=0; for(var i=0;i<n.length;i++) h=(h*31+n.charCodeAt(i))%360; return h; }
+function caAvBg(n)        { return 'hsl('+caHue(n)+' 52% 42%)'; }
+function caFmtTime(iso)   { if(!iso) return '--'; var d=new Date(iso); return caPad(d.getHours())+':'+caPad(d.getMinutes()); }
+
+function getShiftKey(timeIn) {
+  var d=new Date(timeIn), h=d.getHours();
+  if(h>=6&&h<14)  return 'sang';
+  if(h>=14&&h<22) return 'chieu';
+  return 'dem';
+}
+function evalShift(sh) {
+  var late=false, lateMin=0, otMin=0, inOk=!!sh.checkIn;
+  if(sh.checkIn) { lateMin=Math.round((new Date(sh.checkIn)-new Date(sh.timeIn))/60000); if(lateMin>LATE_GRACE) late=true; }
+  if(sh.checkOut) { var ot=Math.round((new Date(sh.checkOut)-new Date(sh.timeOut))/60000); if(ot>0) otMin=ot; }
+  return {late:late,lateMin:lateMin,otMin:otMin,inOk:inOk};
+}
+
+function caLoadEmps() {
+  if(!ADMIN_STORE_ID) return Promise.resolve();
+  return apiGet('/employee/get-by-store/'+ADMIN_STORE_ID)
+    .then(function(r){return r.ok?r.json():[];})
+    .then(function(d){CA_EMPS_DATA=Array.isArray(d)?d.filter(function(e){return !e.deleteAt;}):[];})
+    .catch(function(){CA_EMPS_DATA=[];});
+}
+function loadWeekShifts() {
+  allShifts={};
+  var days=[0,1,2,3,4,5,6].map(function(i){return caAddDays(weekStart,i);});
+  var promises=days.map(function(d){
+    var dateStr=caLocalDate(d), wd=d.getDay();
+    return apiGet('/shift/get-all/'+dateStr)
+      .then(function(r){return r.ok?r.json():[];})
+      .then(function(list){
+        allShifts[wd]=(Array.isArray(list)?list:[]).filter(function(s){
+          return !s.deletedAt&&(!ADMIN_STORE_ID||s.storeID===ADMIN_STORE_ID);
+        });
+      }).catch(function(){allShifts[wd]=[];});
+  });
+  return Promise.all(promises);
+}
+
+function render() {
+  document.getElementById('calLoading').style.display='none';
+  var days=[0,1,2,3,4,5,6].map(function(i){return caAddDays(weekStart,i);});
+  var today=new Date(); today.setHours(0,0,0,0);
+  var a=days[0], b=days[6];
+  var same=weekStart.getTime()===caStartOfWeek(new Date()).getTime();
+  document.getElementById('range').textContent=same?'Tuần này':a.getDate()+'/'+(a.getMonth()+1)+' – '+b.getDate()+'/'+(b.getMonth()+1)+'/'+b.getFullYear();
+  renderLegend();
+  var head=document.getElementById('calHead');
+  head.innerHTML='<div class="tz">GMT+7</div>';
+  days.forEach(function(d){
+    var t=d.getTime()===today.getTime();
+    head.innerHTML+='<div class="dh '+(t?'today':'')+'"><div class="wd">'+WD[d.getDay()]+'</div><div class="dn">'+d.getDate()+'</div></div>';
+  });
+  var body=document.getElementById('calBody');
+  HOUR_PX=Math.max(body.clientHeight/HOURS,22);
+  body.innerHTML='';
+  var g=document.createElement('div'); g.className='gutter';
+  g.style.height=(HOURS*HOUR_PX)+'px';
+  for(var h=0;h<=HOURS;h++){
+    var hr=(DAY_START+h)%24;
+    var lab=document.createElement('div'); lab.className='lab';
+    lab.style.top=(h*HOUR_PX)+'px'; lab.textContent=caPad(hr)+':00'; g.appendChild(lab);
+  }
+  body.appendChild(g);
+  days.forEach(function(d){
+    var isToday=d.getTime()===today.getTime(), wd=d.getDay();
+    var col=document.createElement('div');
+    col.className='daycol'+(isToday?' today':'');
+    col.style.height=(HOURS*HOUR_PX)+'px';
+    for(var h=0;h<HOURS;h++){
+      var hr2=(DAY_START+h)%24;
+      var hl=document.createElement('div'); hl.className='hline'+(hr2%6===0?' major':'');
+      hl.style.top=(h*HOUR_PX)+'px'; col.appendChild(hl);
+    }
+    var dayShifts=allShifts[wd]||[];
+    Object.keys(SHIFT_DEFS).forEach(function(key){
+      var s=SHIFT_DEFS[key];
+      var shiftList=dayShifts.filter(function(sh){return getShiftKey(sh.timeIn)===key;});
+      var startOffset=s.start-DAY_START, endOffset=key==='dem'?HOURS:(s.end-DAY_START);
+      if(startOffset<0)startOffset=0; if(endOffset>HOURS)endOffset=HOURS;
+      var top=startOffset*HOUR_PX, height=(endOffset-startOffset)*HOUR_PX;
+      if(height<=0) return;
+      if(!shiftList.length){
+        var ad=document.createElement('div'); ad.className='addslot';
+        ad.style.top=(top+3)+'px'; ad.style.height=(height-6)+'px';
+        ad.textContent='+ '+s.label;
+        (function(_key,_wd,_d){ad.onclick=function(){openAddShiftModal(_wd,_key,_d);};})(key,wd,d);
+        col.appendChild(ad); return;
+      }
+      var stats={late:0,wait:0,ot:0};
+      shiftList.forEach(function(sh){var e=evalShift(sh);if(!e.inOk)stats.wait++;else if(e.late)stats.late++;if(e.otMin>0)stats.ot++;});
+      var blk=document.createElement('div'); blk.className='sumblk';
+      blk.style.cssText='--c:var('+s.vars[0]+');--cb:var('+s.vars[1]+');--ci:var('+s.vars[2]+');top:'+(top+2)+'px;height:'+(height-4)+'px;';
+      var show=shiftList.slice(0,4);
+      var stack=show.map(function(sh){return '<div class="a" title="'+sh.employeeName+'" style="background:'+caAvBg(sh.employeeName)+'">'+caInitials(sh.employeeName)+'</div>';}).join('');
+      if(shiftList.length>4)stack+='<div class="more">+'+(shiftList.length-4)+'</div>';
+      var mini='';
+      if(stats.late)  mini+='<span class="mtag late">'+stats.late+' trễ</span>';
+      if(stats.wait)  mini+='<span class="mtag wait">'+stats.wait+' chưa vào</span>';
+      if(stats.ot)    mini+='<span class="mtag ot">'+stats.ot+' OT</span>';
+      if(!mini)       mini='<span class="mtag ok">Đủ '+shiftList.length+'</span>';
+      blk.innerHTML='<div class="sbh"><span class="sl">'+s.label+'</span><span class="stime">'+caPad(s.start)+':00–'+caPad(key==='dem'?6:s.end)+':00</span></div>'
+        +'<div class="stack">'+stack+'</div>'
+        +'<div class="cnt">'+shiftList.length+' <small>nhân viên</small></div>'
+        +'<div class="mini">'+mini+'</div>';
+      (function(_key,_wd,_d){blk.onclick=function(){openRoster(_wd,_key,_d);};})(key,wd,d);
+      col.appendChild(blk);
+    });
+    if(isToday){
+      var now=new Date();
+      var mins=(now.getHours()*60+now.getMinutes()-DAY_START*60);
+      if(mins>=0&&mins<=HOURS*60){
+        var nl=document.createElement('div'); nl.className='nowline';
+        nl.style.top=(mins/60*HOUR_PX)+'px'; col.appendChild(nl);
+      }
+    }
+    body.appendChild(col);
+  });
+}
+
+function renderLegend() {
+  var cnt={sang:0,chieu:0,dem:0};
+  Object.keys(allShifts).forEach(function(wd){(allShifts[wd]||[]).forEach(function(sh){var k=getShiftKey(sh.timeIn);if(cnt[k]!==undefined)cnt[k]++;});});
+  var el=document.getElementById('legend'); el.innerHTML='';
+  Object.keys(SHIFT_DEFS).forEach(function(k){
+    var s=SHIFT_DEFS[k];
+    var c=document.createElement('div'); c.className='chip';
+    c.style.cssText='--c:var('+s.vars[0]+');--cb:var('+s.vars[1]+');--ci:var('+s.vars[2]+')';
+    c.innerHTML='<span class="d"></span><b>'+s.label+'</b><span class="t">'+caPad(s.start)+':00–'+caPad(k==='dem'?6:s.end)+':00</span><span class="n">'+cnt[k]+'</span>';
+    el.appendChild(c);
+  });
+  var hint=document.createElement('div'); hint.className='ca-hint';
+  hint.innerHTML='<span class="lg"></span> Đi trễ >'+LATE_GRACE+' phút';
+  el.appendChild(hint);
+}
+
+function openRoster(wd,shiftKey,dayDate) {
+  curRosterWd=wd; curRosterShiftKey=shiftKey; curRosterDayDate=dayDate;
+  var s=SHIFT_DEFS[shiftKey];
+  var shiftList=(allShifts[wd]||[]).filter(function(sh){return getShiftKey(sh.timeIn)===shiftKey;});
+  var late=0,wait=0,ot=0,inOk=0;
+  shiftList.forEach(function(sh){var e=evalShift(sh);if(!e.inOk)wait++;else{inOk++;if(e.late)late++;}if(e.otMin>0)ot++;});
+  var dh=document.getElementById('dHead');
+  dh.style.cssText='--cb:var('+s.vars[1]+');--ci:var('+s.vars[2]+');--c:var('+s.vars[0]+')';
+  var dayLabel=dayDate?(WD[wd]+' · '+dayDate.getDate()+'/'+(dayDate.getMonth()+1)):WD[wd];
+  dh.innerHTML='<div class="row">'
+    +'<div class="ic"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></div>'
+    +'<div><h3>'+s.label+'</h3><div class="sub">'+dayLabel+' · '+caPad(s.start)+':00–'+caPad(shiftKey==='dem'?6:s.end)+':00</div></div>'
+    +'<button class="x" onclick="closeRoster()">×</button></div>'
+    +'<div class="dstats">'
+    +'<div class="dstat"><div class="v">'+shiftList.length+'</div><div class="k">Tổng</div></div>'
+    +'<div class="dstat ok"><div class="v">'+inOk+'</div><div class="k">Đã vào</div></div>'
+    +'<div class="dstat late"><div class="v">'+late+'</div><div class="k">Đi trễ</div></div>'
+    +'<div class="dstat wait"><div class="v">'+wait+'</div><div class="k">Chưa vào</div></div>'
+    +'</div>';
+  var addBtn=document.getElementById('dAddBtn');
+  (function(_wd,_key,_d){addBtn.onclick=function(){openAddShiftModal(_wd,_key,_d);};})(wd,shiftKey,dayDate);
+  var rlist=document.getElementById('dList');
+  if(!shiftList.length){
+    rlist.innerHTML='<div style="text-align:center;color:var(--ca-muted);padding:40px;font-weight:600">Chưa có nhân viên nào</div>';
+  } else {
+    rlist.innerHTML=shiftList.map(function(sh){
+      var e=evalShift(sh);
+      var pill=!e.inOk?'<span class="ip wait">Chưa vào</span>':(e.late?'<span class="ip late">Trễ '+e.lateMin+'p</span>':'<span class="ip ok">Đúng giờ</span>');
+      if(e.otMin>0) pill+='<span class="ip ot">OT</span>';
+      return '<div class="rrow '+(e.late?'late':'')+'" id="rrow-'+sh.shiftID+'">'
+        +'<div class="rmain">'
+        +'<div class="rav" style="background:'+caAvBg(sh.employeeName)+'">'+caInitials(sh.employeeName)+'</div>'
+        +'<div class="rinfo"><b>'+sh.employeeName+'</b>'
+        +'<div class="tm"><span>In: '+(e.inOk?caFmtTime(sh.checkIn):'—')+'</span><span>Out: '+(sh.checkOut?caFmtTime(sh.checkOut):'—')+'</span></div></div>'
+        +'<div class="rpills">'+pill+'</div>'
+        +'<button class="del-btn" onclick="confirmDeleteShift(\''+sh.shiftID+'\')" title="Xoá ca">'
+        +'<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>'
+        +'</button></div>'
+        +'<button class="tog-tasks" onclick="toggleTasks(\''+sh.shiftID+'\')">▼ Nhiệm vụ ca</button>'
+        +'<div class="task-sec" id="tsec-'+sh.shiftID+'" style="display:none"></div>'
+        +'</div>';
+    }).join('');
+  }
+  document.getElementById('scrim').classList.add('on');
+  document.getElementById('drawer').classList.add('on');
+}
+
+function toggleTasks(shiftID) {
+  var sec=document.getElementById('tsec-'+shiftID); if(!sec)return;
+  var btn=sec.previousElementSibling;
+  if(sec.style.display==='none'){sec.style.display='';if(btn)btn.textContent='▲ Nhiệm vụ ca';loadTasksForShift(shiftID,sec);}
+  else{sec.style.display='none';if(btn)btn.textContent='▼ Nhiệm vụ ca';}
+}
+function loadTasksForShift(shiftID,container){
+  container.innerHTML='<div style="font-size:11px;color:var(--ca-muted);padding:4px 0">Đang tải...</div>';
+  apiGet('/shift/task/by-shift/'+shiftID)
+    .then(function(r){return r.ok?r.json():[];})
+    .then(function(tasks){renderTasks(shiftID,tasks,container);})
+    .catch(function(){container.innerHTML='<div style="color:var(--late);font-size:11px">Lỗi tải nhiệm vụ</div>';});
+}
+function renderTasks(shiftID,tasks,container){
+  var html='';
+  if(tasks&&tasks.length){
+    tasks.forEach(function(t){
+      html+='<div class="task-item">'
+        +'<button class="task-done-btn '+(t.isCompleted?'done':'')+'" onclick="completeTask(\''+t.taskID+'\',\''+shiftID+'\')">'
+        +'<svg fill="none" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>'
+        +'</button>'
+        +'<span class="task-tx '+(t.isCompleted?'done':'')+'">'+caEscHtml(t.title)+'</span>'
+        +'<button onclick="deleteTask(\''+t.taskID+'\',\''+shiftID+'\')" style="background:none;border:none;cursor:pointer;color:var(--ca-muted);font-size:12px;padding:2px 4px" title="Xoá">✕</button>'
+        +'</div>';
+    });
+  } else { html='<div style="font-size:11px;color:var(--ca-muted);padding:4px 0">Chưa có nhiệm vụ nào</div>'; }
+  html+='<div class="task-add-row">'
+    +'<input type="text" id="ti-'+shiftID+'" placeholder="Thêm nhiệm vụ..." onkeydown="if(event.key===\'Enter\')addTask(\''+shiftID+'\')">'
+    +'<button onclick="addTask(\''+shiftID+'\')">+</button>'
+    +'</div>';
+  container.innerHTML=html;
+}
+function addTask(shiftID){
+  var inp=document.getElementById('ti-'+shiftID);
+  var title=inp?inp.value.trim():''; if(!title)return;
+  apiPost('/shift/task/add',{ShiftID:shiftID,Title:title})
+    .then(function(r){return r.ok?r.json():Promise.reject(r);})
+    .then(function(){var sec=document.getElementById('tsec-'+shiftID);if(sec)loadTasksForShift(shiftID,sec);})
+    .catch(function(){caFlash('Lỗi thêm nhiệm vụ');});
+}
+function completeTask(taskID,shiftID){
+  apiPut('/shift/task/'+taskID+'/complete',{})
+    .then(function(r){if(r.ok){var sec=document.getElementById('tsec-'+shiftID);if(sec)loadTasksForShift(shiftID,sec);}})
+    .catch(function(){});
+}
+function deleteTask(taskID,shiftID){
+  if(!confirm('Xoá nhiệm vụ này?'))return;
+  apiDelete('/shift/task/'+taskID)
+    .then(function(r){if(r.ok){var sec=document.getElementById('tsec-'+shiftID);if(sec)loadTasksForShift(shiftID,sec);}});
+}
+function confirmDeleteShift(shiftID){
+  if(!confirm('Xoá ca này? Hành động không thể hoàn tác.'))return;
+  apiDelete('/shift/delete/'+shiftID)
+    .then(function(r){
+      if(r.ok){caFlash('Đã xoá ca');closeRoster();caReload();}
+      else r.json().then(function(d){caFlash(d.message||'Lỗi xoá ca');}).catch(function(){caFlash('Lỗi xoá ca');});
+    });
+}
+function closeRoster(){
+  document.getElementById('scrim').classList.remove('on');
+  document.getElementById('drawer').classList.remove('on');
+}
+
+function openAddShiftModal(wd,shiftKey,dayDate){
+  if(!shiftKey)shiftKey='sang';
+  var s=SHIFT_DEFS[shiftKey];
+  var dateStr=dayDate?caLocalDate(dayDate):(wd!==null?caLocalDate(caAddDays(weekStart,wd)):caLocalDate(new Date()));
+  var empOpts=CA_EMPS_DATA.length
+    ?CA_EMPS_DATA.map(function(e){
+        var label=(e.fullName||e.FullName||'')+' ('+(e.role||'')+')'
+        return '<option value="'+(e.userID||e.employeeID||e.EmployeeID)+'">'+label+'</option>';
+      }).join('')
+    :'<option value="">— Không có nhân viên —</option>';
+  var shiftOpts=Object.keys(SHIFT_DEFS).map(function(k){
+    return '<option value="'+k+'"'+(k===shiftKey?' selected':'')+'>'+SHIFT_DEFS[k].label+'</option>';
+  }).join('');
+  var modal=document.getElementById('caModal');
+  modal.innerHTML='<div class="mhead" style="--c:var('+s.vars[0]+');--cb:var('+s.vars[1]+');--ci:var('+s.vars[2]+')">'
+    +'<div class="av"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></div>'
+    +'<div><h3>Phân Ca Làm Việc</h3><span class="cbadge"><span class="d"></span>'+s.label+'</span></div>'
+    +'<button class="mx" onclick="closeCaModal()">×</button></div>'
+    +'<div class="mbody">'
+    +'<div class="mfld"><label>Nhân viên</label><select id="ms-emp">'+empOpts+'</select></div>'
+    +'<div class="mfld"><label>Loại ca</label><select id="ms-shift" onchange="onShiftTypeChange()">'+shiftOpts+'</select></div>'
+    +'<div class="mfld"><label>Ngày làm việc</label><input type="date" id="ms-date" value="'+dateStr+'"></div>'
+    +'<div class="mtime-row">'
+    +'<div class="mfld"><label>Giờ bắt đầu</label><input type="time" id="ms-start" value="'+caPad(s.start)+':00"></div>'
+    +'<div class="arr">→</div>'
+    +'<div class="mfld"><label>Giờ kết thúc</label><input type="time" id="ms-end" value="'+caPad(shiftKey==='dem'?6:s.end)+':00"></div>'
+    +'</div></div>'
+    +'<div class="mfoot"><button class="ca-add-btn ghost" onclick="closeCaModal()">Huỷ</button><button class="ca-add-btn" onclick="submitAddShift()">Phân ca</button></div>';
+  document.getElementById('caOv').classList.add('on');
+}
+function onShiftTypeChange(){
+  var k=document.getElementById('ms-shift').value, s=SHIFT_DEFS[k]; if(!s)return;
+  var sEl=document.getElementById('ms-start'), eEl=document.getElementById('ms-end');
+  if(sEl)sEl.value=caPad(s.start)+':00';
+  if(eEl)eEl.value=caPad(k==='dem'?6:s.end)+':00';
+}
+function submitAddShift(){
+  var empID=(document.getElementById('ms-emp')||{}).value;
+  var date=(document.getElementById('ms-date')||{}).value;
+  var start=(document.getElementById('ms-start')||{}).value;
+  var end=(document.getElementById('ms-end')||{}).value;
+  if(!empID||!date||!start||!end){caFlash('Vui lòng điền đầy đủ thông tin');return;}
+  var shiftKey=(document.getElementById('ms-shift')||{}).value||'sang';
+  var endDate=date;
+  if(shiftKey==='dem'){var nextDay=new Date(date);nextDay.setDate(nextDay.getDate()+1);endDate=caLocalDate(nextDay);}
+  var timeIn=date+'T'+start+':00+07:00', timeOut=endDate+'T'+end+':00+07:00';
+  apiPost('/shift/assign/'+ADMIN_STORE_ID,{EmployeeID:empID,TimeIn:timeIn,TimeOut:timeOut})
+    .then(function(r){
+      if(r.ok){caFlash('Phân ca thành công');closeCaModal();caReload();}
+      else return r.json().then(function(d){caFlash(d.message||'Lỗi phân ca');}).catch(function(){caFlash('Lỗi phân ca');});
+    }).catch(function(){caFlash('Lỗi kết nối');});
+}
+function closeCaModal(){document.getElementById('caOv').classList.remove('on');}
+
+function shiftWeek(n){weekStart=caAddDays(weekStart,n*7);caReload();}
+function goToday(){weekStart=caStartOfWeek(new Date());caReload();}
+function caReload(){
+  document.getElementById('calLoading').style.display='';
+  loadWeekShifts().then(render);
+}
+
+function caEscHtml(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+var _caToastT;
+function caFlash(msg){
+  var t=document.getElementById('__ca_toast');
+  if(!t){
+    t=document.createElement('div');t.id='__ca_toast';
+    t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 19px;border-radius:11px;font:600 13.5px "Plus Jakarta Sans",sans-serif;z-index:999;opacity:0;transition:.25s;box-shadow:0 12px 30px -8px rgba(0,0,0,.4)';
+    document.body.appendChild(t);
+  }
+  t.textContent=msg;
+  requestAnimationFrame(function(){t.style.opacity=1;t.style.transform='translateX(-50%) translateY(0)';});
+  clearTimeout(_caToastT);
+  _caToastT=setTimeout(function(){t.style.opacity=0;t.style.transform='translateX(-50%) translateY(20px)';},2200);
+}
+
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeCaModal();closeRoster();}});
+window.addEventListener('resize',function(){
+  if(document.getElementById('section-shifts').classList.contains('active'))render();
+});
+
+/* Lazy init — load when section-shifts first becomes active */
+var _caInited=false;
+(function(){
+  var sec=document.getElementById('section-shifts');
+  if(!sec)return;
+  var obs=new MutationObserver(function(){
+    if(!sec.classList.contains('active'))return;
+    if(!_caInited){
+      _caInited=true;
+      caLoadEmps().then(function(){return loadWeekShifts();}).then(render);
+    } else {
+      render();
+    }
+  });
+  obs.observe(sec,{attributes:true,attributeFilter:['class']});
+})();
+setInterval(function(){
+  if(document.getElementById('section-shifts').classList.contains('active')
+     &&!document.getElementById('drawer').classList.contains('on')){render();}
+},60000);
+</script>
 </body>
 </html>
