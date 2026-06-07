@@ -155,10 +155,19 @@ function dbFillHero(ss) {
 
     // Worked / remaining
     var now = new Date();
-    var inT = new Date(ss.checkIn || ss.CheckIn || ss.timeIn || ss.TimeIn);
     var outT = new Date(ss.timeOut || ss.TimeOut);
-    var workedMs = Math.max(0, now - inT);
-    var leftMs   = Math.max(0, outT - now);
+    // "Đã làm" chỉ tính từ lúc thực sự check-in (0 nếu chưa check-in), và chốt ở
+    // mốc check-out hoặc giờ tan ca để không cộng thời gian ngoài ca.
+    var checkInRaw = ss.checkIn || ss.CheckIn;
+    var workedMs = 0;
+    if (checkInRaw) {
+        var inT = new Date(checkInRaw);
+        var checkOutRaw = ss.checkOut || ss.CheckOut;
+        var endT = checkOutRaw ? new Date(checkOutRaw) : now;
+        if (!isNaN(outT.getTime()) && endT > outT) endT = outT;
+        workedMs = Math.max(0, endT - inT);
+    }
+    var leftMs = Math.max(0, outT - now);
     var fmtH = function (ms) {
         var h = Math.floor(ms / 3600000);
         var m = Math.floor((ms % 3600000) / 60000);
