@@ -395,14 +395,12 @@ namespace Backend.Services.Implementations{
                 if (deliveryAddress?.Latitude != null && deliveryAddress.Longitude != null &&
                     resolvedStore?.Address?.Latitude != null && resolvedStore.Address.Longitude != null)
                 {
-                    const double MaxDeliveryKm = 50.0;
                     double distKm = HaversineKm(
                         deliveryAddress.Latitude!.Value, deliveryAddress.Longitude!.Value,
                         resolvedStore.Address.Latitude!.Value, resolvedStore.Address.Longitude!.Value);
-                    if (distKm > MaxDeliveryKm)
-                        throw new Exception($"Địa chỉ giao hàng cách cửa hàng {distKm:F1} km, vượt quá khoảng cách tối đa {MaxDeliveryKm} km.");
-                    decimal rate = distKm < 4 ? 15000m : distKm <= 10 ? 17000m : 21000m;
-                    shippingFee = (decimal)distKm * rate;
+                    if (distKm > ShippingHelper.MaxDeliveryKm)
+                        throw new Exception($"Địa chỉ giao hàng cách cửa hàng {distKm:F1} km, vượt quá khoảng cách tối đa {ShippingHelper.MaxDeliveryKm} km.");
+                    shippingFee = ShippingHelper.Fee(distKm);
                 }
                 bill.Total = total * (1 + bill.VAT);
 

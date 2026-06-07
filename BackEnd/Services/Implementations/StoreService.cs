@@ -314,8 +314,7 @@ using System.Collections.Generic;
                 if (d < minDist) minDist = d;
             }
 
-            const double MaxDeliveryKm = 50.0;
-            if (minDist > MaxDeliveryKm)
+            if (minDist > ShippingHelper.MaxDeliveryKm)
                 return new ShippingFeeResponse
                 {
                     DistanceKm = Math.Round(minDist, 2),
@@ -323,11 +322,10 @@ using System.Collections.Generic;
                     IsDeliverable = false
                 };
 
-            decimal rate = minDist < 4 ? 15000m : minDist <= 10 ? 17000m : 21000m;
             return new ShippingFeeResponse
             {
                 DistanceKm = Math.Round(minDist, 2),
-                ShippingFee = Math.Round((decimal)minDist * rate),
+                ShippingFee = ShippingHelper.Fee(minDist),
                 IsDeliverable = true
             };
         }
