@@ -91,6 +91,16 @@ CALL pbl3_safe_replace('InventoryBatch',        'ReceiptDetailGoodsReceiptID','r
 CALL pbl3_safe_replace('StockMovement',         'StockMovementID','stm00001-','57a00001-');
 CALL pbl3_safe_replace('StockMovement',         'BatchID',      'bat00001-', 'ba700001-');
 CALL pbl3_safe_replace('StockMovement',         'EmployeeID',   'emp00001-', 'eab00001-');
+-- Lô sơ chế (Processed) seed bằng prefix `proc` (p,r,o không hex) — giữ tham chiếu
+-- OutputBatchID ⇄ InventoryBatch.BatchID nhất quán.
+CALL pbl3_safe_replace('InventoryBatch',        'BatchID',      'proc',      'b40c');
+CALL pbl3_safe_replace('ProcessingDetail',      'OutputBatchID','proc',      'b40c');
+CALL pbl3_safe_replace('StockMovement',         'BatchID',      'proc',      'b40c');
+
+-- ---- Processing chain ------------------------------------------
+-- ProcessingID seed bằng prefix `pl1` (p,l không hex).
+CALL pbl3_safe_replace('ProcessingLog',         'ProcessingID', 'pl1',       'fa1');
+CALL pbl3_safe_replace('ProcessingDetail',      'ProcessingID', 'pl1',       'fa1');
 
 -- ---- Bill chain ------------------------------------------------
 CALL pbl3_safe_replace('Bill',                  'BillID',       'bil00001-', 'b1100001-');
@@ -106,11 +116,19 @@ CALL pbl3_safe_replace('BillChange',            'EmployeeID',   'emp00001-', 'ea
 CALL pbl3_safe_replace('DeliveryInfo',          'DeliveryID',   'del00001-', 'de100001-');
 CALL pbl3_safe_replace('DeliveryInfo',          'BillID',       'bil00001-', 'b1100001-');
 CALL pbl3_safe_replace('DeliveryInfo',          'UserID',       'usr00001-', '05c00001-');
-CALL pbl3_safe_replace('DeliveryLog',           'LogID',        'dlg00001-', 'd1900001-');
+-- `dlg` → `d19` bao trùm cả dlg00001 lẫn dlg00002 (bản fix cũ chỉ map dlg00001-).
+CALL pbl3_safe_replace('DeliveryLog',           'LogID',        'dlg',       'd19');
 CALL pbl3_safe_replace('DeliveryLog',           'DeliveryID',   'del00001-', 'de100001-');
 CALL pbl3_safe_replace('DeliveryLog',           'EmployeeID',   'emp00001-', 'eab00001-');
 
 DROP PROCEDURE pbl3_safe_replace;
+
+-- ---- Enum cũ: BatchType 'Import' → 'Raw' ------------------------
+-- DB cũ lưu BatchType='Import' cho lô nhập thô; enum hiện tại chỉ còn {Raw, Processed}.
+-- Khi EF đọc gặp 'Import' sẽ ném "Cannot convert string value 'Import' ... BatchType enum"
+-- (HTTP 400) làm sập toàn bộ màn hình Kho. 'Import' tương đương 'Raw' (lô nhập từ NCC).
+UPDATE InventoryBatch SET BatchType = 'Raw' WHERE BatchType = 'Import';
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ---- Sanity check: tất cả phải = 0 -----------------------------
