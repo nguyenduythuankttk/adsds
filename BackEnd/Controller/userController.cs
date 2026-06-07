@@ -34,6 +34,16 @@ namespace Backend.Controller
             return Ok(user);
         }
 
+        // Tra cứu khách theo SĐT khi nhân viên lập hóa đơn. Trả PhoneLookupResponse nếu tìm
+        // thấy (tài khoản đã đăng ký hoặc khách vãng lai đã từng mua), 404 nếu là khách mới.
+        [HttpGet("lookup-by-phone/{phone}")]
+        public async Task<IActionResult> LookupByPhone(string phone)
+        {
+            var result = await _userService.LookupByPhone(phone);
+            if (result == null) return NotFound();
+            return Ok(result);
+        }
+
         [HttpPost("add")]
         public async Task<IActionResult> AddUser([FromBody] User user)
         {

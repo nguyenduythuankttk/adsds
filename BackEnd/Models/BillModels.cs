@@ -56,6 +56,17 @@ namespace Backend.Models{
         [ForeignKey("TableID")]
         [JsonIgnore]
         public virtual DiningTable? Table { get; set; }
+
+        // SĐT khách nhập lúc lập hóa đơn (khách vãng lai chưa có tài khoản). Map vào cột
+        // "Contact" (longtext) đã có sẵn trong DB (migration 20260527032607_AddContactToBill).
+        // Dùng để hiển thị lại trên danh sách/chi tiết và liên kết tới bản ghi GuestCustomer.
+        public string? Contact { get; set; }
+
+        // Tên khách để hiển thị (KHÔNG map DB). Service tự nạp lúc đọc: khách đã đăng ký lấy
+        // FullName, khách vãng lai lấy từ bảng GuestCustomer theo SĐT. Tránh Include cả entity
+        // User (sẽ lộ HashPassword khi serialize).
+        [NotMapped]
+        public string? CustomerName { get; set; }
         public Guid? AddressID {get; set;}
         [ForeignKey("AddressID")]
         [JsonIgnore]

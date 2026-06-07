@@ -51,9 +51,59 @@ namespace Backend.Services.Implementations{
                 if (storeID.HasValue)
                     query = query.Where(b => b.StoreID == storeID.Value);
 
-                return await query.ToListAsync();
+                var bills = await query.ToListAsync();
+                await PopulateCustomerNamesAsync(bills);
+                return bills;
             } catch (Exception e) {
                 throw new Exception("Lỗi khi lấy danh sách hóa đơn: " + e.Message);
+            }
+        }
+
+        // Nạp tên khách để hiển thị (CustomerName) cho danh sách/chi tiết hóa đơn:
+        // - Khách đã đăng ký (UserID != null) → lấy FullName trong bảng User.
+        // - Khách vãng lai → lấy tên theo SĐT (Bill.Contact) trong sổ GuestCustomer.
+        // Tránh Include cả entity User để không vô tình serialize HashPassword.
+        private async Task PopulateCustomerNamesAsync(List<Bill> bills)
+        {
+            if (bills == null || bills.Count == 0) return;
+
+            string Digits(string? s) => s == null ? "" : new string(s.Where(char.IsDigit).ToArray());
+
+            var userIDs = bills.Where(b => b.UserID.HasValue).Select(b => b.UserID!.Value).Distinct().ToList();
+            var userNames = userIDs.Count == 0
+                ? new Dictionary<Guid, string>()
+                : await _dbcontext.User.AsNoTracking()
+                    .Where(u => userIDs.Contains(u.UserID))
+                    .Select(u => new { u.UserID, u.FullName })
+                    .ToDictionaryAsync(x => x.UserID, x => x.FullName);
+
+            var phones = bills
+                .Where(b => !b.UserID.HasValue && !string.IsNullOrWhiteSpace(b.Contact))
+                .Select(b => Digits(b.Contact))
+                .Where(p => p.Length is >= 8 and <= 10)
+                .Distinct()
+                .ToList();
+            var guestNames = new Dictionary<string, string?>();
+            if (phones.Count > 0)
+            {
+                // Bọc try/catch để sổ khách lẻ (GuestCustomer) có vấn đề cũng KHÔNG làm hỏng
+                // việc tải danh sách/chi tiết hóa đơn — chỉ là không có tên khách lẻ.
+                try {
+                    guestNames = await _dbcontext.GuestCustomer.AsNoTracking()
+                        .Where(g => phones.Contains(g.Phone))
+                        .ToDictionaryAsync(g => g.Phone, g => g.Name);
+                } catch (Exception ex) {
+                    Console.WriteLine("PopulateCustomerNames: bỏ qua sổ khách lẻ GuestCustomer - " + ex.Message);
+                }
+            }
+
+            foreach (var b in bills)
+            {
+                if (b.UserID.HasValue && userNames.TryGetValue(b.UserID.Value, out var fn))
+                    b.CustomerName = fn;
+                else if (!b.UserID.HasValue && !string.IsNullOrWhiteSpace(b.Contact)
+                         && guestNames.TryGetValue(Digits(b.Contact), out var gn))
+                    b.CustomerName = gn;
             }
         }
 
@@ -132,7 +182,7 @@ namespace Backend.Services.Implementations{
 
         public async Task<Bill?> GetBillByID(Guid billID){
             try {
-                return await _dbcontext.Bill
+                var bill = await _dbcontext.Bill
                     .AsNoTracking()
                     .Where(b => b.BillID == billID)
                     .Include(b => b.BillDetail)
@@ -142,6 +192,9 @@ namespace Backend.Services.Implementations{
                         .ThenInclude(b => b.Employee)
                     .Include(b => b.Store)
                     .FirstOrDefaultAsync();
+                if (bill != null)
+                    await PopulateCustomerNamesAsync(new List<Bill> { bill });
+                return bill;
             } catch (Exception e) {
                 throw new Exception("Lỗi khi lấy hóa đơn: " + e.Message);
             }
@@ -157,36 +210,38 @@ namespace Backend.Services.Implementations{
             if (!storeExists)
                 throw new InvalidOperationException($"Không tìm thấy cửa hàng ID {request.StoreID}.");
 
+            // Bàn của hóa đơn (nếu là đơn tại bàn) — giữ tham chiếu để đánh dấu Occupied bên dưới.
+            DiningTable? table = null;
             if (request.TableID.HasValue)
             {
-                var table = await _dbcontext.DiningTable
+                table = await _dbcontext.DiningTable
                     .FirstOrDefaultAsync(t => t.TableID == request.TableID && t.DeletedAt == null);
                 if (table == null)
                     throw new InvalidOperationException($"Không tìm thấy bàn số {request.TableID}.");
 
-                // Bàn chỉ thực sự "đang bận" khi còn một hóa đơn dine-in CHƯA thanh toán
-                // (chuyển khoản Pending chưa được SePay xác nhận). Hóa đơn tiền mặt/thẻ đã
-                // set Paid ngay lúc tạo, hoặc CK đã xác nhận, hoặc đã huỷ (Failed) → KHÔNG
-                // còn giữ bàn, cho phép mở hóa đơn mới. Đây thay cho check table.Status cũ
-                // (chưa bao giờ được set Occupied nên là check chết) và là ràng buộc nghiệp
-                // vụ thay cho UNIQUE index 1-1 trên Bill.TableID đã gỡ bỏ.
-                var hasOpenBill = await _dbcontext.Bill.AnyAsync(b =>
+                // CHẶN CỨNG khi bàn còn một hóa đơn chuyển khoản CHƯA thanh toán (Pending chưa
+                // được SePay xác nhận): tránh đè lên một giao dịch QR đang dang dở. Còn việc
+                // "bàn đang có khách" (đã có hóa đơn tiền mặt/thẻ Paid) KHÔNG chặn ở đây —
+                // FE sẽ cảnh báo "bàn đang có người, có tiếp tục không?" và cho phép tiếp tục.
+                var hasUnpaidBill = await _dbcontext.Bill.AnyAsync(b =>
                     b.TableID == request.TableID.Value &&
                     b.DeletedAt == null &&
                     b.PaymentStatus == PaymentStatus.Pending);
-                if (hasOpenBill)
+                if (hasUnpaidBill)
                     throw new InvalidOperationException(
-                        $"Bàn {request.TableID} đang có hóa đơn chưa thanh toán. Vui lòng thanh toán hoặc huỷ hóa đơn cũ trước khi mở hóa đơn mới.");
+                        $"Bàn {request.TableID} đang có hóa đơn chuyển khoản chưa thanh toán. Vui lòng chờ thanh toán hoặc huỷ hóa đơn cũ trước khi mở hóa đơn mới.");
             }
 
             using var tx = await _dbcontext.Database.BeginTransactionAsync();
             try{
-                Guid? userID;
-                if (string.IsNullOrEmpty(request.contact))
-                    userID = null;
-                else{
-                    var user = await _userService.GetUserByContact(request.contact);
-                    userID = user?.UserID;
+                var contact = string.IsNullOrWhiteSpace(request.contact) ? null : request.contact.Trim();
+                var customerName = string.IsNullOrWhiteSpace(request.customerName) ? null : request.customerName.Trim();
+
+                Guid? userID = null;
+                User? matchedUser = null;
+                if (contact != null){
+                    matchedUser = await _userService.GetUserByContact(contact);
+                    userID = matchedUser?.UserID;
                 }
                 var isBankTransfer = request.PaymentMethods == PaymentMethods.BankTransfer;
                 var bill = new Bill{
@@ -194,12 +249,47 @@ namespace Backend.Services.Implementations{
                         UserID = userID,
                         StoreID = request.StoreID,
                         TableID = request.TableID,
+                        Contact = contact,
                         PaymentMethods = request.PaymentMethods,
                         Note = request.Note,
                         MoneyReceived = isBankTransfer ? null : request.MoneyReceived,
                         PaymentStatus = isBankTransfer ? PaymentStatus.Pending : PaymentStatus.Paid,
                         PaidAt = isBankTransfer ? null : VnTime.Now
                         };
+
+                // Khách vãng lai (không khớp tài khoản nào): lưu/ cập nhật vào sổ khách lẻ
+                // GuestCustomer theo SĐT để lần sau gõ SĐT là tra ra được tên. Chỉ lưu khi
+                // SĐT là số hợp lệ (8–10 chữ số) — khớp kiểu cột varchar(10), PK = Phone.
+                if (matchedUser == null && contact != null)
+                {
+                    var phoneDigits = new string(contact.Where(char.IsDigit).ToArray());
+                    if (phoneDigits.Length is >= 8 and <= 10)
+                    {
+                        // Bọc try/catch: nếu sổ khách lẻ GuestCustomer có vấn đề thì vẫn KHÔNG
+                        // chặn việc xuất hóa đơn (SĐT đã được lưu trên Bill.Contact).
+                        try {
+                            var guest = await _dbcontext.GuestCustomer
+                                .FirstOrDefaultAsync(g => g.Phone == phoneDigits);
+                            if (guest == null)
+                            {
+                                _dbcontext.GuestCustomer.Add(new GuestCustomer
+                                {
+                                    Phone = phoneDigits,
+                                    Name = customerName,
+                                    LastBillAt = VnTime.Now
+                                });
+                            }
+                            else
+                            {
+                                // Cập nhật tên nếu lần này khách cung cấp tên mới; luôn cập nhật mốc gần nhất.
+                                if (!string.IsNullOrWhiteSpace(customerName)) guest.Name = customerName;
+                                guest.LastBillAt = VnTime.Now;
+                            }
+                        } catch (Exception ex) {
+                            Console.WriteLine("Bỏ qua lưu sổ khách lẻ GuestCustomer: " + ex.Message);
+                        }
+                    }
+                }
                 decimal total = 0.0m;
                 foreach (var i in request.products)
                 {
@@ -250,6 +340,12 @@ namespace Backend.Services.Implementations{
                     ChangeAt = VnTime.Now
                 };
                 bill.BillChange.Add(billChange);
+
+                // Đánh dấu bàn "đang có khách" ngay khi lập hóa đơn tại bàn. Bàn được trả về
+                // trạng thái trống thủ công ở màn "Sơ đồ bàn" khi khách rời đi.
+                if (table != null)
+                    table.Status = TableStatus.Occupied;
+
                 _dbcontext.Bill.Add(bill);
                 await _dbcontext.SaveChangesAsync();
 

@@ -43,6 +43,10 @@ namespace Backend.Data {
         public DbSet<BankAccount> BankAccount {get; set;}
         public DbSet<SupplierIngredient> SupplierIngredient {get; set;}
         public DbSet<LeaveRequest> LeaveRequest {get; set;}
+        // Khách vãng lai (chưa có tài khoản): lưu SĐT + tên để tra cứu lại lần sau.
+        // Bảng đã tồn tại trong DB (migration 20260527053016_AddGuestCustomer); trước đây
+        // DbSet bị gỡ khiến tính năng lưu/tra khách lẻ dang dở.
+        public DbSet<GuestCustomer> GuestCustomer {get; set;}
 
         protected override void OnModelCreating(ModelBuilder modelBuilder) {
             base.OnModelCreating(modelBuilder);

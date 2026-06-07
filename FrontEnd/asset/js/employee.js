@@ -1341,28 +1341,39 @@ function customerLookup() {
         return;
     }
     if (hint) { hint.textContent = 'Đang tra cứu...'; hint.className = 'phone-hint'; }
-    apiGet('/user/get-all')
-        .then(function (r) { return r.ok ? r.json() : []; })
-        .then(function (data) {
-            var users = Array.isArray(data) ? data : (data.data || []);
-            var found = users.find(function (u) {
-                var uPhone = (u.phone || u.Phone || '').replace(/\D/g, '');
-                if (uPhone !== phone) return false;
-                // NV đã gõ tên → yêu cầu khớp cả tên; chưa gõ thì chỉ cần SĐT.
-                if (nameInput) {
-                    return normalizeName(u.fullName || u.FullName) === normalizeName(nameInput);
-                }
-                return true;
-            });
-            if (found) {
-                var name = found.fullName || found.FullName || '';
-                if (nameEl && !nameEl.value.trim()) nameEl.value = name;
-                if (hint) { hint.textContent = '✓ ' + name; hint.className = 'phone-hint ok'; }
-                _matchedUserId = found.userID || found.UserID || null;
-                loadCustomerVouchers(_matchedUserId);
-            } else {
-                // SĐT có trong hệ thống nhưng tên không khớp → coi như khách lẻ (không có kho voucher).
+    apiGet('/user/lookup-by-phone/' + encodeURIComponent(phone))
+        .then(function (r) {
+            if (r.status === 404) return null;     // khách hoàn toàn mới
+            return r.ok ? r.json() : null;
+        })
+        .then(function (info) {
+            if (!info) {
                 if (hint) { hint.textContent = 'Khách mới'; hint.className = 'phone-hint muted'; }
+                _matchedUserId = null;
+                resetVoucherSelect();
+                return;
+            }
+            var name  = info.fullName || info.FullName || '';
+            var isReg = info.isRegistered || info.IsRegistered;
+            // Tự điền tên khi nhân viên chưa nhập.
+            if (nameEl && !nameEl.value.trim() && name) nameEl.value = name;
+
+            if (isReg) {
+                // Khách có tài khoản → nạp kho voucher. Vẫn yêu cầu khớp tên nếu NV đã gõ tên
+                // (tránh dùng SĐT người khác để lấy voucher của họ).
+                var nameOk = !nameInput || normalizeName(name) === normalizeName(nameInput);
+                if (nameOk) {
+                    if (hint) { hint.textContent = '✓ ' + (name || 'Khách quen'); hint.className = 'phone-hint ok'; }
+                    _matchedUserId = info.userID || info.UserID || null;
+                    loadCustomerVouchers(_matchedUserId);
+                } else {
+                    if (hint) { hint.textContent = 'Khách mới'; hint.className = 'phone-hint muted'; }
+                    _matchedUserId = null;
+                    resetVoucherSelect();
+                }
+            } else {
+                // Khách lẻ đã từng mua (có trong sổ GuestCustomer) → không có kho voucher.
+                if (hint) { hint.textContent = '✓ Khách quen' + (name ? ': ' + name : ''); hint.className = 'phone-hint ok'; }
                 _matchedUserId = null;
                 resetVoucherSelect();
             }
@@ -1895,6 +1906,7 @@ function createInvoice() {
     };
     if (ticketId) body.TicketID = ticketId;
 
+    function doSubmit() {
     apiPost('/bill/create-dinein', body).then(function (r) {
         if (!r.ok) {
             return r.text().then(function (t) {
@@ -1910,17 +1922,8 @@ function createInvoice() {
         }
         return r.json();
     }).then(function (data) {
-        if (type === 'dine-in' && tableId) {
-            var t = TABLES.find(function (t) {
-                var id = t.TableID || t.tableID || t.tableId || t.id || t.ID;
-                return id == tableId;
-            });
-            if (t) {
-                if (t.Status !== undefined) t.Status = 'Occupied';
-                if (t.status !== undefined) t.status = 'Occupied';
-            }
-        }
-
+        // Bàn được BE đánh dấu Occupied khi tạo hóa đơn; loadAvailableTables() bên dưới
+        // sẽ tải lại trạng thái mới từ server nên không cần cập nhật cục bộ ở đây.
         INV_CART = {};
         ['inv-customer','inv-phone','inv-received','inv-change'].forEach(function (id) {
             var el = document.getElementById(id);
@@ -1952,6 +1955,31 @@ function createInvoice() {
     }).catch(function (err) {
         showPopup({ type: 'error', title: 'Không thể xuất hóa đơn', message: err.message || 'Lỗi tạo hóa đơn!' });
     });
+    } // end doSubmit
+
+    // Nếu bàn đang có khách (Occupied) → cảnh báo, cho phép nhân viên xác nhận tiếp tục
+    // (vd: gọi thêm món / lập hóa đơn khác cho cùng bàn) hoặc huỷ.
+    var occupiedTable = null;
+    if (type === 'dine-in' && tableId) {
+        occupiedTable = TABLES.find(function (t) {
+            var id = t.TableID || t.tableID || t.tableId || t.id || t.ID;
+            var st = (t.Status || t.status || '').toLowerCase();
+            return id == tableId && st === 'occupied';
+        });
+    }
+
+    if (occupiedTable) {
+        var tnum = occupiedTable.TableNumber || occupiedTable.tableNumber || occupiedTable.num || tableId;
+        showConfirm({
+            type: 'warning',
+            title: 'Bàn đang có khách',
+            message: 'Bàn ' + tnum + ' hiện đang có người. Bạn có muốn tiếp tục lập hóa đơn cho bàn này không?',
+            confirmText: 'Tiếp tục',
+            cancelText: 'Huỷ'
+        }).then(function (ok) { if (ok) doSubmit(); });
+    } else {
+        doSubmit();
+    }
 }
 
 // Load bills (dine-in + delivery) thật từ DB cho store đang trực, hôm nay.
@@ -1983,11 +2011,18 @@ function loadInvoicesFromAPI(silent) {
             var createChange = changes.find(function (c) { return (c.status || c.Status) === 'Create'; }) || changes[0] || {};
             var createdAt    = createChange.changeAt || createChange.ChangeAt || '';
             var timeStr      = createdAt ? fmtVnTime(createdAt) : '';
+            // Tên/SĐT khách: ưu tiên tên do BE nạp (khách đăng ký hoặc khách lẻ trong sổ),
+            // sau đó tới SĐT đã lưu trên hóa đơn (Contact). Không còn hard-code "Khách lẻ".
+            var custName  = b.customerName || b.CustomerName
+                          || (b.user && (b.user.fullName || b.user.FullName)) || '';
+            var custPhone = b.contact || b.Contact
+                          || (b.user && (b.user.phone || b.user.Phone)) || '';
+            var custLabel = custName || (type === 'delivery' ? 'Khách đặt online' : 'Khách lẻ');
             return {
                 id:       String(billId).slice(0, 8).toUpperCase(),
                 billID:   billId,
-                customer: type === 'delivery' ? 'Khách đặt online' : 'Khách lẻ',
-                phone:    '',
+                customer: custLabel,
+                phone:    custPhone,
                 items:    items,
                 total:    Number(b.total || b.Total || 0),
                 type:     type,
@@ -2134,6 +2169,12 @@ window.showBillDetail = function (billID) {
             var type      = billTypeOf(bill);
             var storeName = (bill.store && (bill.store.storeName || bill.store.StoreName)) || 'Chi nhánh';
             var tableNum  = bill.tableID || bill.TableID || '';
+            var custName  = bill.customerName || bill.CustomerName
+                          || (bill.user && (bill.user.fullName || bill.user.FullName)) || '';
+            var custPhone = bill.contact || bill.Contact
+                          || (bill.user && (bill.user.phone || bill.user.Phone)) || '';
+            var custLabel = custName || (type === 'delivery' ? 'Khách đặt online' : 'Khách lẻ');
+            var custLine  = custLabel + (custPhone ? ' · ' + custPhone : '');
             var mKey      = payKey(bill.paymentMethods || bill.PaymentMethods, PAYMENT_METHOD_LABEL);
             var sKey      = payKey(bill.paymentStatus  || bill.PaymentStatus,  PAYMENT_STATUS_LABEL);
             var pMethod   = PAYMENT_METHOD_LABEL[mKey] || '—';
@@ -2172,6 +2213,7 @@ window.showBillDetail = function (billID) {
             body.innerHTML =
                 '<div class="mov-detail-grid" style="max-width:none">'
               +   '<div class="mov-detail-label">Cửa hàng:</div><div class="mov-detail-value">' + storeName + '</div>'
+              +   '<div class="mov-detail-label">Khách hàng:</div><div class="mov-detail-value">' + custLine + '</div>'
               +   '<div class="mov-detail-label">Loại đơn:</div><div class="mov-detail-value">' + (TYPE_LABEL[type] || type) + '</div>'
               +   (type === 'dine-in' && tableNum ? '<div class="mov-detail-label">Bàn:</div><div class="mov-detail-value">' + tableNum + '</div>' : '')
               +   '<div class="mov-detail-label">Thanh toán:</div><div class="mov-detail-value">' + pMethod + ' · ' + pStatus + '</div>'
@@ -2211,15 +2253,18 @@ function loadAvailableTables() {
             var tables = Array.isArray(data) ? data : (data.data || []);
             if (tables.length) TABLES = tables;
             sel.innerHTML = '<option value="">-- Chọn bàn --</option>';
-            tables.filter(function (t) {
-                var status = t.Status || t.status || '';
-                return status.toLowerCase() === 'available';
-            }).forEach(function (t) {
+            // Hiện TẤT CẢ bàn (kể cả đang có khách / đã đặt trước) để nhân viên vẫn chọn
+            // được — khi chọn bàn đang có khách sẽ có cảnh báo xác nhận lúc lập hóa đơn.
+            tables.forEach(function (t) {
                 var opt = document.createElement('option');
                 var id = t.TableID || t.tableID || t.tableId || t.id || t.ID;
                 var num = t.TableNumber || t.tableNumber || t.num || id;
+                var status = (t.Status || t.status || 'Available').toLowerCase();
+                var suffix = status === 'occupied' ? ' — đang có người'
+                           : status === 'reserved' ? ' — đã đặt trước'
+                           : '';
                 opt.value = id;
-                opt.textContent = 'Bàn ' + num;
+                opt.textContent = 'Bàn ' + num + suffix;
                 sel.appendChild(opt);
             });
         })

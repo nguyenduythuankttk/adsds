@@ -120,6 +120,9 @@ namespace BackEnd.Migrations
                     b.Property<Guid?>("AddressID")
                         .HasColumnType("char(36)");
 
+                    b.Property<string>("Contact")
+                        .HasColumnType("longtext");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime(6)");
 
@@ -409,6 +412,24 @@ namespace BackEnd.Migrations
                     b.HasIndex("UserID");
 
                     b.ToTable("EmailVerificationToken");
+                });
+
+            modelBuilder.Entity("Backend.Models.GuestCustomer", b =>
+                {
+                    b.Property<string>("Phone")
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
+
+                    b.Property<DateTime>("LastBillAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.HasKey("Phone");
+
+                    b.ToTable("GuestCustomer");
                 });
 
             modelBuilder.Entity("Backend.Models.Ingredient", b =>

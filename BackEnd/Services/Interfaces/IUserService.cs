@@ -10,6 +10,7 @@ namespace Backend.Services.Interface
         Task<UserResponse?> GetUserByID(Guid userID);
         Task AddUser(User User);
         Task <User?> GetUserByContact (string contact);
+        Task <PhoneLookupResponse?> LookupByPhone (string phone);
         Task UpdateUser(Guid userID, UserUpdateRequest request);
         Task SoftDeleteUser(Guid userID);
         Task <int> GetQtyUser();

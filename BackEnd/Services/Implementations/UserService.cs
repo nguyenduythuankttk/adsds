@@ -72,6 +72,44 @@ namespace Backend.Services.Implementations
         public async Task<User?> GetUserByContact (string contact) =>
             await _dbContext.User.FirstOrDefaultAsync(u => u.Phone == contact || u.Email == contact);
 
+        // Tra cứu khách theo SĐT cho màn lập hóa đơn của nhân viên:
+        //   - Khớp tài khoản đã đăng ký  → IsRegistered = true  (kèm UserID để nạp voucher).
+        //   - Không có tài khoản nhưng đã từng mua (sổ GuestCustomer) → IsRegistered = false.
+        //   - Hoàn toàn mới → trả null (FE hiển thị "Khách mới").
+        public async Task<PhoneLookupResponse?> LookupByPhone(string phone)
+        {
+            var digits = new string((phone ?? "").Where(char.IsDigit).ToArray());
+            if (digits.Length < 8) return null;
+
+            var user = await _dbContext.User.AsNoTracking()
+                .Where(u => !(u is Employee) && u.DeletedAt == null && u.Phone == digits)
+                .Select(u => new { u.UserID, u.FullName, u.Phone })
+                .FirstOrDefaultAsync();
+            if (user != null)
+                return new PhoneLookupResponse {
+                    FullName = user.FullName,
+                    Phone = user.Phone,
+                    UserID = user.UserID,
+                    IsRegistered = true
+                };
+
+            try {
+                var guest = await _dbContext.GuestCustomer.AsNoTracking()
+                    .FirstOrDefaultAsync(g => g.Phone == digits);
+                if (guest != null)
+                    return new PhoneLookupResponse {
+                        FullName = guest.Name,
+                        Phone = guest.Phone,
+                        UserID = null,
+                        IsRegistered = false
+                    };
+            } catch (Exception ex) {
+                Console.WriteLine("LookupByPhone: bỏ qua sổ khách lẻ GuestCustomer - " + ex.Message);
+            }
+
+            return null;
+        }
+
         public async Task UpdateUser(Guid userID, UserUpdateRequest request)
         {
             var user = await _dbContext.User.FindAsync(userID);

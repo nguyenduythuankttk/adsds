@@ -5,6 +5,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Backend.Models.DTOs.Request{
     public class DineInBillCreateRequest{
         public string? contact  {get;set;}
+        // Tên khách nhập tay (khách vãng lai). Trước đây FE đã gửi nhưng DTO thiếu field này
+        // nên bị bỏ qua → không lưu được tên khách lẻ.
+        public string? customerName {get;set;}
         public int StoreID { get; set; }
         public int? TableID { get; set; }
         public PaymentMethods PaymentMethods { get; set; }
