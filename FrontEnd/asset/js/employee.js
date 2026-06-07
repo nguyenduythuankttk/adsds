@@ -46,12 +46,28 @@ setInterval(function(){if(isTokenExpired()){clearAuth();window.location.href='in
 })();
 
 function logout() {
-    apiPost('/auth/logout').then(function () {
-        clearAuth();
-        window.location.href = 'index.html';
+    apiPost('/auth/logout').then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) {
+            // Backend chặn (400) khi chưa hết ca → báo lý do, KHÔNG đăng xuất.
+            if (!res.ok) {
+                showPopup({
+                    type: 'warning',
+                    title: 'Chưa thể đăng xuất',
+                    message: (data && data.message) || 'Bạn chưa hết ca làm việc, không thể đăng xuất.'
+                });
+                return;
+            }
+            // Thành công (kể cả khi backend tự động check-out) → xoá phiên & về trang chủ.
+            clearAuth();
+            window.location.href = 'index.html';
+        });
     }).catch(function () {
-        clearAuth();
-        window.location.href = 'index.html';
+        // Lỗi mạng/máy chủ: không rõ trạng thái ca → không tự đăng xuất để tránh bỏ sót check-out.
+        showPopup({
+            type: 'error',
+            title: 'Lỗi đăng xuất',
+            message: 'Không thể kết nối máy chủ để đăng xuất. Vui lòng thử lại.'
+        });
     });
 }
 
