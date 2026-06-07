@@ -42,6 +42,9 @@ namespace Backend.Services.Implementations
             .Where(t => t.DeletedAt == null)
             .ToListAsync();
 
+        // Mã code ngắn, dễ đọc cho từng voucher (8 ký tự HEX in hoa). Đủ duy nhất thực tế.
+        private static string GenerateCode() => Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+
         public async Task AddTicket(TicketCreateRequest createRequest)
         {
             try
@@ -49,6 +52,8 @@ namespace Backend.Services.Implementations
                 var newticket = new Ticket
                 {
                     TicketID = Guid.NewGuid(),
+                    Name = createRequest.Name,
+                    Code = GenerateCode(),
                     StartDate = createRequest.StartDate,
                     EndDate = createRequest.EndDate,
                     Discount = createRequest.Discount,
@@ -77,6 +82,8 @@ namespace Backend.Services.Implementations
                         var ticket = new Ticket
                         {
                             TicketID = Guid.NewGuid(),
+                            Name = createRequest.Name,
+                            Code = GenerateCode(),
                             StartDate = createRequest.StartDate,
                             EndDate = createRequest.EndDate,
                             Discount = createRequest.Discount,
@@ -109,6 +116,9 @@ namespace Backend.Services.Implementations
 
             try
             {
+                if(!string.IsNullOrWhiteSpace(request.Name))
+                    ticket.Name = request.Name;
+
                 if(request.StartDate.HasValue)
                     ticket.StartDate = request.StartDate.Value;
                 

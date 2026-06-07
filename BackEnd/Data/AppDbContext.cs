@@ -115,6 +115,11 @@ namespace Backend.Data {
             modelBuilder.Entity<ProcessingDetail>()
                 .HasOne(x => x.OutputIngredient).WithMany().HasForeignKey(x => x.OutputIngredientID).OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<Ticket>()
+                .Property(t => t.Name).HasMaxLength(120);
+            modelBuilder.Entity<Ticket>()
+                .Property(t => t.Code).HasMaxLength(20);
+
             modelBuilder.Entity<TicketUser>()
                 .HasKey(x => new { x.TicketID, x.UserID });
             modelBuilder.Entity<TicketUser>()

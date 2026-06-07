@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>ERD Chônlibi</title>
+<style>
+  body { margin:0; padding:16px; background:#ffffff; font-family: Arial, sans-serif; }
+  .mermaid { font-size: 14px; }
+</style>
+</head>
+<body>
+<pre class="mermaid">
+erDiagram
+  USER ||--o{ ADDRESS : "có"
+  USER ||--o{ BILL : "đặt"
+  USER ||--o{ DELIVERYINFO : "nhận giao"
+  USER ||--o{ TICKETUSER : "sở hữu"
+  USER ||--o{ EMAILVERIFICATIONTOKEN : "xác thực"
+  USER ||--o{ TICKET : "đã dùng"
+  USER ||--|| EMPLOYEE : "kế thừa (TPH)"
+
+  STORE ||--o| ADDRESS : "địa chỉ"
+  SUPPLIER ||--o| ADDRESS : "địa chỉ"
+  STORE ||--o| BANKACCOUNT : "tài khoản NH"
+  STORE ||--o{ BILL : "lập"
+  STORE ||--o{ DININGTABLE : "có bàn"
+  STORE ||--o{ WAREHOUSE : "có kho"
+  STORE ||--o{ EMPLOYEE : "tuyển"
+  STORE ||--o{ PURCHASEORDER : "đặt mua"
+  STORE ||--o{ RECEIPT : "nhập kho"
+
+  EMPLOYEE ||--o{ BILLCHANGE : "thay đổi"
+  EMPLOYEE ||--o{ DELIVERYLOG : "ghi nhận"
+  EMPLOYEE ||--o{ POAPPROVAL : "duyệt"
+  EMPLOYEE ||--o{ PROCESSINGLOG : "sơ chế"
+  EMPLOYEE ||--o{ RECEIPT : "nhập"
+  EMPLOYEE ||--o{ RECEIPTCHANGE : "đổi"
+  EMPLOYEE ||--o{ SHIFT : "làm ca"
+  EMPLOYEE ||--o{ STOCKMOVEMENT : "thao tác"
+  EMPLOYEE ||--o{ SHIFTTASK : "tạo việc"
+  EMPLOYEE ||--o{ SHIFTTASK : "hoàn thành"
+  EMPLOYEE ||--o{ LEAVEREQUEST : "xin nghỉ"
+  EMPLOYEE ||--o{ LEAVEREQUEST : "duyệt nghỉ"
+
+  PRODUCT ||--o{ PRODUCTVARIENT : "có biến thể"
+  PRODUCT ||--o{ COMBODETAIL : "là combo"
+  PRODUCT ||--o{ COMBODETAIL : "là thành phần"
+  PRODUCTVARIENT ||--o{ BILLDETAIL : "bán trong"
+  PRODUCTVARIENT ||--o{ RECEIPE : "định mức"
+
+  BILL ||--o{ BILLDETAIL : "gồm"
+  BILL ||--o{ BILLCHANGE : "lịch sử"
+  BILL ||--o| DELIVERYINFO : "giao hàng"
+  DININGTABLE ||--o| BILL : "phục vụ"
+  TICKET ||--o{ BILL : "giảm giá"
+  TICKET ||--o{ TICKETUSER : "phát cho"
+  ADDRESS ||--o{ BILL : "giao đến"
+  ADDRESS ||--o{ DELIVERYINFO : "đến"
+  DELIVERYINFO ||--o{ DELIVERYLOG : "nhật ký"
+
+  INGREDIENT ||--o{ INVENTORYBATCH : "có lô"
+  INGREDIENT ||--o{ PODETAIL : "đặt mua"
+  INGREDIENT ||--o{ RECEIPTDETAIL : "nhập"
+  INGREDIENT ||--o{ RECEIPE : "thuộc công thức"
+  INGREDIENT ||--o{ STOCKMOVEMENT : "biến động"
+  INGREDIENT ||--o{ SUPPLIERINGREDIENT : "được cung ứng"
+  INGREDIENT ||--o{ PROCESSINGDETAIL : "đầu ra"
+  WAREHOUSE ||--o{ INVENTORYBATCH : "chứa"
+  INVENTORYBATCH ||--o{ STOCKMOVEMENT : "ghi nhận"
+  INVENTORYBATCH ||--o{ PROCESSINGDETAIL : "lô nguồn"
+  INVENTORYBATCH ||--o{ PROCESSINGDETAIL : "lô đầu ra"
+  RECEIPTDETAIL ||--o{ INVENTORYBATCH : "tạo lô"
+
+  SUPPLIER ||--o{ PURCHASEORDER : "cung cấp"
+  SUPPLIER ||--o{ RECEIPT : "giao hàng"
+  SUPPLIER ||--o{ SUPPLIERINGREDIENT : "cung ứng"
+  PURCHASEORDER ||--o{ PODETAIL : "chi tiết"
+  PURCHASEORDER ||--o{ POAPPROVAL : "trạng thái duyệt"
+  PURCHASEORDER ||--o| RECEIPT : "sinh phiếu nhập"
+  RECEIPT ||--o{ RECEIPTDETAIL : "chi tiết"
+  RECEIPT ||--o{ RECEIPTCHANGE : "lịch sử"
+  PROCESSINGLOG ||--o{ PROCESSINGDETAIL : "chi tiết"
+  SHIFT ||--o{ SHIFTTASK : "gồm việc"
+
+  USER {
+    guid UserID PK
+    string UserName
+    string FullName
+    string Email
+    string Phone
+    string HashPassword
+    string Gender
+    date BirthDate
+    bool IsVerified
+    datetime CreateAt
+    datetime DeletedAt
+    string Discriminator
+  }
+  EMPLOYEE {
+    guid UserID PK
+    string Role
+    decimal BasicSalary
+    int StoreID FK
+    datetime DeleteAt
+  }
+  ADDRESS {
+    guid AddressID PK
+    string StreetAddress
+    string District
+    string Province
+    double Latitude
+    double Longitude
+    bool IsDefault
+    guid UserID FK
+    int StoreID FK
+    int SupplierID FK
+  }
+  STORE {
+    int StoreID PK
+    string StoreName
+    string Phone
+    string Email
+    int SeatingCapacity
+    int TotalPoints
+    int TotalReviews
+    datetime DeletedAt
+  }
+  BANKACCOUNT {
+    int BankAccountID PK
+    int StoreID FK
+    string AccountHolderName
+    string AccountNumber
+    string BankCode
+    datetime DeletedAt
+  }
+  PRODUCT {
+    int ProductID PK
+    string ProductName
+    string ProductType
+    string Description
+    string Image
+    int SoldCount
+    datetime DeletedAt
+  }
+  PRODUCTVARIENT {
+    int ProductVarientID PK
+    int ProductID FK
+    string Size
+    decimal Price
+    int ForPeople
+    bool IsActive
+    datetime DeletedAt
+  }
+  COMBODETAIL {
+    int ComboID PK,FK
+    int ProductID PK,FK
+    decimal qty
+  }
+  RECEIPE {
+    int IngredientID PK,FK
+    int ProductVarientID PK,FK
+    decimal QtyBeforeProcess
+    decimal QtyAfterProcess
+    decimal BatchSize
+    bool IsConsumable
+    datetime DeletedAt
+  }
+  INGREDIENT {
+    int IngredientID PK
+    string IngredientName
+    string IngredientUnit
+    decimal CostPerUnit
+    datetime DeletedAt
+  }
+  WAREHOUSE {
+    int WarehouseID PK
+    int StoreID FK
+    int Capacity
+    datetime DeletedAt
+  }
+  INVENTORYBATCH {
+    guid BatchID PK
+    int IngredientID FK
+    int WarehouseID FK
+    string BatchCode
+    string BatchType
+    decimal QuantityOriginal
+    decimal QuantityOnHand
+    decimal UnitCost
+    date Mfd
+    date Exp
+    datetime ImportDate
+    string Status
+    guid GoodsReceiptID
+  }
+  STOCKMOVEMENT {
+    guid StockMovementID PK
+    guid BatchID FK
+    int IngredientID FK
+    guid EmployeeID FK
+    string MovementType
+    decimal QtyChange
+    string ReferenceType
+    guid ReferenceID
+    datetime TimeStamp
+  }
+  PROCESSINGLOG {
+    guid ProcessingID PK
+    guid EmployeeID FK
+    datetime ProcessedAt
+    datetime DeletedAt
+  }
+  PROCESSINGDETAIL {
+    guid ProcessingID PK,FK
+    guid SourceBatchID PK,FK
+    guid OutputBatchID FK
+    int OutputIngredientID FK
+    decimal InputKg
+    int OutputPieces
+    int BagCount
+    int PiecesPerBag
+  }
+  SUPPLIER {
+    int SupplierID PK
+    string SupplierName
+    string Email
+    string Phone
+    string TaxCode
+    datetime DeletedAt
+  }
+  SUPPLIERINGREDIENT {
+    int SupplierID PK,FK
+    int IngredientID PK,FK
+  }
+  PURCHASEORDER {
+    guid POID PK
+    int StoreID FK
+    int SupplierID FK
+    decimal TaxRate
+    decimal Total
+    datetime DeletedAt
+  }
+  PODETAIL {
+    guid POID PK,FK
+    int IngredientID PK,FK
+    decimal Quantity
+    decimal UnitPriceExpected
+  }
+  POAPPROVAL {
+    guid POApprovalID PK
+    guid POID FK
+    guid EmployeeID FK
+    string POStatus
+    string Comment
+    datetime LastUpdated
+  }
+  RECEIPT {
+    guid ReceiptID PK
+    guid POID FK
+    int StoreID FK
+    int SupplierID FK
+    guid EmployeeID FK
+    datetime DateReceive
+    datetime ConfirmedAt
+    datetime DeletedAt
+  }
+  RECEIPTDETAIL {
+    guid GoodsReceiptID PK,FK
+    int IngredientID PK,FK
+    decimal Quantity
+    decimal GoodQuantity
+    decimal UnitPrice
+  }
+  RECEIPTCHANGE {
+    guid ReceiptChangeID PK
+    guid ReceiptID FK
+    guid EmployeeID FK
+    string Status
+    datetime UpdateAt
+  }
+  BILL {
+    guid BillID PK
+    guid UserID FK
+    int StoreID FK
+    int TableID FK
+    guid AddressID FK
+    guid TicketID FK
+    decimal Total
+    decimal VAT
+    string PaymentMethods
+    int PaymentStatus
+    datetime PaidAt
+    decimal MoneyReceived
+    decimal MoneyGiveBack
+    string PaymentReference
+    bigint SePayTransactionId
+    datetime DeletedAt
+  }
+  BILLDETAIL {
+    guid BillID PK,FK
+    int ProductVarientID PK,FK
+    decimal Quantity
+    decimal Price
+    decimal InlineTotal
+  }
+  BILLCHANGE {
+    guid BillChangeID PK
+    guid BillID FK
+    guid EmployeeID FK
+    string Status
+    datetime ChangeAt
+  }
+  DININGTABLE {
+    int TableID PK
+    int StoreID FK
+    int TableNumber
+    int Capacity
+    string Status
+    datetime DeletedAt
+  }
+  DELIVERYINFO {
+    guid DeliveryID PK
+    guid BillID FK
+    guid UserID FK
+    guid AddressID FK
+    decimal ShippingFee
+    datetime ScheduledAt
+    datetime DeletedAt
+  }
+  DELIVERYLOG {
+    guid LogID PK
+    guid DeliveryID FK
+    guid EmployeeID FK
+    string Status
+    datetime ChangeAt
+  }
+  TICKET {
+    guid TicketID PK
+    decimal Discount
+    date StartDate
+    date EndDate
+    datetime UsedAt
+    guid UsedBy FK
+    datetime DeletedAt
+  }
+  TICKETUSER {
+    guid TicketID PK,FK
+    guid UserID PK,FK
+  }
+  SHIFT {
+    guid ShiftID PK
+    guid EmployeeID FK
+    datetime TimeIn
+    datetime TimeOut
+    datetime CheckIn
+    datetime CheckOut
+    string Status
+    datetime DeletedAt
+  }
+  SHIFTTASK {
+    guid TaskID PK
+    guid ShiftID FK
+    string Title
+    bool IsCompleted
+    guid CreatedByID FK
+    guid CompletedByID FK
+    datetime CreatedAt
+    datetime CompletedAt
+  }
+  LEAVEREQUEST {
+    guid LeaveRequestID PK
+    guid EmployeeID FK
+    date LeaveDate
+    string Reason
+    string Status
+    guid ReviewedByID FK
+    string ReviewNote
+    datetime ReviewedAt
+    datetime CreatedAt
+    datetime DeletedAt
+  }
+  BLACKLISTEDTOKEN {
+    guid id PK
+    string Token
+    datetime ExpiryDate
+  }
+  EMAILVERIFICATIONTOKEN {
+    guid Id PK
+    guid UserID FK
+    string Token
+    string Type
+    bool IsUsed
+    datetime ExpiryDate
+  }
+  REVIEW {
+    guid ReviewID PK
+    guid UserID
+    string Username
+    int StoreID
+    string Comment
+    int Rating
+    datetime CreatedAt
+  }
+</pre>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', maxTextSize: 900000, er: { useMaxWidth: false } });
+  window.addEventListener('load', () => { setTimeout(()=>{ document.title = 'ERD_READY'; }, 200); });
+</script>
+</body>
+</html>
