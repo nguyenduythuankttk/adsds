@@ -253,6 +253,15 @@ function dbLoadMyShift() {
         .then(function (r) { return r.ok ? r.text() : ''; })
         .then(function (t) {
             var sh = t ? JSON.parse(t) : null;
+            // Đồng bộ cache shiftStatus với DB (nguồn chân lý). Trước đây chỉ hero
+            // được cập nhật còn localStorage giữ giá trị cũ lúc đăng nhập → doCheckIn/
+            // doCheckOut đọc nhầm (vd toast "đã check-in 06:39" dù badge "Chưa check-in").
+            if (sh) {
+                sh.hasShift = true;
+                localStorage.setItem('shiftStatus', JSON.stringify(sh));
+            } else {
+                localStorage.removeItem('shiftStatus');
+            }
             DB_SHIFT = sh;
             DB_SHIFT_LOADED = true;
             applyShiftGateUI();
