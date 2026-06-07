@@ -2031,9 +2031,9 @@ function loadInvoicesFromAPI(silent) {
                 createdAt: createdAt
             };
         });
-        // Sắp xếp mới nhất trước
+        // Sắp xếp theo thời gian tạo tăng dần (sớm nhất → muộn nhất)
         INVOICES.sort(function (a, b) {
-            return (b.createdAt || '').localeCompare(a.createdAt || '');
+            return (a.createdAt || '').localeCompare(b.createdAt || '');
         });
 
         // Phát hiện bill mới (so với lần poll trước) → toast
@@ -3630,6 +3630,17 @@ function getDeliveryAddrText(d) {
 function renderDeliveryLocal() {
     var pending = DELIVERIES.filter(function (d) { return getDeliveryStatus(d) === 'pending'; });
     var done    = DELIVERIES.filter(function (d) { return getDeliveryStatus(d) !== 'pending'; });
+
+    // Sắp xếp thời gian tăng dần (sớm nhất → muộn nhất).
+    // Đơn đang chờ: theo lúc đặt; lịch sử: theo lần cập nhật trạng thái gần nhất.
+    pending.sort(function (a, b) {
+        return new Date(getOrderPlacedAt(a) || 0) - new Date(getOrderPlacedAt(b) || 0);
+    });
+    done.sort(function (a, b) {
+        var la = latestDeliveryLog(a) || {};
+        var lb = latestDeliveryLog(b) || {};
+        return new Date(la.changeAt || la.ChangeAt || 0) - new Date(lb.changeAt || lb.ChangeAt || 0);
+    });
 
     var pList = document.getElementById('delivery-pending-list');
     if (!pList) return;
