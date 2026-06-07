@@ -132,7 +132,8 @@ namespace Backend.Services.Implementations
                     StoreID = w.StoreID,
                     StoreName = store.StoreName,
                     Capacity = w.Capacity,
-                    CurrentLoad = w.InventoryBatch.Where(b => b.Status == BatchStatus.Available).Sum(b => b.QuantityOnHand),
+                    // (decimal?) + ?? 0: SUM trên tập rỗng trả NULL → ép kiểu decimal sẽ ném lỗi (400).
+                    CurrentLoad = w.InventoryBatch.Where(b => b.Status == BatchStatus.Available).Sum(b => (decimal?)b.QuantityOnHand) ?? 0,
                     BatchCount = w.InventoryBatch.Count
                 })
                 .ToListAsync();

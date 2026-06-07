@@ -694,10 +694,12 @@
    SHIFT CALENDAR — embedded in admin.html
 ============================================================ */
 var WD = ['CN','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
-var DAY_START = 6, HOURS = 18;
+var DAY_START = 8, HOURS = 14;
 var LATE_GRACE = 15;
+// Khung giờ làm việc cho phép xếp ca (08:00–22:00) — đồng bộ với backend AssignShift.
+var WORK_START_HOUR = 8, WORK_END_HOUR = 22;
 var SHIFT_DEFS = {
-  sang:  { label:'Ca Sáng',  start:6,  end:14, vars:['--sang','--sang-bg','--sang-ink']  },
+  sang:  { label:'Ca Sáng',  start:8,  end:14, vars:['--sang','--sang-bg','--sang-ink']  },
   chieu: { label:'Ca Chiều', start:14, end:22, vars:['--chieu','--chieu-bg','--chieu-ink'] }
 };
 var weekStart = caStartOfWeek(new Date());
@@ -978,11 +980,11 @@ function openAddShiftModal(wd,shiftKey,dayDate){
     +'<div class="mbody">'
     +'<div class="mfld"><label>Nhân viên</label><select id="ms-emp">'+empOpts+'</select></div>'
     +'<div class="mfld"><label>Loại ca</label><select id="ms-shift" onchange="onShiftTypeChange()">'+shiftOpts+'</select></div>'
-    +'<div class="mfld"><label>Ngày làm việc</label><input type="date" id="ms-date" value="'+dateStr+'"></div>'
+    +'<div class="mfld"><label>Ngày làm việc</label><input type="date" id="ms-date" value="'+dateStr+'" min="'+caLocalDate(new Date())+'"></div>'
     +'<div class="mtime-row">'
-    +'<div class="mfld"><label>Giờ bắt đầu</label><input type="time" id="ms-start" value="'+caPad(s.start)+':00"></div>'
+    +'<div class="mfld"><label>Giờ vào</label><input type="time" id="ms-start" value="'+caPad(s.start)+':00" min="'+caPad(WORK_START_HOUR)+':00" max="'+caPad(WORK_END_HOUR)+':00"></div>'
     +'<div class="arr">→</div>'
-    +'<div class="mfld"><label>Giờ kết thúc</label><input type="time" id="ms-end" value="'+caPad(s.end)+':00"></div>'
+    +'<div class="mfld"><label>Giờ ra</label><input type="time" id="ms-end" value="'+caPad(s.end)+':00" min="'+caPad(WORK_START_HOUR)+':00" max="'+caPad(WORK_END_HOUR)+':00"></div>'
     +'</div></div>'
     +'<div class="mfoot"><button class="ca-add-btn ghost" onclick="closeCaModal()">Huỷ</button><button class="ca-add-btn" onclick="submitAddShift()">Phân ca</button></div>';
   document.getElementById('caOv').classList.add('on');
@@ -1000,6 +1002,16 @@ function submitAddShift(){
   var end=(document.getElementById('ms-end')||{}).value;
   if(!empID||!date||!start||!end){caFlash('Vui lòng điền đầy đủ thông tin');return;}
   var timeIn=date+'T'+start+':00+07:00', timeOut=date+'T'+end+':00+07:00';
+  var inDt=new Date(timeIn), outDt=new Date(timeOut);
+  if(isNaN(inDt.getTime())||isNaN(outDt.getTime())){caFlash('Giờ không hợp lệ');return;}
+  if(inDt>=outDt){caFlash('Giờ vào phải sớm hơn giờ ra');return;}
+  // Ca làm chỉ được xếp trong khung giờ 08:00–22:00.
+  var sH=parseInt(start.slice(0,2),10), sM=parseInt(start.slice(3,5),10);
+  var eH=parseInt(end.slice(0,2),10), eM=parseInt(end.slice(3,5),10);
+  if(sH<WORK_START_HOUR||(eH>WORK_END_HOUR)||(eH===WORK_END_HOUR&&eM>0)){
+    caFlash('Ca làm chỉ được xếp trong khung giờ 08:00–22:00');return;
+  }
+  if(inDt<new Date()){caFlash('Không thể phân ca vào thời gian đã qua');return;}
   apiPost('/shift/assign/'+ADMIN_STORE_ID,{EmployeeID:empID,TimeIn:timeIn,TimeOut:timeOut})
     .then(function(r){
       if(r.ok){caFlash('Phân ca thành công');closeCaModal();caReload();}

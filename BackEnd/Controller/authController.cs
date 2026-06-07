@@ -12,15 +12,18 @@ namespace Backend.Controller
         private readonly IAuthService _AuthService;
         private readonly IUserService _UserService;
         private readonly IEmployeeService _EmployeeSevice;
+        private readonly IShiftService _ShiftService;
 
         public authController(
             IAuthService authService,
             IUserService userService,
-            IEmployeeService employeeService
+            IEmployeeService employeeService,
+            IShiftService shiftService
         ){
             _AuthService = authService;
             _EmployeeSevice = employeeService;
             _UserService = userService;
+            _ShiftService = shiftService;
         }
 
         [HttpPost("customer_login")]
@@ -39,6 +42,16 @@ namespace Backend.Controller
         [HttpPost("logout")]
         public async Task<IActionResult> Logout(){
             var token = Request.Headers["Authorization"].ToString().Replace("Bearer ", "").Trim();
+
+            // Tự động check-out ca đang mở khi đăng xuất (nhân viên). Không để lỗi check-out
+            // làm hỏng quá trình đăng xuất; khách hàng không có ca nên là no-op.
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("user_id")?.Value;
+            if (Guid.TryParse(idClaim, out var employeeID)) {
+                try { await _ShiftService.AutoCheckOutOnLogout(employeeID); }
+                catch (Exception ex) { Console.WriteLine($"[Logout] auto check-out failed: {ex.Message}"); }
+            }
+
             await _AuthService.Logout(token);
             return Ok("Đăng xuất thành công");
         }

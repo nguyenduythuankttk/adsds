@@ -15,5 +15,6 @@ namespace Backend.Services.Interface{
         Task SoftDeleteShift(Guid ID);
         Task<ShiftCheckInResponse> CheckInForEmployee(Guid employeeID);
         Task<ShiftCheckInResponse> CheckOutForEmployee(Guid employeeID);
+        Task<bool> AutoCheckOutOnLogout(Guid employeeID);
     }
 }

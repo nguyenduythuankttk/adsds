@@ -388,6 +388,8 @@ tbody tr:hover td { background: #fdf7f5; }
 .del-id   { font-size: 13px; font-weight: 700; color: var(--primary); }
 .del-addr { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .del-customer { font-size: 13px; font-weight: 600; }
+.del-placed { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.del-placed i { margin-right: 3px; }
 .del-sched { font-size: 12px; color: #2d7d46; font-weight: 600; margin-top: 3px; }
 .del-sched i { margin-right: 3px; }
 .del-sched-wait { color: #c0392b; }

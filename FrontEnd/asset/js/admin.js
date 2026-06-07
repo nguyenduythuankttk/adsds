@@ -754,13 +754,27 @@ function renderWhTable(){
     }).join('');
 }
 
+// Nhãn + class badge trạng thái cho 1 lô (dùng chung cho bảng lô chi tiết).
+function batchStatusBadge(b){
+    var ds=batchDS(b),sCls,sTx;
+    if(ds==='Available'){sCls='badge-ok';sTx='Còn Hàng';}
+    else if(ds==='expiring'){sCls='badge-expiring';sTx='Sắp Hết Hạn';}
+    else if(ds==='Expired'){sCls='badge-expired';sTx='Hết Hạn';}
+    else if(ds==='Depleted'){sCls='badge-inactive';sTx='Hết Hàng';}
+    else if(ds==='Damaged'){sCls='badge-rejected';sTx='Hỏng';}
+    else if(ds==='Locked'){sCls='badge-pending';sTx='Khóa';}
+    else{sCls='badge-inactive';sTx=ds;}
+    return bdg(sCls,sTx);
+}
+
 function renderIngSummary(){
     var t=document.getElementById('ing-summary-tbody');if(!t)return;
     var ingMap={};
     BATCHES_DATA.forEach(function(b){
         if(!b.ingredient)return;
         var k=b.ingredientID;
-        if(!ingMap[k])ingMap[k]={name:b.ingredient.ingredientName,unit:b.ingredient.ingredientUnit,qty:0,cnt:0,expCnt:0};
+        if(!ingMap[k])ingMap[k]={name:b.ingredient.ingredientName,unit:b.ingredient.ingredientUnit,qty:0,cnt:0,expCnt:0,batches:[]};
+        ingMap[k].batches.push(b);
         if(b.status==='Available'&&b.quantityOnHand>0){ingMap[k].qty+=b.quantityOnHand;ingMap[k].cnt++;if(isBatchExpiring(b))ingMap[k].expCnt++;}
     });
     var keys=Object.keys(ingMap);
@@ -768,12 +782,49 @@ function renderIngSummary(){
     t.innerHTML=keys.sort(function(a,b){return ingMap[b].qty-ingMap[a].qty;}).map(function(k){
         var ig=ingMap[k];
         var expHtml=ig.expCnt>0?bdg('badge-expiring',ig.expCnt+' sắp hết hạn'):'<span style="color:var(--muted)">—</span>';
-        return '<tr>'+
-            '<td style="font-weight:700">'+ig.name+'</td>'+
+        // FIFO: lô nhập trước lên đầu, giống bảng lô hàng bên dưới.
+        var batches=ig.batches.slice().sort(function(a,b){return new Date(a.importDate)-new Date(b.importDate);});
+        var rowsHtml=batches.map(function(b){
+            var qtyCol=fv(b.quantityOnHand)+' / '+fv(b.quantityOriginal);
+            var expSt=(batchDS(b)==='Expired'||batchDS(b)==='expiring')?'color:var(--red);font-weight:700':'';
+            var typeTx=b.batchType==='Raw'?'Thô':'Sơ Chế';
+            return '<tr>'+
+                '<td style="font-family:monospace;font-weight:700;color:var(--primary)">'+(b.batchCode||b.batchID.toString().slice(0,8).toUpperCase())+'</td>'+
+                '<td>'+typeTx+'</td>'+
+                '<td>Kho #'+b.warehouseID+'</td>'+
+                '<td style="text-align:right;font-weight:700">'+qtyCol+'</td>'+
+                '<td style="text-align:right">'+fv(b.unitCost)+' đ</td>'+
+                '<td>'+fmtVnDate(b.importDate)+'</td>'+
+                '<td style="'+expSt+'">'+(b.exp?fmtVnDate(b.exp):'—')+'</td>'+
+                '<td>'+batchStatusBadge(b)+'</td>'+
+            '</tr>';
+        }).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:14px">Không có lô nào</td></tr>';
+        return '<tr class="ing-grp-row" onclick="toggleMovGroupDetail(this)" style="cursor:pointer">'+
+            '<td style="font-weight:700"><span class="toggle-icon" style="display:inline-block;transition:transform .2s ease;color:var(--primary);margin-right:6px"><i class="ti-angle-right"></i></span>'+ig.name+'</td>'+
             '<td style="color:var(--muted)">'+ig.unit+'</td>'+
             '<td style="font-weight:800;font-size:17px;color:var(--primary)">'+fv(ig.qty)+'</td>'+
             '<td>'+bdg('badge-ok',ig.cnt+' lô')+'</td>'+
             '<td>'+expHtml+'</td>'+
+        '</tr>'+
+        '<tr class="detail-row" style="display:none;background:#fcfcfc">'+
+            '<td colspan="5" style="padding:10px 20px">'+
+                '<div style="border:1px solid #eee;border-radius:8px;background:#fff;overflow:hidden;padding:12px;box-shadow:inset 0 2px 4px rgba(0,0,0,0.02)">'+
+                    '<div style="font-weight:700;font-size:12px;color:#555;margin-bottom:8px"><i class="ti-layers"></i> Các lô của "'+ig.name+'" — '+batches.length+' lô (FIFO)</div>'+
+                    '<table class="nested-movement-table" style="width:100%;border-collapse:collapse;font-size:12.5px">'+
+                        '<thead><tr>'+
+                            '<th style="text-align:left">Mã Lô</th>'+
+                            '<th style="text-align:left">Loại</th>'+
+                            '<th style="text-align:left">Kho</th>'+
+                            '<th style="text-align:right">SL Còn / Ban Đầu</th>'+
+                            '<th style="text-align:right">Giá Vốn</th>'+
+                            '<th style="text-align:left">Ngày Nhập</th>'+
+                            '<th style="text-align:left">HSD</th>'+
+                            '<th style="text-align:left">Trạng Thái</th>'+
+                        '</tr></thead>'+
+                        '<tbody>'+rowsHtml+'</tbody>'+
+                    '</table>'+
+                '</div>'+
+            '</td>'+
         '</tr>';
     }).join('');
 }

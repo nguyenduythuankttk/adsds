@@ -70,16 +70,28 @@ var DB_TASKS      = [];     // ShiftTask[] from GET /shift/task/by-shift/{id}
 var DB_WK_OFFSET  = 0;      // week offset for mini calendar (0 = this week)
 var DB_WEEK_SHIFTS = [];    // ShiftResponse[] for the displayed week
 
-// Có ca làm việc hôm nay không? Dùng để chặn MỌI thao tác thêm/sửa/xoá khi không có ca.
+// Đang trong ca làm việc không? Dùng để chặn MỌI thao tác thêm/sửa/xoá (nhận hàng,
+// nhập kho, đơn hàng, giao hàng…) khi không có ca HOẶC đã check-out (ca đã kết thúc).
 function requireShift() {
     if (!DB_SHIFT_LOADED) return true;   // chưa biết trạng thái ca → chưa chặn
-    if (DB_SHIFT) return true;
-    showPopup({
-        type: 'warning',
-        title: 'Không có ca làm việc',
-        message: 'Hôm nay bạn không có ca làm việc nên không thể thực hiện thao tác này. Vui lòng liên hệ quản lý nếu cần.'
-    });
-    return false;
+    if (!DB_SHIFT) {
+        showPopup({
+            type: 'warning',
+            title: 'Không có ca làm việc',
+            message: 'Hôm nay bạn không có ca làm việc nên không thể thực hiện thao tác này. Vui lòng liên hệ quản lý nếu cần.'
+        });
+        return false;
+    }
+    // Đã check-out → ca đã kết thúc, không cho thao tác nghiệp vụ nữa.
+    if (DB_SHIFT.checkOut || DB_SHIFT.CheckOut) {
+        showPopup({
+            type: 'warning',
+            title: 'Ca làm việc đã kết thúc',
+            message: 'Bạn đã check-out nên không thể thực hiện thao tác này.'
+        });
+        return false;
+    }
+    return true;
 }
 
 // Khoá/mở các nút thao tác trên dashboard theo việc có ca hay không.
@@ -172,17 +184,29 @@ function dbFillHero(ss) {
         }
     }
     if (coutEl) {
+        var coutLabel = coutEl.querySelector('.tl');
+        var outT2 = new Date(ss.timeOut || ss.TimeOut);
         if (ss.checkOut || ss.CheckOut) {
             coutEl.classList.add('done');
             coutEl.classList.remove('disabled');
-            coutEl.querySelector('.tl').textContent = 'Đã check-out ' + fmt(ss.checkOut || ss.CheckOut);
-        } else if (ss.checkIn || ss.CheckIn) {
-            coutEl.classList.remove('disabled', 'done');
-            coutEl.querySelector('.tl').textContent = 'Check-out';
-        } else {
+            coutEl.title = '';
+            coutLabel.textContent = 'Đã check-out ' + fmt(ss.checkOut || ss.CheckOut);
+        } else if (!(ss.checkIn || ss.CheckIn)) {
+            // Chưa check-in thì chưa thể check-out.
             coutEl.classList.add('disabled');
             coutEl.classList.remove('done');
-            coutEl.querySelector('.tl').textContent = 'Check-out';
+            coutEl.title = 'Bạn cần check-in trước';
+            coutLabel.textContent = 'Check-out';
+        } else if (!isNaN(outT2.getTime()) && new Date() < outT2) {
+            // Chỉ cho check-out sau khi đã hết giờ tan ca.
+            coutEl.classList.add('disabled');
+            coutEl.classList.remove('done');
+            coutEl.title = 'Chỉ có thể check-out sau ' + fmt(ss.timeOut || ss.TimeOut);
+            coutLabel.textContent = 'Check-out sau ' + fmt(ss.timeOut || ss.TimeOut);
+        } else {
+            coutEl.classList.remove('disabled', 'done');
+            coutEl.title = '';
+            coutLabel.textContent = 'Check-out';
         }
     }
 }
@@ -190,8 +214,9 @@ function dbFillHero(ss) {
 // Load today's shift from API then load tasks
 function dbLoadMyShift() {
     apiGet('/shift/my-shift')
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (sh) {
+        .then(function (r) { return r.ok ? r.text() : ''; })
+        .then(function (t) {
+            var sh = t ? JSON.parse(t) : null;
             DB_SHIFT = sh;
             DB_SHIFT_LOADED = true;
             applyShiftGateUI();
@@ -1093,7 +1118,12 @@ function renderViewStock(silent) {
 
             // tải batch của tất cả kho thuộc store
             return Promise.all(whs.map(function (w) {
-                return apiGet('/inventorybatch/by-warehouse/' + w.warehouseID)
+                // ID kho có thể là warehouseID/warehouseId/id tuỳ cách serialize; bỏ qua kho không có ID
+                // để tránh gọi /by-warehouse/undefined → backend trả 400 (model-binding).
+                var whId = w.warehouseID != null ? w.warehouseID
+                         : (w.warehouseId != null ? w.warehouseId : w.id);
+                if (whId == null) return Promise.resolve([]);
+                return apiGet('/inventorybatch/by-warehouse/' + whId)
                     .then(function (r) { return r.ok ? r.json() : []; })
                     .then(function (bd) { return pAsArray(bd); })
                     .catch(function () { return []; });
@@ -1162,16 +1192,63 @@ function vsRender() {
         VS_BATCHES.forEach(function (b) {
             var ing = b.ingredient || {};
             var key = b.ingredientID;
-            if (!byIng[key]) byIng[key] = { name: ing.ingredientName || ('#' + key), unit: ing.ingredientUnit || '', total: 0, avail: 0, exp: 0 };
+            if (!byIng[key]) byIng[key] = { name: ing.ingredientName || ('#' + key), unit: ing.ingredientUnit || '', total: 0, avail: 0, exp: 0, batches: [] };
+            byIng[key].batches.push(b);
             byIng[key].total += Number(b.quantityOnHand || 0);
             if ((b.status || '') === 'Available') byIng[key].avail++;
             if (vsBatchExpiring(b)) byIng[key].exp++;
         });
         var ingRows = Object.keys(byIng).map(function (k) {
             var x = byIng[k];
-            return '<tr><td style="font-weight:600">' + x.name + '</td><td>' + x.unit + '</td>'
-                + '<td><strong>' + pNum(x.total) + '</strong></td><td>' + x.avail + '</td>'
-                + '<td>' + (x.exp ? '<span class="badge badge-pending">' + x.exp + '</span>' : '0') + '</td></tr>';
+            // FIFO: lô nhập trước lên đầu (giống bảng lô hàng bên dưới)
+            var batches = x.batches.slice().sort(function (a, b) { return new Date(a.importDate) - new Date(b.importDate); });
+            var subRowsHtml = batches.map(function (b) {
+                var ing = b.ingredient || {};
+                var type = (b.batchType || b.BatchType) === 'Raw' ? 'Thô' : 'Đã sơ chế';
+                var stBadge = vsBatchExpiring(b) ? '<span class="badge badge-pending">Sắp hết hạn</span>'
+                    : (b.status === 'Available' ? '<span class="badge badge-active">Còn hàng</span>'
+                    : '<span class="badge">' + (b.status || '—') + '</span>');
+                var qtyStr = pNum(b.quantityOnHand) + (b.quantityOriginal != null ? ' / ' + pNum(b.quantityOriginal) : '');
+                return '<tr>'
+                    + '<td style="font-family:monospace;font-weight:700;color:var(--primary)">' + (b.batchCode || String(b.batchID).slice(0, 8)) + '</td>'
+                    + '<td>' + type + '</td>'
+                    + '<td>Kho #' + b.warehouseID + '</td>'
+                    + '<td style="text-align:right"><strong>' + qtyStr + '</strong> ' + (ing.ingredientUnit || '') + '</td>'
+                    + '<td style="text-align:right">' + pNum(b.unitCost) + 'đ</td>'
+                    + '<td>' + fmtVnDate(b.importDate) + '</td>'
+                    + '<td>' + (b.exp ? fmtVnDate(b.exp) : '—') + '</td>'
+                    + '<td>' + stBadge + '</td>'
+                    + '</tr>';
+            }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:12px">Không có lô nào</td></tr>';
+            return '<tr class="recipe-group-row" onclick="toggleRecipeDetail(this)" style="cursor:pointer">'
+                + '  <td style="font-weight:600"><span class="toggle-icon"><i class="ti-angle-right"></i></span> ' + x.name + '</td>'
+                + '  <td>' + x.unit + '</td>'
+                + '  <td><strong>' + pNum(x.total) + '</strong></td>'
+                + '  <td>' + x.avail + '</td>'
+                + '  <td>' + (x.exp ? '<span class="badge badge-pending">' + x.exp + '</span>' : '0') + '</td>'
+                + '</tr>'
+                + '<tr class="recipe-detail-row" style="display:none;background:#fcfcfc">'
+                + '  <td colspan="5" style="padding:10px 20px">'
+                + '    <div style="border:1px solid #eee;border-radius:8px;background:#fff;overflow:hidden">'
+                + '      <div style="font-weight:700;font-size:12px;color:#555;padding:10px 12px;border-bottom:1px solid #eee;background:#fafafa"><i class="ti-layers"></i> Các lô của "' + x.name + '" — ' + batches.length + ' lô (FIFO)</div>'
+                + '      <table class="sub-table" style="width:100%;border-collapse:collapse;font-size:12px">'
+                + '        <thead>'
+                + '          <tr style="background:#fafafa;border-bottom:1px solid #eee">'
+                + '            <th style="text-align:left">Mã Lô</th>'
+                + '            <th style="text-align:left">Loại</th>'
+                + '            <th style="text-align:left">Kho</th>'
+                + '            <th style="text-align:right">SL Còn / Ban Đầu</th>'
+                + '            <th style="text-align:right">Giá Vốn</th>'
+                + '            <th style="text-align:left">Ngày Nhập</th>'
+                + '            <th style="text-align:left">HSD</th>'
+                + '            <th style="text-align:left">Trạng Thái</th>'
+                + '          </tr>'
+                + '        </thead>'
+                + '        <tbody>' + subRowsHtml + '</tbody>'
+                + '      </table>'
+                + '    </div>'
+                + '  </td>'
+                + '</tr>';
         });
         ingTb.innerHTML = ingRows.length ? ingRows.join('') : '<tr><td colspan="5" class="tbl-empty">Không có dữ liệu</td></tr>';
     }
@@ -1281,6 +1358,16 @@ function customerLookup() {
         });
 }
 
+// Lưu kết quả ca từ BE (ShiftCheckInResponse) vào localStorage + cập nhật giao diện.
+function applyShiftStatus(d) {
+    localStorage.setItem('shiftStatus', JSON.stringify(d));
+    DB_SHIFT = d;
+    dbFillHero(d);
+}
+function clockStr(d) {
+    return new Date(d).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
 function doCheckIn() {
     var ss = null;
     try { ss = JSON.parse(localStorage.getItem('shiftStatus') || 'null'); } catch (e) {}
@@ -1288,14 +1375,18 @@ function doCheckIn() {
         toast('Bạn không có ca làm việc hôm nay.', 'error'); return;
     }
     if (ss.checkIn || ss.CheckIn) {
-        var t = new Date(ss.checkIn || ss.CheckIn);
-        toast('Bạn đã check-in lúc ' + t.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }), 'success'); return;
+        toast('Bạn đã check-in lúc ' + clockStr(ss.checkIn || ss.CheckIn), 'success'); return;
     }
-    var now = new Date();
-    ss.checkIn = now.toISOString();
-    localStorage.setItem('shiftStatus', JSON.stringify(ss));
-    dbFillHero(ss);
-    toast('Check-in thành công lúc ' + now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }), 'success');
+    apiPost('/shift/check-in', {})
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+            var d = res.d || {};
+            if (!res.ok) { toast(d.message || 'Không thể check-in', 'error'); return; }
+            if (!d.hasShift) { toast(d.message || 'Bạn không có ca làm việc hôm nay.', 'error'); return; }
+            applyShiftStatus(d);
+            toast(d.checkIn ? 'Check-in thành công lúc ' + clockStr(d.checkIn) : (d.message || 'Đã check-in'), 'success');
+        })
+        .catch(function () { toast('Lỗi kết nối', 'error'); });
 }
 
 function doCheckOut() {
@@ -1308,14 +1399,23 @@ function doCheckOut() {
         toast('Bạn chưa check-in!', 'error'); return;
     }
     if (ss.checkOut || ss.CheckOut) {
-        var t = new Date(ss.checkOut || ss.CheckOut);
-        toast('Bạn đã check-out lúc ' + t.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }), 'success'); return;
+        toast('Bạn đã check-out lúc ' + clockStr(ss.checkOut || ss.CheckOut), 'success'); return;
     }
-    var now = new Date();
-    ss.checkOut = now.toISOString();
-    localStorage.setItem('shiftStatus', JSON.stringify(ss));
-    dbFillHero(ss);
-    toast('Check-out thành công lúc ' + now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }), 'success');
+    // Chỉ cho check-out khi đã hết giờ tan ca (chặn sớm phía FE, BE cũng kiểm tra lại).
+    var outT = new Date(ss.timeOut || ss.TimeOut);
+    if (!isNaN(outT.getTime()) && new Date() < outT) {
+        toast('Chưa đến giờ tan ca (' + clockStr(outT) + '), chưa thể check-out.', 'warning'); return;
+    }
+    apiPost('/shift/check-out', {})
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+            var d = res.d || {};
+            if (!res.ok) { toast(d.message || 'Không thể check-out', 'error'); return; }
+            if (!d.hasShift) { toast(d.message || 'Không có ca để check-out.', 'error'); return; }
+            applyShiftStatus(d);
+            toast(d.checkOut ? 'Check-out thành công lúc ' + clockStr(d.checkOut) : (d.message || 'Đã check-out'), 'success');
+        })
+        .catch(function () { toast('Lỗi kết nối', 'error'); });
 }
 
 function dashRequestLeave() {
@@ -1498,6 +1598,7 @@ var TABLE_STATUS_CYCLE = ['Available', 'Occupied', 'Reserved'];
         renderInvMenu();
         loadInvAvailability();
     }).catch(function (err) { console.error('[loadMenu]', err); });
+})();
 
 // Tải tình trạng còn hàng theo cửa hàng của nhân viên rồi vẽ lại menu để làm
 // mờ + chặn chọn những món đã hết nguyên liệu.
@@ -1508,7 +1609,6 @@ function loadInvAvailability() {
         renderInvMenu();
     });
 }
-})();
 
 // Dropdown "Mã giảm giá" nay phản ánh kho voucher của khách đã khớp tài khoản.
 // Gọi lại sau khi render/đổi loại đơn: nếu đã khớp khách thì nạp lại kho của khách, ngược lại reset.
@@ -3289,6 +3389,16 @@ function latestDeliveryLog(d) {
     })[0];
 }
 
+// Thời gian đặt đơn = log sớm nhất (log "Pending" tạo lúc đơn được tạo).
+function getOrderPlacedAt(d) {
+    var logs = d.deliveryLog || d.DeliveryLog || [];
+    if (!logs.length) return '';
+    var first = logs.slice().sort(function (a, b) {
+        return new Date(a.changeAt || a.ChangeAt || 0) - new Date(b.changeAt || b.ChangeAt || 0);
+    })[0];
+    return first.changeAt || first.ChangeAt || '';
+}
+
 function getDeliveryStatus(d) {
     var last = latestDeliveryLog(d);
     if (!last) return '';
@@ -3319,6 +3429,10 @@ function renderDeliveryLocal() {
             var user     = d.user || d.User || {};
             var customer = user.fullName || user.FullName || ('BillID: ' + String(billId).slice(0, 8));
             var address  = getDeliveryAddrText(d);
+            var placedAt = getOrderPlacedAt(d);
+            var placedHtml = placedAt
+                ? '<div class="del-placed"><i class="ti-time"></i> Đặt lúc: ' + fmtDeliveryTime(placedAt) + '</div>'
+                : '';
             var sched    = getScheduledAt(d);
             var gate     = deliveryStartGate(d);
             var schedHtml = sched
@@ -3332,6 +3446,7 @@ function renderDeliveryLocal() {
                 + '<div class="del-id">Đơn: ' + String(billId).slice(0, 8).toUpperCase() + '</div>'
                 + '<div class="del-customer">' + customer + '</div>'
                 + '<div class="del-addr"><i class="ti-location-pin"></i> ' + address + '</div>'
+                + placedHtml
                 + schedHtml
                 + '</div>'
                 + '<div style="display:flex;gap:8px;align-items:center">'

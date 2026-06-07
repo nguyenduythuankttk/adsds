@@ -214,8 +214,8 @@ namespace Backend.Services.Implementations{
                     }
                 }
 
-                // Làm tròn tổng tiền đến hàng nghìn đồng trước khi lưu DB.
-                bill.Total = MoneyHelper.RoundToThousand(bill.Total);
+                // Làm tròn tổng tiền đến hàng đơn vị (đồng), bỏ phần thập phân lẻ, trước khi lưu DB.
+                bill.Total = MoneyHelper.Round(bill.Total);
 
                 if (isBankTransfer)
                 {
@@ -411,8 +411,8 @@ namespace Backend.Services.Implementations{
                     }
                 }
 
-                // Làm tròn tổng tiền đến hàng nghìn đồng trước khi lưu DB.
-                bill.Total = MoneyHelper.RoundToThousand(bill.Total);
+                // Làm tròn tổng tiền đến hàng đơn vị (đồng), bỏ phần thập phân lẻ, trước khi lưu DB.
+                bill.Total = MoneyHelper.Round(bill.Total);
 
                 var billChange = new BillChange
                 {

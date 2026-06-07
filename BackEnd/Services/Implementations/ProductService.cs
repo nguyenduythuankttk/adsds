@@ -224,7 +224,10 @@ namespace Backend.Services.Implementations{
         //   - chỉ lô đã sơ chế (Processed), Status Available, còn số lượng, chưa hết hạn
         //   - thuộc kho của store
         //   - nhu cầu mỗi phần = QtyAfterProcess của từng nguyên liệu trong công thức
-        // Món không có công thức ⇒ luôn bán được (không tiêu hao nguyên liệu).
+        // Quy tắc:
+        //   - Món THƯỜNG không có công thức (chưa khai báo nguyên liệu) ⇒ BÁO HẾT HÀNG.
+        //   - Combo còn hàng khi MỌI sản phẩm thành phần còn hàng (đệ quy theo quy tắc trên);
+        //     hết hàng nếu có 1 thành phần hết hàng / không khai báo nguyên liệu / combo rỗng.
         public async Task<List<ProductAvailabilityResponse>> GetVarientAvailability(int storeID)
         {
             var today = VnTime.Today;
@@ -247,24 +250,23 @@ namespace Backend.Services.Implementations{
                 .GroupBy(x => x.IngredientID)
                 .ToDictionary(g => g.Key, g => g.Sum(x => x.QuantityOnHand));
 
-            var varientIDs = await _dbContext.ProductVarient
+            // Mọi biến thể đang bán + loại sản phẩm (để tách riêng combo).
+            var varients = await _dbContext.ProductVarient
                 .AsNoTracking()
-                .Where(v => v.DeletedAt == null && v.IsActive)
-                .Select(v => v.ProductVarientID)
+                .Where(v => v.DeletedAt == null && v.IsActive && v.Product.DeletedAt == null)
+                .Select(v => new { v.ProductVarientID, v.ProductID, v.Product.ProductType })
                 .ToListAsync();
 
             var recipesByVarient = recipes
                 .GroupBy(r => r.ProductVarientID)
                 .ToDictionary(g => g.Key, g => g.ToList());
 
-            var result = new List<ProductAvailabilityResponse>();
-            foreach (var vid in varientIDs)
+            // Tồn của 1 biến thể THƯỜNG. -1 = không giới hạn (công thức không tiêu hao gì).
+            // Không có công thức ⇒ (false, 0): báo hết hàng theo yêu cầu.
+            (bool available, decimal max) VarientStock(int vid)
             {
                 if (!recipesByVarient.TryGetValue(vid, out var items) || items.Count == 0)
-                {
-                    result.Add(new ProductAvailabilityResponse { ProductVarientID = vid, IsAvailable = true, MaxServings = -1 });
-                    continue;
-                }
+                    return (false, 0m);
 
                 decimal maxServings = decimal.MaxValue;
                 foreach (var item in items)
@@ -274,17 +276,72 @@ namespace Backend.Services.Implementations{
                     var servings = Math.Floor(avail / item.QtyAfterProcess);
                     if (servings < maxServings) maxServings = servings;
                 }
-                if (maxServings == decimal.MaxValue) maxServings = -1; // mọi QtyAfterProcess <= 0
-
-                result.Add(new ProductAvailabilityResponse
-                {
-                    ProductVarientID = vid,
-                    IsAvailable = maxServings != 0,
-                    MaxServings = maxServings
-                });
+                if (maxServings == decimal.MaxValue) maxServings = -1m; // mọi QtyAfterProcess <= 0
+                return (maxServings != 0m, maxServings);
             }
 
-            return result;
+            var varAvail = new Dictionary<int, (bool available, decimal max)>();
+            // Gộp về mức sản phẩm để combo tra cứu: sản phẩm còn hàng nếu CÓ biến thể còn hàng;
+            // số phần tối đa = lớn nhất trong các biến thể (-1 = không giới hạn).
+            var productAvail = new Dictionary<int, (bool available, decimal max)>();
+
+            foreach (var v in varients.Where(v => v.ProductType != ProductType.Combo))
+            {
+                var r = VarientStock(v.ProductVarientID);
+                varAvail[v.ProductVarientID] = r;
+
+                var cur = productAvail.GetValueOrDefault(v.ProductID, (available: false, max: 0m));
+                var available = cur.available || r.available;
+                var max = (r.max < 0 || cur.max < 0) ? -1m : Math.Max(cur.max, r.max);
+                productAvail[v.ProductID] = (available, max);
+            }
+
+            // Combo: còn hàng khi MỌI thành phần còn hàng và đủ số lượng theo qty.
+            var comboVarients = varients.Where(v => v.ProductType == ProductType.Combo).ToList();
+            if (comboVarients.Count > 0)
+            {
+                var comboIDs = comboVarients.Select(v => v.ProductID).Distinct().ToList();
+                var comboDetails = (await _dbContext.ComboDetail
+                        .AsNoTracking()
+                        .Where(cd => comboIDs.Contains(cd.ComboID) && cd.Product.DeletedAt == null)
+                        .Select(cd => new { cd.ComboID, cd.ProductID, cd.qty })
+                        .ToListAsync())
+                    .GroupBy(cd => cd.ComboID)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
+                foreach (var cv in comboVarients)
+                {
+                    if (!comboDetails.TryGetValue(cv.ProductID, out var items) || items.Count == 0)
+                    {
+                        varAvail[cv.ProductVarientID] = (false, 0m); // combo rỗng ⇒ hết hàng
+                        continue;
+                    }
+
+                    bool available = true;
+                    decimal maxServings = decimal.MaxValue;
+                    foreach (var it in items)
+                    {
+                        var comp = productAvail.GetValueOrDefault(it.ProductID, (available: false, max: 0m));
+                        if (!comp.available) { available = false; continue; }
+                        if (it.qty <= 0) continue;
+                        if (comp.max < 0) continue; // thành phần không tiêu hao ⇒ không giới hạn
+                        var servings = Math.Floor(comp.max / it.qty);
+                        if (servings <= 0) available = false;
+                        if (servings < maxServings) maxServings = servings;
+                    }
+                    if (maxServings == decimal.MaxValue) maxServings = -1m;
+                    varAvail[cv.ProductVarientID] = (available, available ? maxServings : 0m);
+                }
+            }
+
+            return varAvail
+                .Select(kv => new ProductAvailabilityResponse
+                {
+                    ProductVarientID = kv.Key,
+                    IsAvailable = kv.Value.available,
+                    MaxServings = kv.Value.max
+                })
+                .ToList();
         }
     }
 }

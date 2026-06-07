@@ -281,7 +281,8 @@ namespace Backend.Services.Implementations
                 .Where(p => p.DeletedAt == null &&
                             p.ProcessedAt >= start.ToDateTime(TimeOnly.MinValue) &&
                             p.ProcessedAt <= end.ToDateTime(TimeOnly.MaxValue) &&
-                            (storeID == null || p.Employee.StoreID == storeID.Value))
+                            (storeID == null ||
+                             _dbContext.Employee.Any(e => e.UserID == p.EmployeeID && e.StoreID == storeID.Value)))
                 .Include(p => p.Employee)
                 .Include(p => p.Details)
                 .ToListAsync();

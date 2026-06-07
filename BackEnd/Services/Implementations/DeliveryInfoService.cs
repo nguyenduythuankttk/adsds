@@ -140,7 +140,8 @@ namespace Backend.Services.Implementations{
                 .Where(di => di.DeliveryLog.Any() &&
                              di.DeliveryLog.Min(l => l.ChangeAt) >= start &&
                              di.DeliveryLog.Min(l => l.ChangeAt) < endExclusive &&
-                             (storeID == null || di.Bill.StoreID == storeID.Value))
+                             (storeID == null ||
+                              _dbcontext.Bill.Any(b => b.BillID == di.BillID && b.StoreID == storeID.Value)))
                 .ToListAsync();
         }
 

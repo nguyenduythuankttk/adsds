@@ -3,9 +3,9 @@ namespace Backend.Helpers
     // Tiện ích làm tròn tiền tệ (VND).
     public static class MoneyHelper
     {
-        // Làm tròn số tiền đến hàng nghìn đồng.
-        // VD: 12.450đ -> 12.000đ, 12.500đ -> 13.000đ, 12.501đ -> 13.000đ.
-        public static decimal RoundToThousand(decimal amount)
-            => Math.Round(amount / 1000m, 0, MidpointRounding.AwayFromZero) * 1000m;
+        // Làm tròn số tiền đến hàng đơn vị (đồng), chỉ loại bỏ phần thập phân lẻ.
+        // VD: 76.500,123đ -> 76.500đ, 71.500đ giữ nguyên 71.500đ.
+        public static decimal Round(decimal amount)
+            => Math.Round(amount, 0, MidpointRounding.AwayFromZero);
     }
 }
