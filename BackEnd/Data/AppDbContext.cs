@@ -356,9 +356,17 @@ namespace Backend.Data {
                 .Property(x => x.Status)
                 .HasConversion<string>().HasMaxLength(20).IsRequired();
 
+            // DeliveryLog.Status lưu dạng tên enum (chuỗi). Dữ liệu demo cũ còn giá trị
+            // 'Delivering' — đã được đổi tên thành OnTheWay trong enum hiện tại — nên khi
+            // EF đọc cột này nó ném "Cannot convert string value 'Delivering' ... enum" và
+            // làm hỏng TOÀN BỘ trang Quản lý Giao hàng (cả "đơn chờ giao" lẫn "lịch sử").
+            // Map alias cũ khi đọc để một bản ghi cũ không thể đánh sập cả endpoint.
             modelBuilder.Entity<DeliveryLog>()
                 .Property(x => x.Status)
-                .HasConversion<string>().HasMaxLength(20).IsRequired();
+                .HasConversion(
+                    v => v.ToString(),
+                    v => v == "Delivering" ? DeliveryStatus.OnTheWay : Enum.Parse<DeliveryStatus>(v))
+                .HasMaxLength(20).IsRequired();
 
             modelBuilder.Entity<Shift>()
                 .Property(x => x.Status)
