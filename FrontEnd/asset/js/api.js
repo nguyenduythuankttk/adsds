@@ -1,5 +1,7 @@
-// Khi chạy qua Live Server (port 5500) thì gọi thẳng backend; khi qua nginx thì dùng relative path
-var API_BASE = (window.location.port === '5500' || window.location.port === '5501' || window.location.port === '3001')
+// Backend chạy trong docker mapped tới host:3000 (xem docker-compose.yml: backend.ports = 127.0.0.1:3000:8080).
+// Khi mở FE qua Live Server hoặc python http.server thì gọi thẳng backend trên 3000.
+// Khi chạy production qua nginx thì dùng relative path.
+var API_BASE = (window.location.port === '5500' || window.location.port === '5501' || window.location.port === '3001' || window.location.port === '8765')
     ? 'http://127.0.0.1:3000/api/pbl3'
     : '/api/pbl3';
 
@@ -36,8 +38,8 @@ function apiFetch(method, path, body, noAuthRedirect) {
         if (isTokenExpired()) {
             clearAuth();
             if (!noAuthRedirect) {
-                alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-                window.location.href = 'index.html';
+                showPopup({ type: 'warning', title: 'Phiên đăng nhập hết hạn', message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' })
+                    .then(function () { window.location.href = 'index.html'; });
             }
             return Promise.reject(new Error('Token expired'));
         }
@@ -365,7 +367,7 @@ function showSePayQrModal(data, onPaid) {
         } else {
             var lastSlash = pathname.lastIndexOf('/');
             var basePath = pathname.substring(0, lastSlash + 1);
-            window.location.replace(basePath + 'html/' + targetPage);
+            window.location.replace(basePath + targetPage);
         }
     }
 })();

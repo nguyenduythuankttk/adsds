@@ -42,7 +42,7 @@ namespace Backend.Services.Implementations
                 .ToListAsync();
 
         // Raw batches available for processing — optionally filter by ingredient
-        public async Task<List<InventoryBatch>> GetAvailableRawBatches(int? ingredientID = null)
+        public async Task<List<InventoryBatch>> GetAvailableRawBatches(int? ingredientID = null, int? storeID = null)
         {
             var query = _dbContext.InventoryBatch
                 .AsNoTracking()
@@ -52,6 +52,10 @@ namespace Backend.Services.Implementations
 
             if (ingredientID.HasValue)
                 query = query.Where(b => b.IngredientID == ingredientID.Value);
+
+            // Nhân viên chỉ thấy lô thô trong kho thuộc store của mình.
+            if (storeID.HasValue)
+                query = query.Where(b => b.Warehouse.StoreID == storeID.Value);
 
             return await query
                 .Include(b => b.Ingredient)
@@ -128,7 +132,8 @@ namespace Backend.Services.Implementations
                     StoreID = w.StoreID,
                     StoreName = store.StoreName,
                     Capacity = w.Capacity,
-                    CurrentLoad = w.InventoryBatch.Where(b => b.Status == BatchStatus.Available).Sum(b => b.QuantityOnHand),
+                    // (decimal?) + ?? 0: SUM trên tập rỗng trả NULL → ép kiểu decimal sẽ ném lỗi (400).
+                    CurrentLoad = w.InventoryBatch.Where(b => b.Status == BatchStatus.Available).Sum(b => (decimal?)b.QuantityOnHand) ?? 0,
                     BatchCount = w.InventoryBatch.Count
                 })
                 .ToListAsync();

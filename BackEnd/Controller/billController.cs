@@ -1,3 +1,4 @@
+using Backend.Helpers;
 using Backend.Models;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
@@ -21,6 +22,8 @@ namespace Backend.Controller {
         [HttpGet("get-all/{start}/{end}")]
         public async Task<IActionResult> GetAllBillIn(DateOnly start, DateOnly end, [FromQuery] int? storeID = null) {
             try {
+                // Nhân viên chỉ xem hóa đơn store của mình: ép storeID theo token, bỏ qua giá trị client gửi.
+                storeID = User.GetStoreID() ?? storeID;
                 var bills = await _billService.GetAllBillIn(start, end, storeID);
                 if (bills == null || bills.Count == 0) return Ok(new List<Bill>());
                 return Ok(bills);
@@ -64,6 +67,8 @@ namespace Backend.Controller {
         [HttpPost("create-dinein")]
         public async Task<IActionResult> CreateDineInBill([FromBody] DineInBillCreateRequest request) {
             try {
+                // Bill luôn được tạo trong store của nhân viên đang đăng nhập.
+                request.StoreID = User.GetStoreID() ?? request.StoreID;
                 var result = await _billService.CreateDineInBill(request);
                 return Ok(result);
             } catch (InvalidOperationException e) {

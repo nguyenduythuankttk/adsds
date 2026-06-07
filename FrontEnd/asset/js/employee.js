@@ -3,8 +3,8 @@
     var role = localStorage.getItem('role');
     var name = localStorage.getItem('fullName');
     if (!role || role !== 'employee') {
-        alert('Vui lòng đăng nhập với tài khoản nhân viên!');
-        window.location.href = 'index.html';
+        showPopup({ type: 'warning', title: 'Cần đăng nhập', message: 'Vui lòng đăng nhập với tài khoản nhân viên!' })
+            .then(function () { window.location.href = 'index.html'; });
         return;
     }
     if (isTokenExpired()) {
@@ -65,9 +65,42 @@ function toast(msg, type) {
 
 // ── Dashboard state ─────────────────────────────────────────────────────────
 var DB_SHIFT      = null;   // ShiftResponse from GET /shift/my-shift
+var DB_SHIFT_LOADED = false; // đã gọi xong /shift/my-shift chưa (tránh chặn nhầm khi đang tải)
 var DB_TASKS      = [];     // ShiftTask[] from GET /shift/task/by-shift/{id}
 var DB_WK_OFFSET  = 0;      // week offset for mini calendar (0 = this week)
 var DB_WEEK_SHIFTS = [];    // ShiftResponse[] for the displayed week
+
+// Đang trong ca làm việc không? Dùng để chặn MỌI thao tác thêm/sửa/xoá (nhận hàng,
+// nhập kho, đơn hàng, giao hàng…) khi không có ca HOẶC đã check-out (ca đã kết thúc).
+function requireShift() {
+    if (!DB_SHIFT_LOADED) return true;   // chưa biết trạng thái ca → chưa chặn
+    if (!DB_SHIFT) {
+        showPopup({
+            type: 'warning',
+            title: 'Không có ca làm việc',
+            message: 'Hôm nay bạn không có ca làm việc nên không thể thực hiện thao tác này. Vui lòng liên hệ quản lý nếu cần.'
+        });
+        return false;
+    }
+    // Đã check-out → ca đã kết thúc, không cho thao tác nghiệp vụ nữa.
+    if (DB_SHIFT.checkOut || DB_SHIFT.CheckOut) {
+        showPopup({
+            type: 'warning',
+            title: 'Ca làm việc đã kết thúc',
+            message: 'Bạn đã check-out nên không thể thực hiện thao tác này.'
+        });
+        return false;
+    }
+    return true;
+}
+
+// Khoá/mở các nút thao tác trên dashboard theo việc có ca hay không.
+function applyShiftGateUI() {
+    var noShift = DB_SHIFT_LOADED && !DB_SHIFT;
+    document.querySelectorAll('#section-dashboard .db-tool.brand').forEach(function (el) {
+        el.classList.toggle('disabled', noShift);
+    });
+}
 
 function renderDashboard() {
     dbLoadMyShift();
@@ -151,17 +184,29 @@ function dbFillHero(ss) {
         }
     }
     if (coutEl) {
+        var coutLabel = coutEl.querySelector('.tl');
+        var outT2 = new Date(ss.timeOut || ss.TimeOut);
         if (ss.checkOut || ss.CheckOut) {
             coutEl.classList.add('done');
             coutEl.classList.remove('disabled');
-            coutEl.querySelector('.tl').textContent = 'Đã check-out ' + fmt(ss.checkOut || ss.CheckOut);
-        } else if (ss.checkIn || ss.CheckIn) {
-            coutEl.classList.remove('disabled', 'done');
-            coutEl.querySelector('.tl').textContent = 'Check-out';
-        } else {
+            coutEl.title = '';
+            coutLabel.textContent = 'Đã check-out ' + fmt(ss.checkOut || ss.CheckOut);
+        } else if (!(ss.checkIn || ss.CheckIn)) {
+            // Chưa check-in thì chưa thể check-out.
             coutEl.classList.add('disabled');
             coutEl.classList.remove('done');
-            coutEl.querySelector('.tl').textContent = 'Check-out';
+            coutEl.title = 'Bạn cần check-in trước';
+            coutLabel.textContent = 'Check-out';
+        } else if (!isNaN(outT2.getTime()) && new Date() < outT2) {
+            // Chỉ cho check-out sau khi đã hết giờ tan ca.
+            coutEl.classList.add('disabled');
+            coutEl.classList.remove('done');
+            coutEl.title = 'Chỉ có thể check-out sau ' + fmt(ss.timeOut || ss.TimeOut);
+            coutLabel.textContent = 'Check-out sau ' + fmt(ss.timeOut || ss.TimeOut);
+        } else {
+            coutEl.classList.remove('disabled', 'done');
+            coutEl.title = '';
+            coutLabel.textContent = 'Check-out';
         }
     }
 }
@@ -169,12 +214,17 @@ function dbFillHero(ss) {
 // Load today's shift from API then load tasks
 function dbLoadMyShift() {
     apiGet('/shift/my-shift')
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (sh) {
+        .then(function (r) { return r.ok ? r.text() : ''; })
+        .then(function (t) {
+            var sh = t ? JSON.parse(t) : null;
             DB_SHIFT = sh;
+            DB_SHIFT_LOADED = true;
+            applyShiftGateUI();
             if (!sh) {
                 var timeEl = document.getElementById('db-shift-time');
                 if (timeEl) timeEl.textContent = 'Chưa có ca hôm nay';
+                var stEl = document.getElementById('db-status');
+                if (stEl) { stEl.innerHTML = '<span class="dot"></span>Không có ca'; stEl.className = 'db-status absent'; }
                 dbRenderTasks([]);
                 return;
             }
@@ -763,6 +813,7 @@ function loadProcessingHistory() {
 }
 
 function submitProcessing() {
+    if (!requireShift()) return;
     var whSel = document.getElementById('proc-warehouse');
     var warehouseID = parseInt(whSel && whSel.value, 10);
     if (!warehouseID) { toast('Vui lòng chọn kho', 'error'); return; }
@@ -826,32 +877,6 @@ var RECIPE_INGREDIENTS = [];
 var RECIPE_ROW_SEQ = 0;
 
 function renderRecipe() {
-    // Dropdown sản phẩm (ProductVarient)
-    var pSel = document.getElementById('recipe-product');
-    apiGet('/product/get-all').then(function (r) { return r.ok ? r.json() : []; }).then(function (d) {
-        var prods = pAsArray(d);
-        var opts = ['<option value="">-- Chọn sản phẩm --</option>'];
-        prods.forEach(function (p) {
-            (p.productVarient || p.ProductVarient || []).forEach(function (v) {
-                if (!v) return;
-                opts.push('<option value="' + v.productVarientID + '">' + p.productName + ' - ' + v.size + '</option>');
-            });
-        });
-        if (pSel) pSel.innerHTML = opts.join('');
-    }).catch(function () { if (pSel) pSel.innerHTML = '<option value="">-- Lỗi tải --</option>'; });
-
-    // Tải danh sách nguyên liệu và lưu vào global
-    var container = document.getElementById('recipe-ingredients-container');
-    if (container) container.innerHTML = '';
-    
-    apiGet('/ingredient/get-all').then(function (r) { return r.ok ? r.json() : []; }).then(function (d) {
-        RECIPE_INGREDIENTS = pAsArray(d);
-        addRecipeIngredientRow(); // Thêm sẵn 1 dòng mặc định
-    }).catch(function () {
-        RECIPE_INGREDIENTS = [];
-        toast('Lỗi tải danh sách nguyên liệu', 'error');
-    });
-
     loadRecipes();
 }
 
@@ -898,6 +923,7 @@ function removeRecipeIngredientRow(id) {
 }
 
 function submitBulkRecipe() {
+    if (!requireShift()) return;
     var pv = parseInt((document.getElementById('recipe-product') || {}).value, 10);
     if (!pv) { toast('Vui lòng chọn sản phẩm', 'error'); return; }
     
@@ -994,7 +1020,6 @@ function loadRecipes() {
                     + '<td><strong>' + pNum(rc.qtyAfterProcess) + '</strong> ' + (ing.ingredientUnit || '') + '</td>'
                     + '<td>' + pNum(batchSize) + '</td>'
                     + '<td>' + (consumable ? '<span class="badge badge-pending" style="background:#fef3c7;color:#d97706">Tiêu hao</span>' : '<span class="badge badge-active" style="background:#d1fae5;color:#065f46">Định lượng</span>') + '</td>'
-                    + '<td><button class="btn btn-sm" style="color:var(--red);background:none;border:none;cursor:pointer;padding:2px 8px" onclick="event.stopPropagation(); deleteRecipe(' + rc.ingredientID + ',' + rc.productVarientID + ')"><i class="ti-trash"></i></button></td>'
                     + '</tr>';
             }).join('');
             
@@ -1016,7 +1041,6 @@ function loadRecipes() {
                 + '            <th style="padding:8px 12px;text-align:left;color:#666">Qty/Đơn</th>'
                 + '            <th style="padding:8px 12px;text-align:left;color:#666">BatchSize</th>'
                 + '            <th style="padding:8px 12px;text-align:left;color:#666">Loại</th>'
-                + '            <th style="padding:8px 12px;width:50px"></th>'
                 + '          </tr>'
                 + '        </thead>'
                 + '        <tbody>' + subRowsHtml + '</tbody>'
@@ -1043,14 +1067,17 @@ function toggleRecipeDetail(row) {
 }
 
 function deleteRecipe(ingredientID, productVarientID) {
-    if (!confirm('Xoá nguyên liệu này khỏi công thức?')) return;
-    apiDelete('/recipe/Delete/' + ingredientID + '/' + productVarientID)
-        .then(function (r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            toast('Đã xoá nguyên liệu khỏi công thức', 'success');
-            loadRecipes();
-        })
-        .catch(function (e) { toast('Lỗi xoá: ' + (e.message || ''), 'error'); });
+    if (!requireShift()) return;
+    showConfirm({ type: 'error', danger: true, title: 'Xoá nguyên liệu', message: 'Xoá nguyên liệu này khỏi công thức?', confirmText: 'Xoá' }).then(function (ok) {
+        if (!ok) return;
+        apiDelete('/recipe/Delete/' + ingredientID + '/' + productVarientID)
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                showPopup({ type: 'success', message: 'Đã xoá nguyên liệu khỏi công thức' });
+                loadRecipes();
+            })
+            .catch(function (e) { showPopup({ type: 'error', message: 'Lỗi xoá: ' + (e.message || '') }); });
+    });
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1062,30 +1089,41 @@ var VS_TYPE    = 'all';
 var VS_WH      = 'all';
 var VS_SEARCH  = '';
 
-function renderViewStock() {
+// silent=true: load ngầm (poll định kỳ) — không hiện "Đang tải...", không dựng lại bộ lọc
+// kho để giữ nguyên lựa chọn/ô tìm kiếm hiện tại của nhân viên.
+function renderViewStock(silent) {
     var storeId = localStorage.getItem('storeId');
     var ingTb   = document.getElementById('vs-ing-tbody');
     var batchTb = document.getElementById('vs-batch-tbody');
-    if (ingTb)   ingTb.innerHTML   = '<tr><td colspan="5" class="tbl-empty">Đang tải...</td></tr>';
-    if (batchTb) batchTb.innerHTML = '<tr><td colspan="10" class="tbl-empty">Đang tải...</td></tr>';
+    if (!silent) {
+        if (ingTb)   ingTb.innerHTML   = '<tr><td colspan="5" class="tbl-empty">Đang tải...</td></tr>';
+        if (batchTb) batchTb.innerHTML = '<tr><td colspan="10" class="tbl-empty">Đang tải...</td></tr>';
+    }
 
     apiGet('/warehouse/get-by-store/' + storeId)
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (d) {
             var whs = pAsArray(d);
-            // nạp filter kho
-            var whFilter = document.getElementById('vs-wh-filter');
-            if (whFilter) {
-                whFilter.innerHTML = '<option value="all">Tất cả kho</option>'
-                    + whs.map(function (w) { return '<option value="' + w.warehouseID + '">Kho #' + w.warehouseID + '</option>'; }).join('');
-                whFilter.onchange = function () { VS_WH = this.value; vsRender(); };
+            // nạp filter kho + gắn handler (chỉ ở lần tải hiển thị; poll ngầm giữ nguyên)
+            if (!silent) {
+                var whFilter = document.getElementById('vs-wh-filter');
+                if (whFilter) {
+                    whFilter.innerHTML = '<option value="all">Tất cả kho</option>'
+                        + whs.map(function (w) { return '<option value="' + w.warehouseID + '">Kho #' + w.warehouseID + '</option>'; }).join('');
+                    whFilter.onchange = function () { VS_WH = this.value; vsRender(); };
+                }
+                var searchEl = document.getElementById('vs-ing-search');
+                if (searchEl) searchEl.oninput = function () { VS_SEARCH = (this.value || '').toLowerCase(); vsRender(); };
             }
-            var searchEl = document.getElementById('vs-ing-search');
-            if (searchEl) searchEl.oninput = function () { VS_SEARCH = (this.value || '').toLowerCase(); vsRender(); };
 
             // tải batch của tất cả kho thuộc store
             return Promise.all(whs.map(function (w) {
-                return apiGet('/inventorybatch/by-warehouse/' + w.warehouseID)
+                // ID kho có thể là warehouseID/warehouseId/id tuỳ cách serialize; bỏ qua kho không có ID
+                // để tránh gọi /by-warehouse/undefined → backend trả 400 (model-binding).
+                var whId = w.warehouseID != null ? w.warehouseID
+                         : (w.warehouseId != null ? w.warehouseId : w.id);
+                if (whId == null) return Promise.resolve([]);
+                return apiGet('/inventorybatch/by-warehouse/' + whId)
                     .then(function (r) { return r.ok ? r.json() : []; })
                     .then(function (bd) { return pAsArray(bd); })
                     .catch(function () { return []; });
@@ -1096,6 +1134,7 @@ function renderViewStock() {
             vsRender();
         })
         .catch(function () {
+            if (silent) return;   // poll ngầm lỗi tạm thời → giữ dữ liệu cũ, lần sau thử lại
             if (ingTb)   ingTb.innerHTML   = '<tr><td colspan="5" class="tbl-empty">Lỗi tải dữ liệu</td></tr>';
             if (batchTb) batchTb.innerHTML = '<tr><td colspan="10" class="tbl-empty">Lỗi tải dữ liệu</td></tr>';
         });
@@ -1153,16 +1192,63 @@ function vsRender() {
         VS_BATCHES.forEach(function (b) {
             var ing = b.ingredient || {};
             var key = b.ingredientID;
-            if (!byIng[key]) byIng[key] = { name: ing.ingredientName || ('#' + key), unit: ing.ingredientUnit || '', total: 0, avail: 0, exp: 0 };
+            if (!byIng[key]) byIng[key] = { name: ing.ingredientName || ('#' + key), unit: ing.ingredientUnit || '', total: 0, avail: 0, exp: 0, batches: [] };
+            byIng[key].batches.push(b);
             byIng[key].total += Number(b.quantityOnHand || 0);
             if ((b.status || '') === 'Available') byIng[key].avail++;
             if (vsBatchExpiring(b)) byIng[key].exp++;
         });
         var ingRows = Object.keys(byIng).map(function (k) {
             var x = byIng[k];
-            return '<tr><td style="font-weight:600">' + x.name + '</td><td>' + x.unit + '</td>'
-                + '<td><strong>' + pNum(x.total) + '</strong></td><td>' + x.avail + '</td>'
-                + '<td>' + (x.exp ? '<span class="badge badge-pending">' + x.exp + '</span>' : '0') + '</td></tr>';
+            // FIFO: lô nhập trước lên đầu (giống bảng lô hàng bên dưới)
+            var batches = x.batches.slice().sort(function (a, b) { return new Date(a.importDate) - new Date(b.importDate); });
+            var subRowsHtml = batches.map(function (b) {
+                var ing = b.ingredient || {};
+                var type = (b.batchType || b.BatchType) === 'Raw' ? 'Thô' : 'Đã sơ chế';
+                var stBadge = vsBatchExpiring(b) ? '<span class="badge badge-pending">Sắp hết hạn</span>'
+                    : (b.status === 'Available' ? '<span class="badge badge-active">Còn hàng</span>'
+                    : '<span class="badge">' + (b.status || '—') + '</span>');
+                var qtyStr = pNum(b.quantityOnHand) + (b.quantityOriginal != null ? ' / ' + pNum(b.quantityOriginal) : '');
+                return '<tr>'
+                    + '<td style="font-family:monospace;font-weight:700;color:var(--primary)">' + (b.batchCode || String(b.batchID).slice(0, 8)) + '</td>'
+                    + '<td>' + type + '</td>'
+                    + '<td>Kho #' + b.warehouseID + '</td>'
+                    + '<td style="text-align:right"><strong>' + qtyStr + '</strong> ' + (ing.ingredientUnit || '') + '</td>'
+                    + '<td style="text-align:right">' + pNum(b.unitCost) + 'đ</td>'
+                    + '<td>' + fmtVnDate(b.importDate) + '</td>'
+                    + '<td>' + (b.exp ? fmtVnDate(b.exp) : '—') + '</td>'
+                    + '<td>' + stBadge + '</td>'
+                    + '</tr>';
+            }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:12px">Không có lô nào</td></tr>';
+            return '<tr class="recipe-group-row" onclick="toggleRecipeDetail(this)" style="cursor:pointer">'
+                + '  <td style="font-weight:600"><span class="toggle-icon"><i class="ti-angle-right"></i></span> ' + x.name + '</td>'
+                + '  <td>' + x.unit + '</td>'
+                + '  <td><strong>' + pNum(x.total) + '</strong></td>'
+                + '  <td>' + x.avail + '</td>'
+                + '  <td>' + (x.exp ? '<span class="badge badge-pending">' + x.exp + '</span>' : '0') + '</td>'
+                + '</tr>'
+                + '<tr class="recipe-detail-row" style="display:none;background:#fcfcfc">'
+                + '  <td colspan="5" style="padding:10px 20px">'
+                + '    <div style="border:1px solid #eee;border-radius:8px;background:#fff;overflow:hidden">'
+                + '      <div style="font-weight:700;font-size:12px;color:#555;padding:10px 12px;border-bottom:1px solid #eee;background:#fafafa"><i class="ti-layers"></i> Các lô của "' + x.name + '" — ' + batches.length + ' lô (FIFO)</div>'
+                + '      <table class="sub-table" style="width:100%;border-collapse:collapse;font-size:12px">'
+                + '        <thead>'
+                + '          <tr style="background:#fafafa;border-bottom:1px solid #eee">'
+                + '            <th style="text-align:left">Mã Lô</th>'
+                + '            <th style="text-align:left">Loại</th>'
+                + '            <th style="text-align:left">Kho</th>'
+                + '            <th style="text-align:right">SL Còn / Ban Đầu</th>'
+                + '            <th style="text-align:right">Giá Vốn</th>'
+                + '            <th style="text-align:left">Ngày Nhập</th>'
+                + '            <th style="text-align:left">HSD</th>'
+                + '            <th style="text-align:left">Trạng Thái</th>'
+                + '          </tr>'
+                + '        </thead>'
+                + '        <tbody>' + subRowsHtml + '</tbody>'
+                + '      </table>'
+                + '    </div>'
+                + '  </td>'
+                + '</tr>';
         });
         ingTb.innerHTML = ingRows.length ? ingRows.join('') : '<tr><td colspan="5" class="tbl-empty">Không có dữ liệu</td></tr>';
     }
@@ -1185,8 +1271,8 @@ function vsRender() {
                 + '<td>Kho #' + b.warehouseID + '</td>'
                 + '<td><strong>' + pNum(b.quantityOnHand) + '</strong> ' + (ing.ingredientUnit || '') + '</td>'
                 + '<td>' + pNum(b.unitCost) + 'đ</td>'
-                + '<td>' + (b.importDate ? String(b.importDate).slice(0, 10) : '—') + '</td>'
-                + '<td>' + (b.exp || '—') + '</td>'
+                + '<td>' + fmtVnDate(b.importDate) + '</td>'
+                + '<td>' + fmtVnDate(b.exp) + '</td>'
                 + '<td>' + stBadge + '</td>'
                 + '</tr>';
         }).join('') : '<tr><td colspan="10" class="tbl-empty">Không có lô nào khớp bộ lọc</td></tr>';
@@ -1272,6 +1358,16 @@ function customerLookup() {
         });
 }
 
+// Lưu kết quả ca từ BE (ShiftCheckInResponse) vào localStorage + cập nhật giao diện.
+function applyShiftStatus(d) {
+    localStorage.setItem('shiftStatus', JSON.stringify(d));
+    DB_SHIFT = d;
+    dbFillHero(d);
+}
+function clockStr(d) {
+    return new Date(d).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
 function doCheckIn() {
     var ss = null;
     try { ss = JSON.parse(localStorage.getItem('shiftStatus') || 'null'); } catch (e) {}
@@ -1279,14 +1375,18 @@ function doCheckIn() {
         toast('Bạn không có ca làm việc hôm nay.', 'error'); return;
     }
     if (ss.checkIn || ss.CheckIn) {
-        var t = new Date(ss.checkIn || ss.CheckIn);
-        toast('Bạn đã check-in lúc ' + t.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }), 'success'); return;
+        toast('Bạn đã check-in lúc ' + clockStr(ss.checkIn || ss.CheckIn), 'success'); return;
     }
-    var now = new Date();
-    ss.checkIn = now.toISOString();
-    localStorage.setItem('shiftStatus', JSON.stringify(ss));
-    dbFillHero(ss);
-    toast('Check-in thành công lúc ' + now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }), 'success');
+    apiPost('/shift/check-in', {})
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+            var d = res.d || {};
+            if (!res.ok) { toast(d.message || 'Không thể check-in', 'error'); return; }
+            if (!d.hasShift) { toast(d.message || 'Bạn không có ca làm việc hôm nay.', 'error'); return; }
+            applyShiftStatus(d);
+            toast(d.checkIn ? 'Check-in thành công lúc ' + clockStr(d.checkIn) : (d.message || 'Đã check-in'), 'success');
+        })
+        .catch(function () { toast('Lỗi kết nối', 'error'); });
 }
 
 function doCheckOut() {
@@ -1299,14 +1399,23 @@ function doCheckOut() {
         toast('Bạn chưa check-in!', 'error'); return;
     }
     if (ss.checkOut || ss.CheckOut) {
-        var t = new Date(ss.checkOut || ss.CheckOut);
-        toast('Bạn đã check-out lúc ' + t.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }), 'success'); return;
+        toast('Bạn đã check-out lúc ' + clockStr(ss.checkOut || ss.CheckOut), 'success'); return;
     }
-    var now = new Date();
-    ss.checkOut = now.toISOString();
-    localStorage.setItem('shiftStatus', JSON.stringify(ss));
-    dbFillHero(ss);
-    toast('Check-out thành công lúc ' + now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }), 'success');
+    // Chỉ cho check-out khi đã hết giờ tan ca (chặn sớm phía FE, BE cũng kiểm tra lại).
+    var outT = new Date(ss.timeOut || ss.TimeOut);
+    if (!isNaN(outT.getTime()) && new Date() < outT) {
+        toast('Chưa đến giờ tan ca (' + clockStr(outT) + '), chưa thể check-out.', 'warning'); return;
+    }
+    apiPost('/shift/check-out', {})
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+            var d = res.d || {};
+            if (!res.ok) { toast(d.message || 'Không thể check-out', 'error'); return; }
+            if (!d.hasShift) { toast(d.message || 'Không có ca để check-out.', 'error'); return; }
+            applyShiftStatus(d);
+            toast(d.checkOut ? 'Check-out thành công lúc ' + clockStr(d.checkOut) : (d.message || 'Đã check-out'), 'success');
+        })
+        .catch(function () { toast('Lỗi kết nối', 'error'); });
 }
 
 function dashRequestLeave() {
@@ -1369,8 +1478,9 @@ function showTab(name) {
     var tab = document.getElementById('tab-' + name);
     if (tab) tab.classList.add('active');
 
-    // Polling chỉ chạy khi đang ở tab invoice (đỡ tốn request)
+    // Polling chỉ chạy khi đang ở tab tương ứng (đỡ tốn request)
     stopInvoicePolling();
+    stopStockPolling();
 
     var renders = {
         dashboard:  renderDashboard,
@@ -1384,6 +1494,10 @@ function showTab(name) {
         viewstock:  renderViewStock
     };
     if (renders[name]) renders[name]();
+
+    // Màn hình kho: load ngầm định kỳ để bắt kịp biến động tồn kho do bán/giao hàng.
+    if (name === 'viewstock')      startStockPolling(function () { renderViewStock(/*silent=*/true); });
+    else if (name === 'stockmove') startStockPolling(function () { renderStockMove(/*silent=*/true); });
 }
 
 function startInvoicePolling() {
@@ -1402,6 +1516,33 @@ function stopInvoicePolling() {
     }
 }
 
+// ── Load ngầm màn hình kho ──
+// Tồn kho biến động theo bán hàng/giao hàng (trừ kho khi bếp bắt đầu chuẩn bị). Khi nhân
+// viên đang mở màn hình "Xem kho" hoặc "Biến động kho", poll lại định kỳ để số liệu luôn
+// cập nhật mà không phải bấm tải lại. 20s/lần, bỏ qua khi tab trình duyệt bị ẩn.
+function startStockPolling(renderFn) {
+    stopStockPolling();
+    STOCK_POLL_TIMER = setInterval(function () {
+        if (document.hidden) return;
+        try { renderFn(); } catch (e) { /* lỗi tải tạm thời — lần poll sau thử lại */ }
+    }, 20000);
+}
+
+function stopStockPolling() {
+    if (STOCK_POLL_TIMER) {
+        clearInterval(STOCK_POLL_TIMER);
+        STOCK_POLL_TIMER = null;
+    }
+}
+
+// Load ngầm lại các màn hình kho đang mở (gọi sau khi vừa có thao tác trừ/đổi tồn kho).
+function refreshInventoryViews() {
+    var vs = document.getElementById('section-viewstock');
+    if (vs && vs.classList.contains('active')) renderViewStock(/*silent=*/true);
+    var sm = document.getElementById('section-stockmove');
+    if (sm && sm.classList.contains('active')) renderStockMove(/*silent=*/true);
+}
+
 var MENU            = [];
 var MENU_RAW        = [];
 var INVOICES        = [];
@@ -1412,6 +1553,7 @@ var WAREHOUSE_LOG   = [];
 var STOCK_MOVEMENTS = [];
 var DELIVERIES      = [];
 var INV_POLL_TIMER  = null;
+var STOCK_POLL_TIMER = null;   // load ngầm màn hình kho (lô hàng/nguyên liệu, biến động)
 var INV_LAST_IDS    = {};
 var INV_CURRENT_CAT = 'all';
 var MOCK_WAREHOUSE_LOG = [];
@@ -1456,6 +1598,7 @@ var TABLE_STATUS_CYCLE = ['Available', 'Occupied', 'Reserved'];
         renderInvMenu();
         loadInvAvailability();
     }).catch(function (err) { console.error('[loadMenu]', err); });
+})();
 
 // Tải tình trạng còn hàng theo cửa hàng của nhân viên rồi vẽ lại menu để làm
 // mờ + chặn chọn những món đã hết nguyên liệu.
@@ -1466,7 +1609,6 @@ function loadInvAvailability() {
         renderInvMenu();
     });
 }
-})();
 
 // Dropdown "Mã giảm giá" nay phản ánh kho voucher của khách đã khớp tài khoản.
 // Gọi lại sau khi render/đổi loại đơn: nếu đã khớp khách thì nạp lại kho của khách, ngược lại reset.
@@ -1682,6 +1824,7 @@ function onPaymentMethodChange(val) {
 }
 
 function createInvoice() {
+    if (!requireShift()) return;
     var customer   = document.getElementById('inv-customer').value.trim();
     var phone      = document.getElementById('inv-phone').value.trim();
     var type       = document.getElementById('inv-type').value;
@@ -1784,14 +1927,14 @@ function createInvoice() {
 
         if (data && data.paymentMethods === 'BankTransfer' && data.qrUrl) {
             showSePayQrModal(data, function () {
-                toast('Thanh toán chuyển khoản thành công!');
+                showPopup({ type: 'success', title: 'Thanh toán thành công', message: 'Thanh toán chuyển khoản thành công!' });
                 loadInvoicesFromAPI(/*silent=*/false);
             });
         } else {
-            toast('Xuất hóa đơn thành công!');
+            showPopup({ type: 'success', title: 'Xuất hóa đơn thành công', message: 'Đã tạo hóa đơn thành công!' });
         }
     }).catch(function (err) {
-        toast(err.message || 'Lỗi tạo hóa đơn!', 'error');
+        showPopup({ type: 'error', title: 'Không thể xuất hóa đơn', message: err.message || 'Lỗi tạo hóa đơn!' });
     });
 }
 
@@ -1947,6 +2090,7 @@ function renderTablesLocal() {
 }
 
 function cycleTableStatus(tableId) {
+    if (!requireShift()) return;
     var t = TABLES.find(function (t) {
         var id = t.TableID || t.tableID || t.tableId || t.id || t.ID;
         return id == tableId;
@@ -1971,6 +2115,7 @@ function cycleTableStatus(tableId) {
 
 // Popup thêm bàn mới: nhập số bàn + số lượng khách (không còn chọn tầng).
 function openTableModal() {
+    if (!requireShift()) return;
     var overlay = document.createElement('div');
     overlay.className = 'cash-modal-overlay';
     overlay.innerHTML =
@@ -2019,7 +2164,7 @@ function openTableModal() {
                 if (!r.ok) throw new Error();
                 close();
                 renderTables();
-                toast('Đã thêm Bàn ' + num);
+                showPopup({ type: 'success', title: 'Đã thêm bàn', message: 'Đã thêm Bàn ' + num + ' thành công.' });
             }).catch(function () {
                 okBtn.disabled = false;
                 errEl.textContent = 'Lỗi thêm bàn! Vui lòng thử lại.';
@@ -2093,8 +2238,8 @@ function loadOrderedPOs() {
                 + '<td style="font-size:12px;color:var(--muted)">' + items + '</td>'
                 + '<td><strong>' + parseInt(total).toLocaleString('vi-VN') + 'đ</strong></td>'
                 + '<td style="font-size:12px">' + tax + '</td>'
-                + '<td><button class="btn btn-primary btn-sm" onclick="whSelectPO(\'' + poId + '\')">'
-                + '<i class="ti-truck"></i> Tạo phiếu nhập</button></td>'
+                + '<td><button class="btn btn-primary btn-sm" onclick="empReceivePO(\'' + poId + '\')">'
+                + '<i class="ti-truck"></i> Nhận hàng</button></td>'
                 + '</tr>';
         }).join('');
     }).catch(function () {
@@ -2117,11 +2262,132 @@ function loadOrderedPOs() {
                 + '<td style="font-size:12px;color:var(--muted)">' + items + '</td>'
                 + '<td><strong>' + parseInt(total).toLocaleString('vi-VN') + 'đ</strong></td>'
                 + '<td style="font-size:12px">' + tax + '</td>'
-                + '<td><button class="btn btn-primary btn-sm" onclick="whSelectPO(\'' + poId + '\')">'
-                + '<i class="ti-truck"></i> Tạo phiếu nhập</button></td>'
+                + '<td><button class="btn btn-primary btn-sm" onclick="empReceivePO(\'' + poId + '\')">'
+                + '<i class="ti-truck"></i> Nhận hàng</button></td>'
                 + '</tr>';
         }).join('');
     });
+}
+
+/* ── Modal nhận hàng (popup) — đồng bộ giao diện với admin ───── */
+var empMOv;
+function openModal(title, body, onConfirm) {
+    if (!empMOv) empMOv = document.getElementById('modal-overlay');
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-body').innerHTML = body;
+    empMOv.classList.add('open');
+    var ok = document.getElementById('modal-confirm');
+    ok.disabled = false;
+    ok.textContent = 'Xác Nhận';
+    ok.style.display = '';
+    ok.onclick = onConfirm || function () { closeModal(); };
+    document.getElementById('modal-cancel').textContent = 'Huỷ';
+}
+function closeModal() { if (empMOv) empMOv.classList.remove('open'); }
+function rcpErrMsg(t) { try { var p = JSON.parse(t); return p.message || p.Message || t; } catch (e) { return t; } }
+(function () {
+    ['modal-close', 'modal-cancel'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('click', closeModal);
+    });
+    var ov = document.getElementById('modal-overlay');
+    if (ov) ov.addEventListener('click', function (e) { if (e.target === this) closeModal(); });
+})();
+
+// Nhận hàng cho 1 PO trong popup (tạo phiếu nhập + xác nhận nhập kho 1 bước).
+function empReceivePO(poId) {
+    if (!requireShift()) return;
+    var storeId = localStorage.getItem('storeId');
+    Promise.all([
+        apiGet('/receipt/prefill-from-po/' + poId).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+        apiGet('/warehouse/get-by-store/' + storeId).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; })
+    ]).then(function (res) {
+        var data = res[0];
+        var whs  = Array.isArray(res[1]) ? res[1] : ((res[1] && res[1].data) || []);
+        if (!data) { toast('Không tải được thông tin đơn mua', 'error'); return; }
+        var lines = data.PODetailLines || data.poDetailLines || [];
+        if (!lines.length) { toast('Đơn mua không có nguyên liệu', 'error'); return; }
+        var whOpts = whs.map(function (w) {
+            var id = (w.WarehouseID || w.warehouseID);
+            return '<option value="' + id + '">' + (w.Name || w.name || ('Kho ' + id)) + '</option>';
+        }).join('') || '<option value="">-- Không có kho --</option>';
+        var todayStr = vnTodayISO();
+        var expStr = (function () { var d = new Date(todayStr + 'T00:00:00+07:00'); d.setUTCDate(d.getUTCDate() + 30); return d.toISOString().slice(0, 10); })();
+        var rows = lines.map(function (it) {
+            var iid  = it.IngredientID || it.ingredientID;
+            var name = (it.Ingredient && (it.Ingredient.Name || it.Ingredient.name))
+                || it.IngredientName || it.ingredientName || ('NL ' + iid);
+            var qy = Number(it.QuantityExpected || it.quantityExpected) || 0;
+            var up = Number(it.UnitPriceExpected || it.unitPriceExpected) || 0;
+            return '<tr data-iid="' + iid + '" data-up="' + up + '">'
+                + '<td style="font-weight:600">' + name + '</td>'
+                + '<td style="text-align:center">' + qy.toLocaleString('vi-VN') + '</td>'
+                + '<td><input type="number" class="form-control erl-qty" value="' + qy + '" step="0.1" min="0" style="width:80px;padding:4px" oninput="syncEmpGoodQty(this)"></td>'
+                + '<td><input type="number" class="form-control erl-gq" value="' + qy + '" step="0.1" min="0" style="width:80px;padding:4px"></td>'
+                + '<td style="text-align:right">' + up.toLocaleString('vi-VN') + ' đ</td>'
+                + '<td><input type="date" class="form-control erl-mfd" value="' + todayStr + '" style="width:150px;padding:4px"></td>'
+                + '<td><input type="date" class="form-control erl-exp" value="' + expStr + '" style="width:150px;padding:4px"></td>'
+            + '</tr>';
+        }).join('');
+        var body =
+            '<div style="margin-bottom:16px"><label class="form-label">Kho nhập</label><select id="erl-wh" class="form-control">' + whOpts + '</select></div>'
+            + '<div class="tbl-wrap" style="overflow:auto"><table style="font-size:13px"><thead><tr>'
+            + '<th>Nguyên liệu</th><th style="text-align:center">SL yêu cầu</th><th>SL thực nhận</th><th>SL tốt</th><th style="text-align:right">Đơn giá</th><th>NSX</th><th>HSD</th>'
+            + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+        openModal('Nhận Hàng (PO #' + poId.toString().slice(0, 8).toUpperCase() + ')', body, function () { submitEmpReceive(poId); });
+    }).catch(function () { toast('Lỗi tải dữ liệu nhận hàng', 'error'); });
+}
+
+function syncEmpGoodQty(qtyInput) {
+    var row = qtyInput.closest('tr');
+    if (!row) return;
+    var gq  = row.querySelector('.erl-gq');
+    var qty = parseFloat(qtyInput.value) || 0;
+    if (gq && parseFloat(gq.value) > qty) gq.value = qty;
+}
+
+function submitEmpReceive(poId) {
+    if (!requireShift()) return;
+    var whEl = document.getElementById('erl-wh');
+    var whId = parseInt(whEl ? whEl.value : '') || 0;
+    if (!whId) { toast('Vui lòng chọn kho nhập', 'warning'); return; }
+    var rows = document.querySelectorAll('#modal-body tbody tr');
+    var receiptLines = [], confirmLines = [], bad = '';
+    rows.forEach(function (row) {
+        var iid = parseInt(row.getAttribute('data-iid')) || 0;
+        var up  = Number(row.getAttribute('data-up')) || 0;
+        var qty = parseFloat(row.querySelector('.erl-qty').value) || 0;
+        var gq  = parseFloat(row.querySelector('.erl-gq').value) || 0;
+        var mfd = row.querySelector('.erl-mfd').value;
+        var exp = row.querySelector('.erl-exp').value;
+        if (qty <= 0) { bad = 'qty'; return; }
+        if (gq < 0 || gq > qty) { bad = 'gq'; return; }
+        if (up <= 0) { bad = 'price'; return; }
+        if (!mfd || !exp) { bad = 'date'; return; }
+        receiptLines.push({ IngredientID: iid, Quantity: qty, GoodQuantity: gq, UnitPrice: up });
+        confirmLines.push({ IngredientID: iid, WarehouseID: whId, Mfd: mfd, Exp: exp, BatchCode: null });
+    });
+    if (bad === 'qty') { toast('SL thực nhận phải lớn hơn 0', 'warning'); return; }
+    if (bad === 'gq') { toast('SL tốt phải nằm trong khoảng [0, SL thực nhận]', 'warning'); return; }
+    if (bad === 'price') { toast('Nguyên liệu chưa có đơn giá', 'warning'); return; }
+    if (bad === 'date') { toast('Vui lòng nhập NSX và HSD cho mọi nguyên liệu', 'warning'); return; }
+    if (!receiptLines.length) { toast('Không có nguyên liệu hợp lệ', 'warning'); return; }
+    var empId = localStorage.getItem('employeeId') || '';
+    var ok = document.getElementById('modal-confirm'); if (ok) ok.disabled = true;
+    apiPost('/receipt/create', { POID: poId, EmployeeID: empId, ReceiptLines: receiptLines })
+        .then(function (r) { return r.ok ? r.json() : r.text().then(function (t) { throw new Error(rcpErrMsg(t)); }); })
+        .then(function (d) {
+            var rid = d.ReceiptID || d.receiptID;
+            return apiPost('/receipt/confirm', { ReceiptID: rid, EmployeeID: empId, Lines: confirmLines })
+                .then(function (r) { if (!r.ok) return r.text().then(function (t) { throw new Error(rcpErrMsg(t)); }); });
+        })
+        .then(function () {
+            showPopup({ type: 'success', title: 'Nhập kho thành công', message: 'Nhận hàng & nhập kho thành công.' });
+            closeModal();
+            renderWhHistory();
+            loadOrderedPOs();
+        })
+        .catch(function (err) { if (ok) ok.disabled = false; showPopup({ type: 'error', title: 'Nhận hàng thất bại', message: err.message || 'Không thể nhận hàng.' }); });
 }
 
 function whSelectPO(poId) {
@@ -2225,6 +2491,7 @@ function updateWhReceiptTotals() {
 }
 
 function submitCreateReceipt() {
+    if (!requireShift()) return;
     var lines = WH_RECEIPT_LINES_DATA;
     if (!lines.length) { toast('Không có nguyên liệu!', 'error'); return; }
     var empId = localStorage.getItem('employeeId');
@@ -2256,9 +2523,10 @@ function submitCreateReceipt() {
             return r.json();
         }).then(function (d) {
             WH_RECEIPT_ID = d.ReceiptID || d.receiptID || (d.data && (d.data.ReceiptID || d.data.receiptID));
-            toast('Tạo phiếu nhập thành công!');
+            showPopup({ type: 'success', title: 'Tạo phiếu nhập thành công', message: 'Đã tạo phiếu nhập kho thành công!' });
+            renderWhHistory();
             loadWhWarehouses(function () { renderWhStep3(); whGoStep(3); });
-        }).catch(function (err) { toast(err.message || 'Lỗi tạo phiếu nhập!', 'error'); });
+        }).catch(function (err) { showPopup({ type: 'error', title: 'Không thể tạo phiếu nhập', message: err.message || 'Lỗi tạo phiếu nhập!' }); });
 }
 
 function loadWhWarehouses(cb) {
@@ -2299,6 +2567,7 @@ function renderWhStep3() {
 }
 
 function submitConfirmReceipt() {
+    if (!requireShift()) return;
     if (!WH_RECEIPT_ID) { toast('Chưa có Receipt ID!', 'error'); return; }
     var empId = localStorage.getItem('employeeId');
     var whId  = parseInt(document.getElementById('wh-confirm-warehouse').value);
@@ -2348,7 +2617,7 @@ function submitConfirmReceipt() {
             WH_RECEIPT_ID = null;
             loadOrderedPOs();
             renderWhHistory();
-        }).catch(function (err) { toast(err.message || 'Lỗi xác nhận nhập kho!', 'error'); });
+        }).catch(function (err) { showPopup({ type: 'error', title: 'Không thể nhập kho', message: err.message || 'Lỗi xác nhận nhập kho!' }); });
 }
 
 function whBackToStep1() {
@@ -2363,7 +2632,7 @@ function renderWhHistory() {
     var storeId = localStorage.getItem('storeId');
     apiGet('/receipt/getbystore/' + storeId).then(function (r) { return r.json(); }).then(function (data) {
         var fromApi = Array.isArray(data) ? data : (data.data || []);
-        WAREHOUSE_LOG = fromApi.length ? fromApi : MOCK_WAREHOUSE_LOG;
+        WAREHOUSE_LOG = fromApi;
         renderWhHistoryLocal();
     }).catch(function () {
         if (!WAREHOUSE_LOG.length) WAREHOUSE_LOG = MOCK_WAREHOUSE_LOG;
@@ -2380,23 +2649,27 @@ function renderWhHistoryLocal() {
     }
     tbody.innerHTML = WAREHOUSE_LOG.map(function (r) {
         var id     = r.ReceiptID || r.receiptID || '—';
-        var poId   = r.POID      || r.poid      || '—';
+        var poId   = r.POID      || r.poid      || null;
         var empObj = r.Employee  || r.employee;
         var emp    = (empObj && (empObj.FullName || empObj.fullName)) || '—';
+        var suppObj = r.Supplier || r.supplier;
+        var supp   = (suppObj && (suppObj.SupplierName || suppObj.supplierName)) || '—';
         var date   = r.DateReceive || r.dateReceive || '—';
         var confirmedAt = r.ConfirmedAt || r.confirmedAt;
         var status = r.Status     || r.status     || (confirmedAt ? 'Confirmed' : 'Pending');
         var statusText = status === 'Confirmed' ? 'Đã xác nhận' : 'Chờ xác nhận';
         var badgeCls   = status === 'Confirmed' ? 'badge-green' : 'badge-yellow';
         var idStr  = String(id);
+        var poText = poId ? String(poId).slice(0, 8) + '...' : 'Trực tiếp';
         var printBtn = status === 'Confirmed'
             ? '<button class="btn btn-sm" style="margin-left:4px;background:#047857;color:#fff;border:none" onclick="printReceipt(\'' + idStr + '\')" title="In phiếu"><i class="ti-printer"></i></button>'
             : '';
         return '<tr>'
-            + '<td style="color:var(--primary);font-weight:700;font-size:12px">' + idStr.slice(0, 12) + '...</td>'
-            + '<td style="font-size:12px;color:var(--muted)">' + String(poId).slice(0, 12) + '...</td>'
+            + '<td style="color:var(--primary);font-weight:700;font-size:12px">' + idStr.slice(0, 8).toUpperCase() + '...</td>'
+            + '<td style="font-size:12px;color:var(--muted)">' + poText + '</td>'
+            + '<td style="font-weight:600">' + supp + '</td>'
             + '<td>' + emp + '</td>'
-            + '<td style="font-size:12px;color:var(--muted)">' + String(date).slice(0, 10) + '</td>'
+            + '<td style="font-size:12px;color:var(--muted)">' + fmtVnDateTime(date) + '</td>'
             + '<td><span class="badge ' + badgeCls + '">' + statusText + '</span></td>'
             + '<td style="white-space:nowrap">'
             +   '<button class="btn btn-sm" onclick="viewReceiptDetail(\'' + idStr + '\')" title="Xem chi tiết"><i class="ti-eye"></i> Chi tiết</button>'
@@ -2671,8 +2944,26 @@ function addStockMovement() {
     toast('Ghi nhận biến động kho thành công!');
 }
 
-function renderStockMove() {
-    loadStockMoveIngredients();
+window.toggleMovGroupDetail = function(row) {
+    row.classList.toggle('expanded');
+    var nextRow = row.nextElementSibling;
+    if (nextRow && nextRow.classList.contains('detail-row')) {
+        nextRow.style.display = nextRow.style.display === 'none' ? 'table-row' : 'none';
+    }
+    var iconContainer = row.querySelector('.toggle-icon');
+    if (iconContainer) {
+        if (row.classList.contains('expanded')) {
+            iconContainer.style.transform = 'rotate(90deg)';
+        } else {
+            iconContainer.style.transform = 'rotate(0deg)';
+        }
+    }
+};
+
+// silent=true: load ngầm (poll định kỳ) — chỉ làm mới bảng lịch sử biến động, KHÔNG nạp
+// lại dropdown nguyên liệu để tránh reset form nhập dở của nhân viên.
+function renderStockMove(silent) {
+    if (!silent) loadStockMoveIngredients();
     var tbody = document.getElementById('stockmove-tbody');
     if (!tbody) return;
     
@@ -2688,73 +2979,163 @@ function renderStockMove() {
         var dbMovs = Array.isArray(data) ? data : [];
         
         if (!dbMovs.length && !STOCK_MOVEMENTS.length) {
-            tbody.innerHTML = '<tr><td colspan="6" class="tbl-empty">Chưa có dữ liệu biến động kho</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="tbl-empty">Chưa có dữ liệu biến động kho</td></tr>';
             return;
         }
         
-        var html = '';
+        var allMovements = [];
         
-        // 1. Render local movements
+        // 1. Normalize local movements
         STOCK_MOVEMENTS.forEach(function(s) {
-            var badgeCls = MOVE_BADGE[s.type] || 'badge-gray';
-            html += '<tr>'
-                + '<td><strong>' + s.item + '</strong></td>'
-                + '<td><span class="badge ' + badgeCls + '">' + MOVE_LABEL[s.type] + '</span></td>'
-                + '<td><strong>' + s.qty + '</strong></td>'
-                + '<td style="font-size:12px;color:var(--muted)">' + s.note + '</td>'
-                + '<td style="font-size:12px;color:var(--muted)">' + s.time + '</td>'
-                + '<td style="text-align:center">—</td>'
-                + '</tr>';
+            var qtyVal = parseFloat(s.qty) || 0;
+            if (s.qty.indexOf('−') !== -1 || s.qty.indexOf('-') !== -1) {
+                qtyVal = -Math.abs(qtyVal);
+            } else if (s.qty.indexOf('+') !== -1) {
+                qtyVal = Math.abs(qtyVal);
+            }
+            
+            var unit = s.qty.split(' ').slice(1).join(' ');
+            
+            allMovements.push({
+                ingredientName: s.item,
+                ingredientUnit: unit,
+                movementType: s.type, // 'import', 'consume', 'waste', 'adjust'
+                qtyChange: qtyVal,
+                reason: s.note,
+                employeeName: 'Nhân viên (mới)',
+                timeStamp: s.time,
+                isLocal: true
+            });
         });
         
-        // 2. Render database movements
+        // 2. Add database movements
         dbMovs.forEach(function(m) {
-            var movementType = m.movementType || '';
-            var typeLabel = '';
-            var badgeClass = '';
-            
-            if (movementType === 'PurchaseReceipt') {
-                typeLabel = 'Nhập kho';
-                badgeClass = 'badge-green';
-            } else if (movementType === 'Consumption') {
-                typeLabel = 'Chế biến';
-                badgeClass = 'badge-orange';
-            } else if (movementType === 'Waste') {
-                typeLabel = 'Hao hụt';
-                badgeClass = 'badge-red';
-            } else if (movementType === 'Processing') {
-                typeLabel = 'Sơ chế';
-                badgeClass = 'badge-blue';
-            } else {
-                typeLabel = 'Điều chỉnh';
-                badgeClass = 'badge-blue';
-            }
-            
-            var formattedDate = m.timeStamp ? m.timeStamp.replace('T', ' ').slice(0, 19) : '—';
-            var qtyChangeStr = (m.qtyChange > 0 ? '+' : '') + m.qtyChange + ' ' + (m.ingredientUnit || '');
-            var reasonOrNote = m.reason || m.note || '—';
-            
-            var detailBtn = '—';
-            if (m.referenceID) {
-                detailBtn = '<button class="btn-detail-toggle" onclick="toggleMovDetails(\'' + m.stockMovementID + '\', \'' + m.referenceType + '\', \'' + m.referenceID + '\', this)">Chi tiết</button>';
-            }
-            
-            html += '<tr id="mov-row-' + m.stockMovementID + '">'
-                + '<td><strong>' + (m.ingredientName || '—') + '</strong></td>'
-                + '<td><span class="badge ' + badgeClass + '">' + typeLabel + '</span></td>'
-                + '<td><strong>' + qtyChangeStr + '</strong></td>'
-                + '<td style="font-size:12px;color:var(--muted)">' + reasonOrNote + '</td>'
-                + '<td style="font-size:12px;color:var(--muted)">' + formattedDate + '</td>'
-                + '<td style="text-align:center">' + detailBtn + '</td>'
-                + '</tr>'
-                + '<tr class="detail-row" id="detail-row-' + m.stockMovementID + '" style="display:none;">'
-                + '<td colspan="6"><div class="mov-detail-content" id="detail-content-' + m.stockMovementID + '">Đang tải chi tiết...</div></td>'
-                + '</tr>';
+            allMovements.push({
+                ingredientName: m.ingredientName,
+                ingredientUnit: m.ingredientUnit,
+                movementType: m.movementType,
+                qtyChange: m.qtyChange,
+                reason: m.reason || m.note,
+                employeeName: m.employeeName || 'Hệ thống',
+                timeStamp: m.timeStamp,
+                stockMovementID: m.stockMovementID,
+                referenceID: m.referenceID,
+                referenceType: m.referenceType,
+                batchCode: m.batchCode,
+                isLocal: false
+            });
         });
         
-        tbody.innerHTML = html;
+        var groups = {};
+        allMovements.forEach(function(m) {
+            var key = m.ingredientName || ('#' + m.ingredientID) || 'Không tên';
+            if (!groups[key]) {
+                groups[key] = {
+                    name: key,
+                    unit: m.ingredientUnit || '',
+                    totalUsed: 0,
+                    movements: []
+                };
+            }
+            groups[key].movements.push(m);
+            if (m.qtyChange < 0) {
+                groups[key].totalUsed += Math.abs(m.qtyChange);
+            }
+        });
+        
+        var groupList = Object.keys(groups).map(function(k) { return groups[k]; });
+        groupList.sort(function(a, b) { return b.totalUsed - a.totalUsed; });
+        
+        tbody.innerHTML = groupList.map(function(g, idx) {
+            var subRowsHtml = g.movements.map(function(m) {
+                var typeLabel = '';
+                var badgeClass = '';
+                
+                if (m.isLocal) {
+                    typeLabel = MOVE_LABEL[m.movementType] || m.movementType;
+                    badgeClass = MOVE_BADGE[m.movementType] || 'badge-gray';
+                } else {
+                    var movementType = m.movementType || '';
+                    if (movementType === 'PurchaseReceipt') {
+                        typeLabel = 'Nhập kho';
+                        badgeClass = 'badge-green';
+                    } else if (movementType === 'Consumption') {
+                        typeLabel = 'Chế biến';
+                        badgeClass = 'badge-orange';
+                    } else if (movementType === 'Waste') {
+                        typeLabel = 'Hao hụt';
+                        badgeClass = 'badge-red';
+                    } else if (movementType === 'Processing') {
+                        typeLabel = 'Sơ chế';
+                        badgeClass = 'badge-blue';
+                    } else {
+                        typeLabel = 'Điều chỉnh';
+                        badgeClass = 'badge-blue';
+                    }
+                }
+                
+                var formattedDate = fmtVnDateTime(m.timeStamp);
+                var qtyChangeStr = (m.qtyChange > 0 ? '+' : '') + m.qtyChange;
+                var reasonOrNote = m.reason || '—';
+                var empName = m.employeeName || '—';
+                
+                var detailBtn = '—';
+                if (!m.isLocal && m.referenceID) {
+                    detailBtn = '<button class="btn-detail-toggle" onclick="event.stopPropagation(); toggleMovDetails(\'' + m.stockMovementID + '\', \'' + m.referenceType + '\', \'' + m.referenceID + '\', this)">Chi tiết</button>';
+                }
+                
+                var rowHtml = '<tr id="mov-row-' + m.stockMovementID + '">'
+                    + '<td>' + formattedDate + '</td>'
+                    + '<td><span class="badge ' + badgeClass + '">' + typeLabel + '</span></td>'
+                    + '<td style="font-weight:700;text-align:right">' + qtyChangeStr + '</td>'
+                    + '<td style="font-size:12px;color:var(--muted)">' + reasonOrNote + '</td>'
+                    + '<td style="font-size:12px;color:var(--muted)">' + empName + '</td>'
+                    + '<td style="text-align:center">' + detailBtn + '</td>'
+                    + '</tr>';
+                
+                if (!m.isLocal) {
+                    rowHtml += '<tr class="detail-row" id="detail-row-' + m.stockMovementID + '" style="display:none;">'
+                        + '<td colspan="6" style="padding:10px 20px"><div class="mov-detail-content" id="detail-content-' + m.stockMovementID + '">Đang tải chi tiết...</div></td>'
+                        + '</tr>';
+                }
+                
+                return rowHtml;
+            }).join('');
+            
+            var totalUsedStr = g.totalUsed.toLocaleString('vi-VN') + ' ' + g.unit;
+            var movCountStr = g.movements.length + ' lần';
+            
+            return '<tr class="mov-group-row" onclick="toggleMovGroupDetail(this)" style="cursor:pointer">'
+                + '  <td style="text-align:center;width:50px">'
+                + '    <span class="toggle-icon" style="display: inline-block; transition: transform 0.2s ease; color: var(--primary);"><i class="ti-angle-right"></i></span>'
+                + '  </td>'
+                + '  <td style="font-weight:700;color:var(--primary)">' + g.name + '</td>'
+                + '  <td>' + g.unit + '</td>'
+                + '  <td style="font-weight:800;color:var(--red);text-align:right;padding-right:24px">' + totalUsedStr + '</td>'
+                + '  <td style="text-align:center"><span class="badge badge-gray">' + movCountStr + '</span></td>'
+                + '</tr>'
+                + '<tr class="detail-row" style="display:none;background:#fcfcfc">'
+                + '  <td colspan="5" style="padding:10px 20px">'
+                + '    <div style="border:1px solid #eee;border-radius:8px;background:#fff;overflow:hidden;padding:12px;box-shadow:inset 0 2px 4px rgba(0,0,0,0.02)">'
+                + '      <table class="nested-movement-table" style="width:100%;border-collapse:collapse;font-size:12.5px">'
+                + '        <thead>'
+                + '          <tr style="background:#fafafa;border-bottom:1px solid #eee">'
+                + '            <th style="padding:8px 12px;text-align:left;color:#666">Thời Gian</th>'
+                + '            <th style="padding:8px 12px;text-align:left;color:#666">Loại</th>'
+                + '            <th style="padding:8px 12px;text-align:right;color:#666">SL Thay Đổi</th>'
+                + '            <th style="padding:8px 12px;text-align:left;color:#666">Lý Do</th>'
+                + '            <th style="padding:8px 12px;text-align:left;color:#666">Nhân Viên</th>'
+                + '            <th style="padding:8px 12px;width:100px;text-align:center">Chi Tiết</th>'
+                + '          </tr>'
+                + '        </thead>'
+                + '        <tbody>' + subRowsHtml + '</tbody>'
+                + '      </table>'
+                + '    </div>'
+                + '  </td>'
+                + '</tr>';
+        }).join('');
     }).catch(function(err) {
-        tbody.innerHTML = '<tr><td colspan="6" class="tbl-empty" style="color:var(--red)">Lỗi tải dữ liệu: ' + (err.message || '') + '</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="tbl-empty" style="color:var(--red)">Lỗi tải dữ liệu: ' + (err.message || '') + '</td></tr>';
     });
 }
 
@@ -2987,7 +3368,9 @@ function deliveryStatusCell(delivId, status) {
 function renderDelivery() {
     var start = '2020-01-01';
     var end   = todayVN();
-    apiGet('/delivery/get-all/' + start + '/' + end).then(function (r) { return r.json(); }).then(function (data) {
+    // Chỉ lấy đơn giao của store nhân viên (backend cũng ép theo token sau khi đăng nhập lại).
+    var storeId = localStorage.getItem('storeId');
+    apiGet('/delivery/get-all/' + start + '/' + end + (storeId ? ('?storeID=' + storeId) : '')).then(function (r) { return r.json(); }).then(function (data) {
         var fromApi = Array.isArray(data) ? data : (data.data || []);
         DELIVERIES = fromApi.length ? fromApi : MOCK_DELIVERIES;
         renderDeliveryLocal();
@@ -3004,6 +3387,16 @@ function latestDeliveryLog(d) {
     return logs.slice().sort(function (a, b) {
         return new Date(b.changeAt || b.ChangeAt || 0) - new Date(a.changeAt || a.ChangeAt || 0);
     })[0];
+}
+
+// Thời gian đặt đơn = log sớm nhất (log "Pending" tạo lúc đơn được tạo).
+function getOrderPlacedAt(d) {
+    var logs = d.deliveryLog || d.DeliveryLog || [];
+    if (!logs.length) return '';
+    var first = logs.slice().sort(function (a, b) {
+        return new Date(a.changeAt || a.ChangeAt || 0) - new Date(b.changeAt || b.ChangeAt || 0);
+    })[0];
+    return first.changeAt || first.ChangeAt || '';
 }
 
 function getDeliveryStatus(d) {
@@ -3036,6 +3429,10 @@ function renderDeliveryLocal() {
             var user     = d.user || d.User || {};
             var customer = user.fullName || user.FullName || ('BillID: ' + String(billId).slice(0, 8));
             var address  = getDeliveryAddrText(d);
+            var placedAt = getOrderPlacedAt(d);
+            var placedHtml = placedAt
+                ? '<div class="del-placed"><i class="ti-time"></i> Đặt lúc: ' + fmtDeliveryTime(placedAt) + '</div>'
+                : '';
             var sched    = getScheduledAt(d);
             var gate     = deliveryStartGate(d);
             var schedHtml = sched
@@ -3049,12 +3446,13 @@ function renderDeliveryLocal() {
                 + '<div class="del-id">Đơn: ' + String(billId).slice(0, 8).toUpperCase() + '</div>'
                 + '<div class="del-customer">' + customer + '</div>'
                 + '<div class="del-addr"><i class="ti-location-pin"></i> ' + address + '</div>'
+                + placedHtml
                 + schedHtml
                 + '</div>'
                 + '<div style="display:flex;gap:8px;align-items:center">'
                 + '<input type="text" placeholder="Ghi chú..." style="padding:6px 10px;border:1px solid #e8e8e8;border-radius:6px;font-size:12px;width:160px" id="del-note-' + delivId + '">'
-                + '<button class="btn btn-success btn-sm" onclick="startDelivery(\'' + delivId + '\')">'
-                + '<i class="ti-truck"></i> Giao hàng</button>'
+                + '<button class="btn btn-success btn-sm" onclick="startPreparing(\'' + delivId + '\')">'
+                + '<i class="ti-package"></i> Bắt đầu chuẩn bị</button>'
                 + '</div></div>';
         }).join('');
     }
@@ -3179,19 +3577,22 @@ function askDeliveryCash(d) {
     });
 }
 
-// Bắt đầu giao đơn đang chờ: Pending → Đang giao (OnTheWay).
-// Đơn rời panel "đang chờ giao" và xuống bảng lịch sử với dropdown đổi trạng thái.
-// Việc thu tiền / xác nhận "Đã giao" làm sau ở bảng lịch sử (theo luật thanh toán).
-function startDelivery(deliveryId) {
+// Bếp nhận đơn đang chờ: Pending → Đang chuẩn bị (Preparing).
+// ĐÂY là bước HỆ THỐNG TRỪ NGUYÊN LIỆU KHỎI KHO (xem DeliveryService.UpdateDelivery →
+// ConsumeIngredientsForDelivery). Đơn rời panel "đang chờ giao" và xuống bảng lịch sử;
+// nhân viên dùng dropdown để chuyển tiếp "Đang giao" → "Đã giao" (thu tiền/xác nhận
+// theo luật thanh toán). Hết nguyên liệu → backend báo lỗi và đơn vẫn ở "Chờ giao".
+function startPreparing(deliveryId) {
+    if (!requireShift()) return;
     var d = DELIVERIES.find(function (x) {
         return (x.deliveryID || x.DeliveryID) == deliveryId;
     });
     if (!d) return;
 
-    // Đơn hẹn giờ: chặn bắt đầu giao khi chưa tới 15 phút trước giờ hẹn.
+    // Đơn hẹn giờ: chặn bắt đầu xử lý khi chưa tới 15 phút trước giờ hẹn.
     var gate = deliveryStartGate(d);
     if (!gate.allowed) {
-        toast('Đơn có hẹn giờ — chỉ được bắt đầu giao từ ' + fmtClock(gate.earliest)
+        toast('Đơn có hẹn giờ — chỉ được bắt đầu từ ' + fmtClock(gate.earliest)
             + ' (15 phút trước giờ hẹn).', 'error');
         return;
     }
@@ -3200,14 +3601,15 @@ function startDelivery(deliveryId) {
     var note   = noteEl ? noteEl.value.trim() : '';
 
     apiPut('/delivery/update/' + deliveryId, {
-        Status: 'OnTheWay',
+        Status: 'Preparing',
         Note: note,
         EmployeeID: localStorage.getItem('employeeId') || null,
         ChangeAt: new Date().toISOString()
     }).then(function (r) {
             if (!r.ok) return r.text().then(function (t) { throw new Error(t); });
-            toast('Đơn ' + String(d.billID || d.BillID || '').slice(0, 8).toUpperCase() + ' chuyển sang Đang giao');
-            renderDelivery();   // tải lại: đơn xuống bảng lịch sử với trạng thái "Đang giao"
+            toast('Đơn ' + String(d.billID || d.BillID || '').slice(0, 8).toUpperCase() + ' chuyển sang Đang chuẩn bị');
+            renderDelivery();          // tải lại: đơn xuống bảng lịch sử với trạng thái "Đang chuẩn bị"
+            refreshInventoryViews();   // kho vừa bị trừ → load ngầm lại màn hình kho nếu đang mở
         }).catch(function (err) {
             toast('Lỗi cập nhật đơn giao hàng: ' + (err.message || ''), 'error');
         });
@@ -3216,6 +3618,7 @@ function startDelivery(deliveryId) {
 // Đổi trạng thái giao hàng từ dropdown trong bảng (chỉ với đơn chưa kết thúc).
 // Nhân viên giao = nhân viên đang đăng nhập; thời điểm = lúc bấm.
 function changeDeliveryStatus(deliveryId, selectEl) {
+    if (!requireShift()) { renderDeliveryLocal(); return; }
     var newStatus = selectEl.value;
     var d = DELIVERIES.find(function (x) {
         return (x.deliveryID || x.DeliveryID) == deliveryId;

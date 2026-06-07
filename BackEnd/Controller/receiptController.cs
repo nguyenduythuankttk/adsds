@@ -1,3 +1,4 @@
+using Backend.Helpers;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
 using Microsoft.AspNetCore.Authorization;
@@ -39,6 +40,7 @@ namespace Backend.Controller
         [HttpGet("getbystore/{storeID}")]
         public async Task<IActionResult> GetReceiptByStore(int storeID)
         {
+            storeID = User.GetStoreID() ?? storeID;
             return Ok(await _receiptService.GetReceiptByStore(storeID));
         }
 
@@ -46,6 +48,7 @@ namespace Backend.Controller
         [HttpGet("by-store/{storeID}/{start}/{end}")]
         public async Task<IActionResult> GetByStoreInRange(int storeID, DateOnly start, DateOnly end)
         {
+            storeID = User.GetStoreID() ?? storeID;
             return Ok(await _receiptService.GetReceiptsByStoreInRange(storeID, start, end));
         }
 
@@ -88,6 +91,7 @@ namespace Backend.Controller
         {
             try
             {
+                storeID = User.GetStoreID() ?? storeID;
                 var result = await _receiptService.CreateDirectReceipt(storeID, request);
                 return CreatedAtAction(nameof(GetReceiptByID), new { receiptID = result.ReceiptID }, result);
             }

@@ -1,0 +1,200 @@
+diff --git a/BackEnd/Services/Implementations/EmployeeService.cs b/BackEnd/Services/Implementations/EmployeeService.cs
+index 00bc441..b042dc8 100644
+--- a/BackEnd/Services/Implementations/EmployeeService.cs
++++ b/BackEnd/Services/Implementations/EmployeeService.cs
+@@ -143,7 +143,7 @@ namespace Backend.Services.Implementations
+                 {
+                     UserID = Guid.NewGuid(),
+                     UserName = request.UserName,
+-                    HashPassword = _passwordHasher.HashPassword(new Employee(), request.HashPassword),
++                    HashPassword = BCrypt.Net.BCrypt.HashPassword(request.HashPassword),
+                     BirthDate = request.BirthDate,
+                     Email = request.Email,
+                     Phone = request.Phone,
+@@ -178,7 +178,7 @@ namespace Backend.Services.Implementations
+                     employee.UserName = request.UserName;
+ 
+                 if (!string.IsNullOrEmpty(request.HashPassword))
+-                    employee.HashPassword = _passwordHasher.HashPassword(employee, request.HashPassword);
++                    employee.HashPassword = BCrypt.Net.BCrypt.HashPassword(request.HashPassword);
+ 
+                 if (request.BirthDate.HasValue)
+                     employee.BirthDate = request.BirthDate.Value;
+diff --git a/BackEnd/Services/Implementations/UserService.cs b/BackEnd/Services/Implementations/UserService.cs
+index 0f577c4..a773be6 100644
+--- a/BackEnd/Services/Implementations/UserService.cs
++++ b/BackEnd/Services/Implementations/UserService.cs
+@@ -61,7 +61,7 @@ namespace Backend.Services.Implementations
+             try
+             {
+                 user.IsVerified = false;
+-                user.HashPassword = _passwordHasher.HashPassword(user, user.HashPassword);
++                user.HashPassword = BCrypt.Net.BCrypt.HashPassword(user.HashPassword);
+                 _dbContext.User.Add(user);
+                 await _dbContext.SaveChangesAsync();
+             }catch (Exception e)
+@@ -88,7 +88,7 @@ namespace Backend.Services.Implementations
+                     user.UserName = request.UserName;
+                 
+                 if(request.HashPassword != null)
+-                    user.HashPassword = _passwordHasher.HashPassword(user, request.HashPassword);
++                    user.HashPassword = BCrypt.Net.BCrypt.HashPassword(request.HashPassword);
+ 
+                 if(request.Email != null)
+                     user.Email = request.Email;
+diff --git a/FrontEnd/asset/js/api.js b/FrontEnd/asset/js/api.js
+index 78eaac5..830ae0b 100644
+--- a/FrontEnd/asset/js/api.js
++++ b/FrontEnd/asset/js/api.js
+@@ -1,5 +1,7 @@
+-// Khi chạy qua Live Server (port 5500) thì gọi thẳng backend; khi qua nginx thì dùng relative path
+-var API_BASE = (window.location.port === '5500' || window.location.port === '5501' || window.location.port === '3001')
++// Backend chạy trong docker mapped tới host:3000 (xem docker-compose.yml: backend.ports = 127.0.0.1:3000:8080).
++// Khi mở FE qua Live Server hoặc python http.server thì gọi thẳng backend trên 3000.
++// Khi chạy production qua nginx thì dùng relative path.
++var API_BASE = (window.location.port === '5500' || window.location.port === '5501' || window.location.port === '3001' || window.location.port === '8765')
+     ? 'http://127.0.0.1:3000/api/pbl3'
+     : '/api/pbl3';
+ 
+@@ -59,6 +61,89 @@ function apiPost(path, body, noAuth)       { return apiFetch('POST',   path, bod
+ function apiPut(path, body)                { return apiFetch('PUT',    path, body); }
+ function apiDelete(path)                   { return apiFetch('DELETE', path); }
+ 
++// ─── Tình trạng còn hàng theo ProductVarient của 1 cửa hàng ─────────────────
++// Dùng chung cho trang nhân viên (lập hóa đơn) và trang khách (menu, trang chủ):
++// làm mờ + chặn chọn những món mà nguyên liệu đã hết. Trả về object dạng
++// { map: { varientId: { available, maxServings } }, loaded: bool }.
++// loaded=false ⇒ chưa xác định được (fail-open: KHÔNG làm mờ món nào).
++function buildAvailMap(list) {
++    var map = {};
++    (Array.isArray(list) ? list : []).forEach(function (x) {
++        var id = x.productVarientID != null ? x.productVarientID : x.ProductVarientID;
++        if (id == null) return;
++        var avail = (x.isAvailable !== undefined) ? x.isAvailable : x.IsAvailable;
++        var max   = (x.maxServings  !== undefined) ? x.maxServings  : x.MaxServings;
++        map[id] = { available: avail !== false, maxServings: (max == null ? -1 : Number(max)) };
++    });
++    return { map: map, loaded: true };
++}
++
++// Fallback khi backend chưa có endpoint /product/availability: tự tính từ công
++// thức + tồn kho của store. Khớp logic BillService.ConsumeIngredients (chỉ lô
++// đã sơ chế, còn hàng, chưa hết hạn; nhu cầu mỗi phần = QtyAfterProcess).
++function computeAvailabilityClientSide(storeID) {
++    var asArr = function (d) { return Array.isArray(d) ? d : (d && d.data ? d.data : []); };
++    return Promise.all([
++        apiGet('/recipe/get-all', true).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }),
++        apiGet('/inventorybatch/by-store/' + storeID, true).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; })
++    ]).then(function (res) {
++        var recipes = asArr(res[0]), batches = asArr(res[1]);
++        var today = new Date(); today.setHours(0, 0, 0, 0);
++
++        var stockByIng = {};
++        batches.forEach(function (b) {
++            var type   = b.batchType || b.BatchType;
++            var status = b.status || b.Status;
++            var qty    = Number(b.quantityOnHand != null ? b.quantityOnHand : b.QuantityOnHand) || 0;
++            var exp    = b.exp || b.Exp;
++            if (type !== 'Processed' || status !== 'Available' || qty <= 0) return;
++            if (exp && new Date(exp) < today) return;
++            var ingId = b.ingredientID != null ? b.ingredientID : b.IngredientID;
++            stockByIng[ingId] = (stockByIng[ingId] || 0) + qty;
++        });
++
++        var byVarient = {};
++        recipes.forEach(function (r) {
++            if ((r.deletedAt || r.DeletedAt)) return;
++            var vid   = r.productVarientID != null ? r.productVarientID : r.ProductVarientID;
++            var ingId = r.ingredientID != null ? r.ingredientID : r.IngredientID;
++            var need  = Number(r.qtyAfterProcess != null ? r.qtyAfterProcess : r.QtyAfterProcess) || 0;
++            if (!byVarient[vid]) byVarient[vid] = [];
++            byVarient[vid].push({ ingId: ingId, need: need });
++        });
++
++        var map = {};
++        Object.keys(byVarient).forEach(function (vid) {
++            var maxServings = Infinity;
++            byVarient[vid].forEach(function (it) {
++                if (it.need <= 0) return;
++                var avail = stockByIng[it.ingId] || 0;
++                maxServings = Math.min(maxServings, Math.floor(avail / it.need));
++            });
++            if (maxServings === Infinity) maxServings = -1; // mọi need <= 0
++            map[vid] = { available: maxServings !== 0, maxServings: maxServings };
++        });
++        return { map: map, loaded: true };
++    }).catch(function () { return { map: {}, loaded: false }; });
++}
++
++function fetchVarientAvailability(storeID) {
++    if (!storeID) return Promise.resolve({ map: {}, loaded: false });
++    return apiGet('/product/availability/' + storeID, true)
++        .then(function (r) {
++            if (!r.ok) throw new Error('no endpoint');
++            return r.json().then(buildAvailMap);
++        })
++        .catch(function () { return computeAvailabilityClientSide(storeID); });
++}
++
++// true nếu món đã hết hàng (chỉ khi đã tải được dữ liệu tồn kho).
++function isVarientOut(avail, varientId) {
++    if (!avail || !avail.loaded) return false;
++    var info = avail.map[varientId];
++    return info ? info.available === false : false;
++}
++
+ function luuThongTinNhanVien(data) {
+     setToken(data.acessToken || data.AcessToken || data.accessToken || data.AccessToken);
+     localStorage.setItem('fullName',   data.fullName   || data.FullName   || '');
+@@ -282,7 +367,7 @@ function showSePayQrModal(data, onPaid) {
+         } else {
+             var lastSlash = pathname.lastIndexOf('/');
+             var basePath = pathname.substring(0, lastSlash + 1);
+-            window.location.replace(basePath + 'html/' + targetPage);
++            window.location.replace(basePath + targetPage);
+         }
+     }
+ })();
+diff --git a/FrontEnd/asset/js/scrip.js b/FrontEnd/asset/js/scrip.js
+index 53f640f..83c5f6b 100644
+--- a/FrontEnd/asset/js/scrip.js
++++ b/FrontEnd/asset/js/scrip.js
+@@ -9,11 +9,11 @@ if (_openLoginBtn) {
+ 
+         if (fullName) {
+             if (role === 'admin') {
+-                window.location.href = '/html/admin.html';
++                window.location.href = 'admin.html';
+             } else if (role === 'employee') {
+-                window.location.href = '/html/employee.html';
++                window.location.href = 'employee.html';
+             } else {
+-                window.location.href = '/html/user.html';
++                window.location.href = 'user.html';
+             }
+         } else {
+             document.getElementById('login-modal').classList.add('active');
+@@ -84,7 +84,7 @@ document.getElementById('btn-login').addEventListener('click', function () {
+                 luuThongTinNhanVien(result.data);
+                 document.getElementById('login-modal').classList.remove('active');
+                 var role = localStorage.getItem('role');
+-                window.location.href = role === 'admin' ? '/html/admin.html' : '/html/employee.html';
++                window.location.href = role === 'admin' ? 'admin.html' : 'employee.html';
+             } else {
+                 luuThongTinKhachHang(result.data);
+                 document.getElementById('login-modal').classList.remove('active');
+diff --git a/FrontEnd/html/index.html b/FrontEnd/html/index.html
+index 6e47931..cf0a64c 100644
+--- a/FrontEnd/html/index.html
++++ b/FrontEnd/html/index.html
+@@ -27,8 +27,8 @@
+             <button id="hamburger-btn" aria-label="Mở menu" aria-expanded="false">☰</button>
+ 
+             <ul id="nav">
+-                <li><a href="/html/index.html" class="nav-active">Home</a></li>
+-                <li><a href="/html/menu.html">Menu</a></li>
++                <li><a href="index.html" class="nav-active">Home</a></li>
++                <li><a href="menu.html">Menu</a></li>
+                 <li><a href="#" id="nav-store-btn">Store <i class="ti-angle-down nav-arrow-down"></i></a></li>
+             </ul>
+ 

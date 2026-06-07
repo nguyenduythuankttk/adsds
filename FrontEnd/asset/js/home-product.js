@@ -13,13 +13,18 @@
     var homeLastProducts = [];                          // cache để vẽ lại khi đổi store
     var storeDropdownOpen = false;
     var userPickedStore  = false;
+    var selectedTicket   = null;
+    var MAX_DELIVERY_KM  = 50;
+    var notFarNotifiedKey = null;   // tránh hiện popup "ngoài khu vực" lặp lại cho cùng địa chỉ/cửa hàng
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     function formatPrice(n) { return Number(n).toLocaleString('vi-VN') + ' đ'; }
     function isLoggedIn()   { return !!localStorage.getItem('fullName'); }
 
-    function fetchShippingFee(addressID) {
-        return apiGet('/store/shipping-fee/' + addressID)
+    function fetchShippingFee(addressID, storeID) {
+        var url = '/store/shipping-fee/' + addressID;
+        if (storeID != null) url += '?storeID=' + storeID;
+        return apiGet(url)
             .then(function (r) { return r.ok ? r.json() : null; })
             .catch(function () { return null; });
     }
@@ -121,11 +126,43 @@
             });
     }
 
+    function applyTicketDiscount(subtotal) {
+        if (!selectedTicket) return 0;
+        return Math.round(subtotal * (selectedTicket.discount || 0));
+    }
+
+    function setCheckoutBlocked(blocked, message) {
+        var btn = document.getElementById('cq-checkout-btn');
+        if (btn) {
+            btn.disabled = blocked;
+            btn.style.opacity = blocked ? '0.45' : '';
+            btn.title = blocked ? message : '';
+        }
+        var warningEl = document.getElementById('cq-delivery-warning');
+        if (!warningEl) return;
+        if (blocked) {
+            warningEl.textContent = message;
+            warningEl.style.display = 'flex';
+        } else {
+            warningEl.style.display = 'none';
+        }
+    }
+
     function updateCQShipping() {
         var shippingEl   = document.getElementById('cq-shipping');
         var grandTotalEl = document.getElementById('cq-grand-total');
         var distanceEl   = document.getElementById('cq-distance');
+        var discountRow  = document.getElementById('cq-discount-row');
+        var discountEl   = document.getElementById('cq-discount');
         var subtotal = cart.reduce(function (s, i) { return s + i.price * i.qty; }, 0);
+
+        var discountAmt = applyTicketDiscount(subtotal);
+        if (discountAmt > 0 && discountRow && discountEl) {
+            discountRow.style.display = '';
+            discountEl.textContent    = '-' + formatPrice(discountAmt);
+        } else if (discountRow) {
+            discountRow.style.display = 'none';
+        }
 
         if (!userPickedStore && allStores.length) {
             selectedStore = nearestStore(selectedAddress);
@@ -134,19 +171,114 @@
 
         if (!selectedAddress) {
             if (shippingEl)   shippingEl.textContent   = '0 đ';
-            if (grandTotalEl) grandTotalEl.textContent = formatPrice(subtotal);
+            if (grandTotalEl) grandTotalEl.textContent = formatPrice(subtotal - discountAmt);
             if (distanceEl)   distanceEl.textContent   = '';
+            notFarNotifiedKey = null;
+            setCheckoutBlocked(false, '');
             return;
         }
         if (shippingEl) shippingEl.textContent = '...';
         if (distanceEl) distanceEl.textContent = '';
-        fetchShippingFee(selectedAddress.addressID).then(function (data) {
+        var currentStoreID = selectedStore ? (selectedStore.storeID || selectedStore.StoreID) : null;
+        fetchShippingFee(selectedAddress.addressID, currentStoreID).then(function (data) {
+            if (!data) {
+                var errMsg = 'Không tính được phí giao hàng đến địa chỉ này. Vui lòng chọn cửa hàng khác hoặc thử lại.';
+                if (shippingEl)   shippingEl.textContent   = 'Không hỗ trợ';
+                if (grandTotalEl) grandTotalEl.textContent = formatPrice(subtotal - discountAmt);
+                if (distanceEl)   distanceEl.textContent   = '';
+                setCheckoutBlocked(true, errMsg);
+                var errKey = 'err|' + selectedAddress.addressID + '|' + currentStoreID;
+                if (notFarNotifiedKey !== errKey && typeof showPopup === 'function') {
+                    notFarNotifiedKey = errKey;
+                    showPopup({ type: 'warning', title: 'Không thể giao đến khu vực này', message: errMsg });
+                }
+                return;
+            }
+            if (!data.isDeliverable) {
+                var msg = 'Địa chỉ của bạn cách cửa hàng gần nhất ' + data.distanceKm.toFixed(1) +
+                          ' km (tối đa ' + MAX_DELIVERY_KM + ' km). Chúng tôi không thể giao hàng đến khu vực này.';
+                if (shippingEl)   shippingEl.textContent   = 'Không hỗ trợ';
+                if (grandTotalEl) grandTotalEl.textContent = formatPrice(subtotal - discountAmt);
+                if (distanceEl)   distanceEl.textContent   = '(' + data.distanceKm.toFixed(1) + ' km)';
+                setCheckoutBlocked(true, msg);
+                var key = selectedAddress.addressID + '|' + currentStoreID;
+                if (notFarNotifiedKey !== key && typeof showPopup === 'function') {
+                    notFarNotifiedKey = key;
+                    showPopup({ type: 'warning', title: 'Ngoài khu vực giao hàng', message: msg });
+                }
+                return;
+            }
+            notFarNotifiedKey = null;
             var fee = data ? data.shippingFee : 0;
             var km  = data ? data.distanceKm  : null;
             if (shippingEl)   shippingEl.textContent   = formatPrice(fee);
-            if (grandTotalEl) grandTotalEl.textContent = formatPrice(subtotal + fee);
+            if (grandTotalEl) grandTotalEl.textContent = formatPrice(subtotal - discountAmt + fee);
             if (distanceEl)   distanceEl.textContent   = km != null ? '(' + km.toFixed(1) + ' km)' : '';
+            setCheckoutBlocked(false, '');
         });
+    }
+
+    // ── Ticket / Voucher ───────────────────────────────────────────────────────
+    function loadTickets() {
+        var sel = document.getElementById('cq-ticket-select');
+        if (!sel) return;
+        selectedTicket = null;
+        sel.innerHTML = '<option value="">-- Không dùng mã --</option>';
+        if (!isLoggedIn()) return;
+        apiGet('/ticket/my-tickets')
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (data) {
+                var now = vnTodayISO();
+                (Array.isArray(data) ? data : []).filter(function (tk) {
+                    return !tk.usedAt && !tk.deletedAt &&
+                           (tk.startDate || '') <= now &&
+                           (tk.endDate   || '') >= now;
+                }).forEach(function (tk) {
+                    var code    = (tk.ticketID || '').toString().slice(0, 8).toUpperCase();
+                    var discPct = Math.round((tk.discount || 0) * 100);
+                    var opt     = document.createElement('option');
+                    opt.value   = JSON.stringify(tk);
+                    opt.textContent = code + ' – Giảm ' + discPct + '% (HSD: ' + (tk.endDate ? fmtVnDate(tk.endDate) : '') + ')';
+                    sel.appendChild(opt);
+                });
+            })
+            .catch(function () {});
+    }
+
+    // ── Scheduled delivery ──────────────────────────────────────────────────────
+    var SCHEDULE_MAX_HOURS = 10;
+    function toLocalInputValue(date) {
+        var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+        return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate())
+            + 'T' + pad(date.getHours()) + ':' + pad(date.getMinutes());
+    }
+    function refreshScheduleBounds() {
+        var t = document.getElementById('cq-schedule-time');
+        if (!t) return;
+        var now = new Date();
+        t.min = toLocalInputValue(now);
+        t.max = toLocalInputValue(new Date(now.getTime() + SCHEDULE_MAX_HOURS * 3600 * 1000));
+    }
+    function readScheduledAt() {
+        var chk = document.getElementById('cq-schedule-check');
+        var t   = document.getElementById('cq-schedule-time');
+        if (!chk || !chk.checked) return { ok: true };
+        var v = t && t.value;
+        if (!v) return { ok: false, msg: 'Vui lòng chọn giờ hẹn giao hàng.' };
+        var picked = new Date(v), now = new Date();
+        if (isNaN(picked.getTime()) || picked <= now)
+            return { ok: false, msg: 'Giờ hẹn giao hàng phải ở thời điểm trong tương lai.' };
+        if (picked.getTime() > now.getTime() + SCHEDULE_MAX_HOURS * 3600 * 1000)
+            return { ok: false, msg: 'Chỉ được hẹn giao trong vòng ' + SCHEDULE_MAX_HOURS + ' giờ tới.' };
+        return { ok: true, scheduledAt: picked.toISOString() };
+    }
+    function resetSchedule() {
+        var chk = document.getElementById('cq-schedule-check');
+        var t   = document.getElementById('cq-schedule-time');
+        var b   = document.getElementById('cq-schedule-body');
+        if (chk) chk.checked = false;
+        if (t)   t.value = '';
+        if (b)   b.style.display = 'none';
     }
 
     function saveCart() {
@@ -308,6 +440,7 @@
         document.body.style.overflow = 'hidden';
         loadAddresses();
         loadStores();
+        loadTickets();
     }
 
     function closeCQModal() {
@@ -318,6 +451,11 @@
         document.body.style.overflow = '';
         addrDropdownOpen  = false;
         storeDropdownOpen = false;
+        notFarNotifiedKey = null;
+        selectedTicket    = null;
+        var ts = document.getElementById('cq-ticket-select'); if (ts) ts.value = '';
+        var ti = document.getElementById('cq-ticket-info');   if (ti) ti.style.display = 'none';
+        resetSchedule();
         ['cq-addr-list','cq-store-list'].forEach(function (id) { var el = document.getElementById(id); if (el) el.classList.remove('open'); });
         ['cq-addr-arrow','cq-store-arrow'].forEach(function (id) { var el = document.getElementById(id); if (el) el.classList.remove('open'); });
     }
@@ -375,9 +513,44 @@
             });
         }
 
+        var ticketSelect = document.getElementById('cq-ticket-select');
+        if (ticketSelect) {
+            ticketSelect.addEventListener('change', function () {
+                var info = document.getElementById('cq-ticket-info');
+                if (!this.value) {
+                    selectedTicket = null;
+                    if (info) info.style.display = 'none';
+                } else {
+                    try { selectedTicket = JSON.parse(this.value); } catch (e) { selectedTicket = null; }
+                    if (selectedTicket && info) {
+                        var discPct = Math.round((selectedTicket.discount || 0) * 100);
+                        info.textContent = 'Giảm ' + discPct + '% — HSD: ' + (selectedTicket.endDate ? fmtVnDate(selectedTicket.endDate) : '');
+                        info.style.display = 'block';
+                    }
+                }
+                updateCQShipping();
+            });
+        }
+
+        var scheduleCheck = document.getElementById('cq-schedule-check');
+        if (scheduleCheck) {
+            scheduleCheck.addEventListener('change', function () {
+                var body = document.getElementById('cq-schedule-body');
+                var t    = document.getElementById('cq-schedule-time');
+                if (scheduleCheck.checked) {
+                    refreshScheduleBounds();
+                    if (body) body.style.display = '';
+                    if (t && !t.value) t.value = toLocalInputValue(new Date(Date.now() + 60 * 60 * 1000));
+                } else {
+                    if (body) body.style.display = 'none';
+                }
+            });
+        }
+
         if (checkoutBtn) {
             checkoutBtn.addEventListener('click', function () {
                 if (cart.length === 0) return;
+                if (checkoutBtn.disabled) return;
                 if (!isLoggedIn()) {
                     closeCQModal();
                     var modal = document.getElementById('login-modal');
@@ -385,24 +558,32 @@
                     return;
                 }
                 if (!selectedAddress) {
-                    alert('Bạn chưa có địa chỉ giao hàng. Vui lòng thêm địa chỉ trong trang tài khoản.');
-                    window.location.href = 'user.html';
+                    showPopup({ type: 'warning', title: 'Chưa có địa chỉ giao hàng', message: 'Bạn chưa có địa chỉ giao hàng. Vui lòng thêm địa chỉ trong trang tài khoản.' })
+                        .then(function () { window.location.href = 'user.html'; });
                     return;
                 }
+
+                var schedule = readScheduledAt();
+                if (!schedule.ok) { alert(schedule.msg); return; }
 
                 var userId        = localStorage.getItem('userId');
                 var products      = cart.map(function (i) { return { ProductVarientID: i.varientId, qty: i.qty }; });
                 var storeID       = selectedStore ? (selectedStore.storeID || selectedStore.StoreID) : null;
                 var paymentRadio  = document.querySelector('input[name="cq-payment"]:checked');
                 var paymentMethod = paymentRadio ? paymentRadio.value : 'Cash';
+                var ticketID      = selectedTicket ? (selectedTicket.ticketID || selectedTicket.TicketID || null) : null;
 
-                apiPost('/bill/create-delivery', {
+                var body = {
                     UserID:         userId,
                     StoreID:        storeID,
                     AddressID:      selectedAddress.addressID,
                     PaymentMethods: paymentMethod,
                     products:       products
-                })
+                };
+                if (ticketID) body.TicketID = ticketID;
+                if (schedule.scheduledAt) body.ScheduledAt = schedule.scheduledAt;
+
+                apiPost('/bill/create-delivery', body)
                 .then(function (res) {
                     if (!res.ok) return res.text().then(function (t) { throw new Error(t); });
                     return res.json();
@@ -664,49 +845,71 @@
     var RANK_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32'];
 
     // Thứ tự size: Default < S < M < L < XL → giá đại diện lấy theo size nhỏ nhất
-    var SIZE_RANK = { Default: 0, S: 1, M: 2, L: 3, XL: 4 };
+    var SIZE_RANK  = { Default: 0, S: 1, M: 2, L: 3, XL: 4 };
+    var SIZE_SHORT = { Default: 'Mặc định', S: 'S', M: 'M', L: 'L', XL: 'XL' };
     function sizeRank(v) {
         var s = v ? (v.size != null ? v.size : v.Size) : null;
         return (s != null && SIZE_RANK[s] != null) ? SIZE_RANK[s] : 99;
     }
-    function smallestSizeVariant(variants) {
-        var active = (variants || []).filter(function (v) {
-            return (v.isActive !== false && v.IsActive !== false) && !(v.deletedAt || v.DeletedAt);
-        });
-        if (!active.length) active = variants || [];
-        var best = active[0];
-        for (var i = 1; i < active.length; i++) {
-            // chỉ thay khi size nhỏ hơn hẳn → cùng size thì giữ phần tử đứng trước (giữ thứ tự combo modal)
-            if (sizeRank(active[i]) < sizeRank(best)) best = active[i];
-        }
-        return best;
-    }
 
     function renderProductCard(p, rank) {
-        var variants = p.productVarient || p.ProductVarient || [];
-        var varient = smallestSizeVariant(variants);
-        if (!varient) return '';
+        var raw = (p.productVarient || p.ProductVarient || []).filter(function (v) {
+            return (v.isActive !== false && v.IsActive !== false) && !(v.deletedAt || v.DeletedAt);
+        });
+        if (!raw.length) raw = p.productVarient || p.ProductVarient || [];
+        if (!raw.length) return '';
 
-        var vid   = varient.productVarientID || varient.ProductVarientID;
-        var price = varient.price || varient.Price || 0;
-        var name  = p.productName || p.ProductName || '';
-        var img   = p.image || p.Image || '';
-        var sold  = p.soldCount || p.SoldCount || 0;
+        // Chỉ hiện chip khi món có nhiều size khác nhau thật sự.
+        // Combo (cùng size, khác số người) giữ nguyên thứ tự sẵn có (modal đã sắp theo số người).
+        var sizeSet = {};
+        raw.forEach(function (v) { sizeSet[(v.size != null ? v.size : v.Size) || 'Default'] = true; });
+        var multiSize = raw.length > 1 && Object.keys(sizeSet).length > 1;
+
+        var variants = multiSize
+            ? raw.slice().sort(function (a, b) {
+                  var r = sizeRank(a) - sizeRank(b);
+                  return r !== 0 ? r : ((a.price || a.Price || 0) - (b.price || b.Price || 0));
+              })
+            : raw;
+        var defaultV = variants[0];
+
+        var vid    = defaultV.productVarientID || defaultV.ProductVarientID;
+        var price  = defaultV.price || defaultV.Price || 0;
+        var name   = p.productName || p.ProductName || '';
+        var attrNm = name.replace(/"/g, '&quot;');
+        var img    = p.image || p.Image || '';
+        var sold   = p.soldCount || p.SoldCount || 0;
 
         var rankColor = rank <= 3 ? RANK_COLORS[rank - 1] : '#555';
         var rankBadge = rank
             ? '<span class="product-rank-badge" style="background:' + rankColor + '">#' + rank + '</span>'
             : '';
 
-        var out      = isVarientOut(homeAvail, vid);
-        var soldCls  = out ? ' sold-out' : '';
+        var out    = isVarientOut(homeAvail, vid);
+        var allOut = variants.every(function (v) { return isVarientOut(homeAvail, v.productVarientID || v.ProductVarientID); });
+
+        var sizeHTML = '';
+        if (multiSize) {
+            sizeHTML = '<div class="card-size-list">';
+            variants.forEach(function (v, i) {
+                var cvid   = v.productVarientID || v.ProductVarientID;
+                var csize  = (v.size != null ? v.size : v.Size) || '';
+                var cout   = isVarientOut(homeAvail, cvid);
+                sizeHTML += '<button type="button" class="card-size-chip' + (i === 0 ? ' selected' : '') + (cout ? ' chip-out' : '') + '"' +
+                    ' data-vid="' + cvid + '" data-price="' + (v.price || v.Price || 0) + '" data-out="' + (cout ? '1' : '0') + '">' +
+                    (SIZE_SHORT[csize] || csize || 'Mặc định') + '</button>';
+            });
+            sizeHTML += '</div>';
+        }
+
+        var soldCls  = (out ? ' sold-out' : '') + (allOut ? ' sold-out-all' : '');
         var outBadge = out ? '<span class="product-soldout-badge">HẾT HÀNG</span>' : '';
         var btnAttr  = out ? ' disabled aria-disabled="true" title="Hết hàng"' : '';
         return '<div class="product-card home-prod-card' + soldCls + '">' +
             '<div class="product-image-wrapper">' +
             rankBadge +
             outBadge +
-            (img ? '<img src="' + img + '" alt="' + name + '" loading="lazy">'
+            (img ? '<img src="' + img + '" alt="' + attrNm + '" loading="lazy">'
                  : '<div class="img-placeholder">🍗</div>') +
             (sold > 0 && !out ? '<span class="product-badge">BÁN CHẠY</span>' : '') +
             '</div>' +
@@ -714,11 +917,54 @@
             '<h3 class="product-name">' + name + '</h3>' +
             '<p class="product-price">' + formatPrice(price) + '</p>' +
             (sold > 0 ? '<p class="product-sold-count">Đã bán: ' + sold + '</p>' : '') +
-            '<button class="add-to-cart-btn-static"' + btnAttr + ' ' +
-            'onclick="homeAddToCart(' + vid + ',\'' + name.replace(/'/g, "\\'") + '\',' + price + ')">' +
+            sizeHTML +
+            '<button type="button" class="add-to-cart-btn-static home-add-btn"' + btnAttr +
+            ' data-vid="' + vid + '" data-price="' + price + '" data-name="' + attrNm + '">' +
             '<i class="ti-shopping-cart"></i> ' + (out ? 'HẾT HÀNG' : 'THÊM VÀO GIỎ') + '</button>' +
             '</div></div>';
     }
+
+    // Chọn size trên card → cập nhật giá hiển thị + biến thể sẽ thêm vào giỏ
+    document.addEventListener('click', function (e) {
+        var chip = e.target.closest('.card-size-chip');
+        if (!chip) return;
+        var card = chip.closest('.home-prod-card');
+        if (!card) return;
+        e.stopPropagation();
+
+        card.querySelectorAll('.card-size-chip').forEach(function (c) { c.classList.remove('selected'); });
+        chip.classList.add('selected');
+
+        var price = parseFloat(chip.dataset.price) || 0;
+        var vid   = parseInt(chip.dataset.vid, 10);
+        var cout  = chip.dataset.out === '1';
+
+        var priceEl = card.querySelector('.product-price');
+        if (priceEl) priceEl.textContent = formatPrice(price);
+
+        var addBtn = card.querySelector('.home-add-btn');
+        if (addBtn) {
+            addBtn.dataset.vid   = vid;
+            addBtn.dataset.price = price;
+            addBtn.dataset.out   = cout ? '1' : '0';
+            addBtn.disabled      = cout;
+            addBtn.innerHTML     = '<i class="ti-shopping-cart"></i> ' + (cout ? 'HẾT HÀNG' : 'THÊM VÀO GIỎ');
+        }
+        if (!card.classList.contains('sold-out-all')) card.classList.toggle('sold-out', cout);
+    });
+
+    // Nút "Thêm vào giỏ" trên card (đọc biến thể đang chọn từ data-*)
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.home-add-btn');
+        if (!btn) return;
+        e.stopPropagation();
+        if (btn.disabled || btn.dataset.out === '1') return;
+        var vid   = parseInt(btn.dataset.vid, 10);
+        var price = parseFloat(btn.dataset.price) || 0;
+        var name  = btn.dataset.name || '';
+        if (!vid) return;
+        window.homeAddToCart(vid, name, price);
+    });
 
     function renderProducts(products) {
         homeLastProducts = products || [];

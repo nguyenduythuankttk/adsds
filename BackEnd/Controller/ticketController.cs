@@ -53,7 +53,7 @@ namespace Backend.Controller
         [HttpPost("create")]
         public async Task<IActionResult> AddTicket([FromBody] TicketCreateRequest createRequest)
         {
-            await _ticketService.AddTicket(createRequest);
+            await _ticketService.CreateVoucher(createRequest);
             return Ok("Add ticket successfully!");
         }
 

@@ -480,6 +480,16 @@
 
             <!-- Panel Đăng Nhập -->
             <div class="modal-panel active" id="menu-panel-login">
+                <!-- Role tabs: Khách hàng / Nhân viên -->
+                <div class="login-role-tabs">
+                    <button type="button" class="login-role-tab active" data-role="customer">
+                        <i class="ti-user"></i> Khách hàng
+                    </button>
+                    <button type="button" class="login-role-tab" data-role="employee">
+                        <i class="ti-id-badge"></i> Nhân viên
+                    </button>
+                </div>
+                <p class="login-role-hint" id="menu-login-role-hint">Đăng nhập với tài khoản khách hàng</p>
                 <div class="form-group">
                     <label data-i18n="label_username">Tên đăng nhập</label>
                     <input type="text" id="menu-login-username" data-i18n-ph="ph_username" placeholder="Tên đăng nhập" autocomplete="username">
@@ -589,6 +599,7 @@
 
     <script src="/asset/js/api.js"></script>
     <script src="/asset/js/datetime.js"></script>
+    <script src="/asset/js/popup.js"></script>
     <script src="/asset/js/store.js"></script>
     <script src="/asset/js/order-success-popup.js"></script>
     <script src="/asset/js/menu.js"></script>

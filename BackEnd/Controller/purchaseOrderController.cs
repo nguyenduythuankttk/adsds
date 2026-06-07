@@ -1,3 +1,4 @@
+using Backend.Helpers;
 using Backend.Models;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
@@ -18,9 +19,11 @@ namespace Backend.Controller
         }
 
         [HttpGet("Get-all/{start}/{end}")]
-        public async Task<IActionResult> GetAllPOIn(DateOnly start, DateOnly end)
+        public async Task<IActionResult> GetAllPOIn(DateOnly start, DateOnly end, [FromQuery] int? storeID = null)
         {
-            return Ok(await _purchaseOrderService.GetAllPOIn(start, end));
+            // Nhân viên chỉ thấy đơn mua của store mình.
+            storeID = User.GetStoreID() ?? storeID;
+            return Ok(await _purchaseOrderService.GetAllPOIn(start, end, storeID));
         }
 
         [HttpGet("get/{id}")]
@@ -34,6 +37,7 @@ namespace Backend.Controller
         [HttpGet("get-by-store/{storeID}")]
         public async Task<IActionResult> GetAllPOByStore(int storeID)
         {
+            storeID = User.GetStoreID() ?? storeID;
             return Ok(await _purchaseOrderService.GetAllPOByStore(storeID));
         }
 
@@ -52,6 +56,7 @@ namespace Backend.Controller
         [HttpPost("create")]
         public async Task<IActionResult> CreatePO(POCreateRequest createRequest)
         {
+            createRequest.StoreID = User.GetStoreID() ?? createRequest.StoreID;
             var result = await _purchaseOrderService.CreatePO(createRequest);
             return CreatedAtAction(nameof(GetPOByID), new { id = result.POID }, result);
         }

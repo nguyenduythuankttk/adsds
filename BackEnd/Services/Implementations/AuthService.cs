@@ -44,6 +44,10 @@ namespace Backend.Services.Implementations{
                     new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                     new Claim(ClaimTypes.Role, user is Employee emp ? emp.Role.ToString() : "Customer")
                 };
+                // StoreID claim: ép phạm vi dữ liệu admin/employee về đúng store của nhân viên.
+                // Khách (User thường) không có claim này ⇒ không bị giới hạn store.
+                if (user is Employee storeEmp)
+                    claims.Add(new Claim("StoreID", storeEmp.StoreID.ToString()));
                 var expiryMinutes = int.Parse(_configuration["Jwt:ExpiryMinutes"] ?? "45");
                 var token = new JwtSecurityToken(
                     issuer: issuer,

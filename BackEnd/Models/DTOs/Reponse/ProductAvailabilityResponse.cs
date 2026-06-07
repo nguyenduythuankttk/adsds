@@ -8,7 +8,8 @@ namespace Backend.Models.DTOs.Reponse
         public int ProductVarientID { get; set; }
         public bool IsAvailable { get; set; }
         // Số phần tối đa có thể bán với tồn kho hiện tại.
-        // -1 = không giới hạn (món không có công thức nên không tiêu hao nguyên liệu).
+        // 0 = hết hàng (gồm cả món thường chưa khai báo nguyên liệu).
+        // -1 = không giới hạn (công thức không tiêu hao nguyên liệu nào).
         public decimal MaxServings { get; set; }
     }
 }

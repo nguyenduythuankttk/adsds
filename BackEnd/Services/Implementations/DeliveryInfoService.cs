@@ -41,6 +41,35 @@ namespace Backend.Services.Implementations{
             if (demand.Count == 0) return;
 
             var ingredientIDs = demand.Keys.ToList();
+
+            // Tên nguyên liệu + tên món (varient) để báo lỗi thân thiện: "Món X đã hết hàng".
+            var ingredientNameById = await _dbcontext.Ingredient
+                .Where(i => ingredientIDs.Contains(i.IngredientID))
+                .ToDictionaryAsync(i => i.IngredientID, i => i.IngredientName);
+            var varientNameById = (await _dbcontext.ProductVarient
+                    .Where(pv => productVarientIDs.Contains(pv.ProductVarientID))
+                    .Include(pv => pv.Product)
+                    .Select(pv => new { pv.ProductVarientID, pv.Product.ProductName, pv.Size })
+                    .ToListAsync())
+                .ToDictionary(x => x.ProductVarientID,
+                    x => x.Size == ProductSize.Default ? x.ProductName : $"{x.ProductName} (size {x.Size})");
+
+            // Gom tên các món trong đơn đang dùng nguyên liệu bị thiếu để hiện cho nhân viên.
+            string OutOfStockMessage(int ingId)
+            {
+                var dishes = recipes
+                    .Where(r => r.IngredientID == ingId)
+                    .Select(r => r.ProductVarientID)
+                    .Distinct()
+                    .Where(varientNameById.ContainsKey)
+                    .Select(id => "\"" + varientNameById[id] + "\"")
+                    .Distinct()
+                    .ToList();
+                var dishText = dishes.Count > 0 ? string.Join(", ", dishes) : "(không xác định)";
+                var ingName = ingredientNameById.GetValueOrDefault(ingId, "#" + ingId);
+                return $"Món {dishText} đã hết hàng (thiếu nguyên liệu \"{ingName}\").";
+            }
+
             var availableBatches = await _dbcontext.InventoryBatch
                 .Where(b => ingredientIDs.Contains(b.IngredientID)
                          && b.BatchType == BatchType.Processed
@@ -57,7 +86,7 @@ namespace Backend.Services.Implementations{
             foreach (var (ingredientID, totalToConsume) in demand)
             {
                 if (!batchesByIngredient.TryGetValue(ingredientID, out var batches) || batches.Count == 0)
-                    throw new InvalidOperationException($"Không đủ nguyên liệu – IngredientID {ingredientID}: còn thiếu {totalToConsume}.");
+                    throw new InvalidOperationException(OutOfStockMessage(ingredientID));
 
                 // FEFO + dùng hết lô dở: cận hạn trước → lô còn ít nhất → nhập sớm nhất.
                 var sortedBatches = batches
@@ -91,12 +120,12 @@ namespace Backend.Services.Implementations{
                 }
 
                 if (remaining > 0)
-                    throw new InvalidOperationException($"Không đủ nguyên liệu – IngredientID {ingredientID}: còn thiếu {remaining}.");
+                    throw new InvalidOperationException(OutOfStockMessage(ingredientID));
             }
 
             await _dbcontext.SaveChangesAsync();
         }
-        public async Task<List<DeliveryInfo>?> GetAllDeliveryIn(DateTime start, DateTime end)
+        public async Task<List<DeliveryInfo>?> GetAllDeliveryIn(DateTime start, DateTime end, int? storeID = null)
         {
             // end là mốc 00:00 của ngày → dùng mốc loại trừ (end + 1 ngày) để lấy trọn cả
             // ngày end, tránh bỏ sót đơn vừa tạo/thanh toán trong hôm nay (ChangeAt lưu UTC).
@@ -110,7 +139,9 @@ namespace Backend.Services.Implementations{
                     .ThenInclude(l => l.Employee)
                 .Where(di => di.DeliveryLog.Any() &&
                              di.DeliveryLog.Min(l => l.ChangeAt) >= start &&
-                             di.DeliveryLog.Min(l => l.ChangeAt) < endExclusive)
+                             di.DeliveryLog.Min(l => l.ChangeAt) < endExclusive &&
+                             (storeID == null ||
+                              _dbcontext.Bill.Any(b => b.BillID == di.BillID && b.StoreID == storeID.Value)))
                 .ToListAsync();
         }
 
@@ -190,10 +221,20 @@ namespace Backend.Services.Implementations{
                 // chưa commit sẽ tự rollback khi dispose → không bị trừ kho mà thiếu log.
                 using var tx = await _dbcontext.Database.BeginTransactionAsync();
 
-                // Bếp bắt đầu chuẩn bị → trừ nguyên liệu khỏi kho
-                if (updateRequest.Status == DeliveryStatus.Preparing)
+                // Trừ nguyên liệu khỏi kho khi đơn bắt đầu được xử lý. Bình thường là lúc bếp
+                // chuyển sang "Đang chuẩn bị" (Preparing); nhưng nếu luồng nhảy cóc thẳng sang
+                // "Đang giao" (OnTheWay) — bỏ qua Preparing — thì vẫn trừ ở đó để không bao giờ
+                // bỏ sót. Idempotent: nếu bill này đã có bản ghi tiêu hao thì bỏ qua để tránh
+                // trừ kho 2 lần (vd Preparing rồi mới OnTheWay).
+                if (updateRequest.Status == DeliveryStatus.Preparing ||
+                    updateRequest.Status == DeliveryStatus.OnTheWay)
                 {
-                    await ConsumeIngredientsForDelivery(bill.BillID, updateRequest.EmployeeID, bill.StoreID);
+                    var alreadyConsumed = await _dbcontext.StockMovement.AnyAsync(m =>
+                        m.ReferenceType == StockReferenceType.Bill &&
+                        m.ReferenceID == bill.BillID &&
+                        m.MovementType == StockMovementType.Consumption);
+                    if (!alreadyConsumed)
+                        await ConsumeIngredientsForDelivery(bill.BillID, updateRequest.EmployeeID, bill.StoreID);
                 }
 
                 // Luật xác nhận "Đã giao":

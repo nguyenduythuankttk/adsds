@@ -1,3 +1,4 @@
+using Backend.Helpers;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -31,9 +32,10 @@ namespace Backend.Controller
         }
 
         [HttpGet("get-all/{start}/{end}")]
-        public async Task<IActionResult> GetAllProcessing(DateOnly start, DateOnly end)
+        public async Task<IActionResult> GetAllProcessing(DateOnly start, DateOnly end, [FromQuery] int? storeID = null)
         {
-            return Ok(await _processingService.GetAllProcessing(start, end));
+            // Nhân viên chỉ thấy log sơ chế của store mình (log ⇒ nhân viên thực hiện ⇒ store).
+            return Ok(await _processingService.GetAllProcessing(start, end, User.GetStoreID() ?? storeID));
         }
 
         [HttpDelete("delete/{processingID}/{employeeID}")]

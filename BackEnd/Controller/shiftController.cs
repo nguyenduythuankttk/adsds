@@ -1,3 +1,4 @@
+using Backend.Helpers;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
 using Microsoft.AspNetCore.Authorization;
@@ -64,6 +65,7 @@ namespace Backend.Controller {
         [HttpPost("assign/{storeID}")]
         public async Task<IActionResult> AssignShift(int storeID, [FromBody] ShiftAssignRequest request) {
             try {
+                storeID = User.GetStoreID() ?? storeID;
                 var shift = await _shiftService.AssignShift(storeID, request);
                 return Ok(new { message = "Phân ca thành công", data = shift });
             } catch (Exception e) {

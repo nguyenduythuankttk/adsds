@@ -275,12 +275,14 @@ namespace Backend.Services.Implementations
                         .ThenInclude(b => b.Ingredient)
                 .FirstOrDefaultAsync();
 
-        public async Task<List<ProcessingLog>?> GetAllProcessing(DateOnly start, DateOnly end) =>
+        public async Task<List<ProcessingLog>?> GetAllProcessing(DateOnly start, DateOnly end, int? storeID = null) =>
             await _dbContext.ProcessingLog
                 .AsNoTracking()
                 .Where(p => p.DeletedAt == null &&
                             p.ProcessedAt >= start.ToDateTime(TimeOnly.MinValue) &&
-                            p.ProcessedAt <= end.ToDateTime(TimeOnly.MaxValue))
+                            p.ProcessedAt <= end.ToDateTime(TimeOnly.MaxValue) &&
+                            (storeID == null ||
+                             _dbContext.Employee.Any(e => e.UserID == p.EmployeeID && e.StoreID == storeID.Value)))
                 .Include(p => p.Employee)
                 .Include(p => p.Details)
                 .ToListAsync();

@@ -1,3 +1,4 @@
+using Backend.Helpers;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +15,7 @@ namespace Backend.Controller {
 
         [HttpGet("get-all")]
         public async Task<IActionResult> GetAll(int storeID) {
+            storeID = User.GetStoreID() ?? storeID;
             var tables = await _diningTable.GetAllTablesInStore(storeID);
             if (tables == null) return NotFound("Not found table in " + storeID);
             return Ok(tables);
@@ -28,6 +30,7 @@ namespace Backend.Controller {
 
         [HttpPost("create")]
         public async Task<IActionResult> Add(TableCreateRequest newTable) {
+            newTable.StoreID = User.GetStoreID() ?? newTable.StoreID;
             await _diningTable.AddTable(newTable);
             return Ok("Create Table Successfully");
         }

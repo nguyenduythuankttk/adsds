@@ -3,7 +3,7 @@ using Backend.Models.DTOs.Reponse;
 using Backend.Models.DTOs.Request;
 namespace Backend.Services.Interface{
     public interface IPurchaseOrderService {
-        Task <List<PurchaseOrder>?> GetAllPOIn (DateOnly start, DateOnly end);
+        Task <List<PurchaseOrder>?> GetAllPOIn (DateOnly start, DateOnly end, int? storeID = null);
         Task<PurchaseOrder?> GetPOByID (Guid id);
         Task<List<PurchaseOrder>?> GetAllPOByStore(int storeID);
         Task<List<PurchaseOrder>?> GetAllPOBySupplier(int supplierID);

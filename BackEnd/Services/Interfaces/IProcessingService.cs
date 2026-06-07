@@ -9,6 +9,6 @@ namespace Backend.Services.Interfaces
         Task<CreateProcessingResponse> CreateProcessing(CreateProcessingRequest request);
         Task DeleteProcessing(Guid processingID, Guid employeeID);
         Task<ProcessingLog?> GetProcessingByID(Guid processingID);
-        Task<List<ProcessingLog>?> GetAllProcessing(DateOnly start, DateOnly end);
+        Task<List<ProcessingLog>?> GetAllProcessing(DateOnly start, DateOnly end, int? storeID = null);
     }
 }

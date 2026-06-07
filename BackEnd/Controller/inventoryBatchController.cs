@@ -1,3 +1,4 @@
+using Backend.Helpers;
 using Backend.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
 
@@ -36,9 +37,10 @@ namespace Backend.Controller
 
         // Dùng cho màn hình tạo phiếu sơ chế — chọn batch thô còn hàng
         [HttpGet("available-raw")]
-        public async Task<IActionResult> GetAvailableRaw([FromQuery] int? ingredientID)
+        public async Task<IActionResult> GetAvailableRaw([FromQuery] int? ingredientID, [FromQuery] int? storeID = null)
         {
-            return Ok(await _batchService.GetAvailableRawBatches(ingredientID));
+            // Nhân viên chỉ thấy lô thô của store mình (dùng cho màn sơ chế + dashboard admin).
+            return Ok(await _batchService.GetAvailableRawBatches(ingredientID, User.GetStoreID() ?? storeID));
         }
 
         // Dùng cho FIFO khi tạo Bill — chỉ batch đã sơ chế còn hàng
@@ -51,6 +53,7 @@ namespace Backend.Controller
         [HttpGet("by-store/{storeID}")]
         public async Task<IActionResult> GetByStore(int storeID)
         {
+            storeID = User.GetStoreID() ?? storeID;
             return Ok(await _batchService.GetBatchesByStore(storeID));
         }
 
@@ -58,6 +61,7 @@ namespace Backend.Controller
         [HttpGet("store-report/{storeID}")]
         public async Task<IActionResult> GetStoreReport(int storeID)
         {
+            storeID = User.GetStoreID() ?? storeID;
             try { return Ok(await _batchService.GetStoreInventoryReport(storeID)); }
             catch (Exception e) { return BadRequest(new { message = e.Message }); }
         }

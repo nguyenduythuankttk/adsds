@@ -13,6 +13,9 @@ namespace Backend.Services.Implementations{
         private const int OnTimeWindowMinutes = 5;
         // Trễ quá ngưỡng này tính là vắng (không tính trễ).
         private const int AbsentThresholdMinutes = 60;
+        // Khung giờ làm việc cho phép xếp ca (08:00–22:00).
+        private static readonly TimeSpan WorkDayStart = new TimeSpan(8, 0, 0);
+        private static readonly TimeSpan WorkDayEnd = new TimeSpan(22, 0, 0);
 
         public ShiftService (AppDbContext dbContext){
             _dbContext = dbContext;
@@ -104,7 +107,27 @@ namespace Backend.Services.Implementations{
                 throw new Exception("Nhân viên không thuộc cửa hàng này");
 
             if (request.TimeIn >= request.TimeOut)
-                throw new Exception("TimeIn phải sớm hơn TimeOut");
+                throw new Exception("Giờ vào phải sớm hơn giờ ra");
+
+            // Ca làm chỉ được xếp trong khung giờ làm việc 08:00–22:00, trong cùng một ngày.
+            if (request.TimeIn.Date != request.TimeOut.Date
+                || request.TimeIn.TimeOfDay < WorkDayStart
+                || request.TimeOut.TimeOfDay > WorkDayEnd)
+                throw new Exception("Ca làm chỉ được xếp trong khung giờ 08:00–22:00");
+
+            // Không cho phân ca vào thời gian đã qua so với hiện tại (giờ VN).
+            if (request.TimeIn < VnTime.Now)
+                throw new Exception("Không thể phân ca vào thời gian đã qua");
+
+            // Không cho 1 nhân viên có 2 ca chồng (overlap) lên nhau.
+            // Hai khoảng [TimeIn, TimeOut) chồng nhau khi: s.TimeIn < new.TimeOut && new.TimeIn < s.TimeOut.
+            var overlapped = await _dbContext.Shift.AnyAsync(s =>
+                s.EmployeeID == request.EmployeeID
+                && s.DeletedAt == null
+                && s.TimeIn < request.TimeOut
+                && request.TimeIn < s.TimeOut);
+            if (overlapped)
+                throw new Exception("Nhân viên đã có ca làm trùng/chồng thời gian này");
 
             var newShift = new Shift {
                 ShiftID = Guid.NewGuid(),
@@ -178,6 +201,7 @@ namespace Backend.Services.Implementations{
                 TimeIn = shift.TimeIn,
                 TimeOut = shift.TimeOut,
                 CheckIn = shift.CheckIn,
+                CheckOut = shift.CheckOut,
                 Status = shift.Status,
                 MinutesDiff = diffMinutes,
                 HasShift = true,
@@ -211,10 +235,13 @@ namespace Backend.Services.Implementations{
             }
 
             if (shift.CheckOut == null) {
-                shift.CheckOut = now;
+                // Chỉ cho phép check-out khi đã hết giờ tan ca (đến/qua TimeOut).
                 if (now < shift.TimeOut) {
-                    shift.Status = ShiftStatus.EarlyLeave;
-                } else if (shift.Status != ShiftStatus.Late && shift.Status != ShiftStatus.Absent) {
+                    var remain = (int)Math.Ceiling((shift.TimeOut - now).TotalMinutes);
+                    throw new Exception($"Chưa đến giờ tan ca, không thể check-out (còn {remain} phút)");
+                }
+                shift.CheckOut = now;
+                if (shift.Status != ShiftStatus.Late && shift.Status != ShiftStatus.Absent) {
                     shift.Status = ShiftStatus.Completed;
                 }
                 await _dbContext.SaveChangesAsync();
@@ -226,13 +253,43 @@ namespace Backend.Services.Implementations{
                 TimeIn = shift.TimeIn,
                 TimeOut = shift.TimeOut,
                 CheckIn = shift.CheckIn,
+                CheckOut = shift.CheckOut,
                 Status = shift.Status,
                 MinutesDiff = diff,
                 HasShift = true,
-                Message = shift.Status == ShiftStatus.EarlyLeave
-                    ? $"Về sớm {Math.Abs(diff)} phút"
-                    : "Đã check-out"
+                Message = "Đã check-out"
             };
+        }
+
+        // Tự động check-out khi nhân viên đăng xuất: đóng ca hôm nay đã check-in nhưng
+        // chưa check-out, ghi nhận giờ rời ca = lúc đăng xuất. Khác với check-out thủ công,
+        // KHÔNG chặn theo giờ tan ca vì đăng xuất là tín hiệu rời ca rõ ràng. Chỉ đánh dấu
+        // hoàn thành khi đã hết giờ tan ca; rời sớm thì giữ nguyên trạng thái chấm công.
+        // Trả về true nếu có ca được đóng.
+        public async Task<bool> AutoCheckOutOnLogout(Guid employeeID) {
+            var now = VnTime.Now;
+            var dayStart = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0);
+            var dayEnd = dayStart.AddDays(1);
+
+            var shift = await _dbContext.Shift
+                .Where(s => s.EmployeeID == employeeID
+                    && s.DeletedAt == null
+                    && s.TimeIn >= dayStart && s.TimeIn < dayEnd
+                    && s.CheckIn != null
+                    && s.CheckOut == null)
+                .OrderBy(s => s.TimeIn)
+                .FirstOrDefaultAsync();
+
+            if (shift == null) return false;
+
+            shift.CheckOut = now;
+            if (now >= shift.TimeOut
+                && shift.Status != ShiftStatus.Late
+                && shift.Status != ShiftStatus.Absent) {
+                shift.Status = ShiftStatus.Completed;
+            }
+            await _dbContext.SaveChangesAsync();
+            return true;
         }
     }
 }

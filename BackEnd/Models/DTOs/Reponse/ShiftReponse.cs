@@ -21,6 +21,7 @@ namespace Backend.Models.DTOs.Reponse {
         public DateTime? TimeIn { get; set; }
         public DateTime? TimeOut { get; set; }
         public DateTime? CheckIn { get; set; }
+        public DateTime? CheckOut { get; set; }
         public ShiftStatus Status { get; set; }
         public int MinutesDiff { get; set; }   // âm: sớm, dương: trễ
         public string Message { get; set; } = "";

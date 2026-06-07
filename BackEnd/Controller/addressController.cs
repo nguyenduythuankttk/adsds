@@ -51,9 +51,28 @@ namespace Backend.Controller {
                     Province = request.Province
                 };
                 await _addressService.AddUserAddress(address, userID);
-                return Ok("Thêm địa chỉ thành công");
+                return Ok(new { addressID = address.AddressID });
             } catch (Exception e) {
                 return StatusCode(500, $"Error in addressController.AddAddress: {e.Message}");
+            }
+        }
+
+        // Staff (Manager/Counter) tạo địa chỉ cho khách hàng bất kỳ — phục vụ lập hóa đơn giao hàng tại quầy.
+        [Authorize(Roles = "Manager,Counter")]
+        [HttpPost("add-for-user")]
+        public async Task<IActionResult> AddAddressForUser([FromBody] StaffAddressForUserRequest request) {
+            try {
+                if (request.UserID == Guid.Empty)
+                    return BadRequest("UserID is required.");
+                var address = new Address {
+                    StreetAddress = request.StreetAddress,
+                    District = request.District,
+                    Province = request.Province
+                };
+                await _addressService.AddUserAddress(address, request.UserID);
+                return Ok(new { addressID = address.AddressID });
+            } catch (Exception e) {
+                return StatusCode(500, $"Error in addressController.AddAddressForUser: {e.Message}");
             }
         }
 

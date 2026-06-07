@@ -1595,8 +1595,8 @@ body {
     bottom: 0;
     left: 50%;
     transform: translateX(-50%) translateY(100%);
-    width: min(420px, 100vw);
-    max-height: 88vh;
+    width: min(560px, 96vw);
+    max-height: 90vh;
     background: #fff;
     border-radius: 24px 24px 0 0;
     z-index: 1200;
@@ -1682,10 +1682,17 @@ body {
 /* ── Body ── */
 .cq-body {
     flex: 1;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: #f0ebe6 transparent;
+    min-height: 0;
+    overflow-y: scroll;
 }
+.cq-body::-webkit-scrollbar { width: 10px; }
+.cq-body::-webkit-scrollbar-track { background: #f4eeea; }
+.cq-body::-webkit-scrollbar-thumb {
+    background: #e6a07a;
+    border-radius: 8px;
+    border: 2px solid #f4eeea;
+}
+.cq-body::-webkit-scrollbar-thumb:hover { background: rgb(220, 77, 11); }
 
 /* ── Cart Items ── */
 .cq-items-wrap {

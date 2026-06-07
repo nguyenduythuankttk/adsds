@@ -1,8 +1,8 @@
 (function ktraDangNhap() {
     var role = localStorage.getItem('role');
     if (!role || role !== 'user') {
-        alert('Vui lòng đăng nhập để tiếp tục!');
-        window.location.href = 'index.html';
+        showPopup({ type: 'warning', title: 'Cần đăng nhập', message: 'Vui lòng đăng nhập để tiếp tục!' })
+            .then(function () { window.location.href = 'index.html'; });
         return;
     }
     if (isTokenExpired()) {
@@ -175,6 +175,16 @@ function renderOrders(main) {
                 '<div class="section-card-body"><p style="color:var(--muted)">Chưa có đơn hàng nào.</p></div></div>';
             return;
         }
+        // Thời điểm tạo đơn (Create change) — dùng để hiển thị & sắp xếp
+        function orderCreatedAt(o) {
+            var changes = o.billChange || o.BillChange || [];
+            var createChange = changes.slice().reverse().find(function (c) { return (c.status || c.Status) === 'Create'; });
+            return (createChange && (createChange.changeAt || createChange.ChangeAt)) || '';
+        }
+        // Sắp xếp giảm dần theo thời gian tạo (mới nhất lên đầu)
+        orders = orders.slice().sort(function (a, b) {
+            return new Date(orderCreatedAt(b) || 0) - new Date(orderCreatedAt(a) || 0);
+        });
         window._userOrders = orders;
         var rows = orders.map(function (o, idx) {
             var changes  = o.billChange || o.BillChange || [];
@@ -184,8 +194,7 @@ function renderOrders(main) {
             var statusClass = (status === 'Paid') ? 'badge-success'
                 : (status === 'Create' || status === 'UnPaid') ? 'badge-warning' : 'badge-danger';
 
-            var createChange = changes.slice().reverse().find(function (c) { return (c.status || c.Status) === 'Create'; }) || {};
-            var date = (createChange.changeAt || createChange.ChangeAt || '').slice(0, 10);
+            var date = fmtVnDateTime(orderCreatedAt(o));
 
             var details = o.detail || o.Detail || o.billDetail || o.BillDetail || [];
             var items = details.map(function (bd) {
@@ -253,7 +262,7 @@ function showBillModal(idx) {
     var deliveryAddr  = o.address || o.Address || null;
     var deliveryText  = formatAddressText(deliveryAddr);
     var scheduledRaw  = o.scheduledAt || o.ScheduledAt || null;
-    var scheduledText = scheduledRaw ? String(scheduledRaw).replace('T', ' ').slice(0, 16) : null;
+    var scheduledText = scheduledRaw ? fmtVnDateTime(scheduledRaw) : null;
 
     // Items table
     var details  = o.detail || o.Detail || o.billDetail || o.BillDetail || [];
@@ -279,10 +288,10 @@ function showBillModal(idx) {
 
     // Status timeline (oldest → newest)
     var changes = (o.billChange || o.BillChange || []).slice().reverse();
-    var createdAt = changes.length ? (changes[0].changeAt || changes[0].ChangeAt || '').replace('T', ' ').slice(0, 16) : '—';
+    var createdAt = changes.length ? fmtVnDateTime(changes[0].changeAt || changes[0].ChangeAt) : '—';
     var timelineHtml = changes.map(function (bc, i) {
         var st   = bc.status || bc.Status || '';
-        var time = (bc.changeAt || bc.ChangeAt || '').replace('T', ' ').slice(0, 16);
+        var time = fmtVnDateTime(bc.changeAt || bc.ChangeAt);
         var isLast = i === changes.length - 1;
         return '<div class="bill-tl-step' + (isLast ? ' bill-tl-last' : '') + '">' +
             '<div class="bill-tl-dot"></div>' +
@@ -418,11 +427,13 @@ function addAddress() {
 }
 
 function deleteAddress(id) {
-    if (!confirm('Bạn có chắc muốn xoá địa chỉ này?')) return;
-    apiDelete('/address/delete/' + id).then(function (r) {
-        if (!r.ok) throw new Error();
-        loadSection('address');
-    }).catch(function () { alert('Lỗi xoá địa chỉ!'); });
+    showConfirm({ type: 'error', danger: true, title: 'Xoá địa chỉ', message: 'Bạn có chắc muốn xoá địa chỉ này?', confirmText: 'Xoá' }).then(function (ok) {
+        if (!ok) return;
+        apiDelete('/address/delete/' + id).then(function (r) {
+            if (!r.ok) throw new Error();
+            loadSection('address');
+        }).catch(function () { showPopup({ type: 'error', message: 'Lỗi xoá địa chỉ!' }); });
+    });
 }
 
 // 4. MÃ GIẢM GIÁ
@@ -454,7 +465,7 @@ function renderTicket(main) {
             var badgeTxt  = isUsed ? 'Đã dùng' : isExpired ? 'Hết hạn' : 'Hiệu lực';
 
             var usedLine  = usedAt
-                ? '<div class="tk-used-time">Dùng lúc: ' + String(usedAt).replace('T', ' ').slice(0, 16) + '</div>'
+                ? '<div class="tk-used-time">Dùng lúc: ' + fmtVnDateTime(usedAt) + '</div>'
                 : '';
             var actionBtn = isActive
                 ? '<button class="up-btn up-btn-sm" onclick="copyCode(\'' + ticketId + '\')">Sao chép mã</button>'
@@ -467,8 +478,8 @@ function renderTicket(main) {
                 '</div>' +
                 '<div class="tk-discount">Giảm ' + discPct + '%</div>' +
                 '<div class="tk-dates">' +
-                '<span>Bắt đầu: <b>' + (startDate || '—') + '</b></span>' +
-                '<span>HSD: <b>' + (endDate || '—') + '</b></span>' +
+                '<span>Bắt đầu: <b>' + (startDate ? fmtVnDate(startDate) : '—') + '</b></span>' +
+                '<span>HSD: <b>' + (endDate ? fmtVnDate(endDate) : '—') + '</b></span>' +
                 '</div>' +
                 usedLine +
                 '<div class="ticket-footer">' + actionBtn + '</div>' +

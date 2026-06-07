@@ -11,16 +11,18 @@ namespace Backend.Services.Implementations{
         public PurchaseOrderService (AppDbContext dbContext){
             _dbContext = dbContext;
         }
-        public async Task<List<PurchaseOrder>?> GetAllPOIn(DateOnly start, DateOnly end) =>
+        public async Task<List<PurchaseOrder>?> GetAllPOIn(DateOnly start, DateOnly end, int? storeID = null) =>
             await _dbContext.PurchaseOrder
                 .AsNoTracking()
+                .Where(po => storeID == null || po.StoreID == storeID.Value)
                 .Include(po => po.PODetail)
                     .ThenInclude(d => d.Ingredient)
                 .Include(po => po.Store)
                 .Include(po => po.Supplier)
-                .Include(po => po.POApproval
-                    .OrderByDescending(poA => poA.LastUpdated)
-                    .Take(1))
+                // Lấy mọi approval + Employee (FE tự chọn bản mới nhất). KHÔNG dùng
+                // filtered-include Take(1) kèm ThenInclude vì sinh OUTER APPLY, MySQL không dịch được.
+                .Include(po => po.POApproval)
+                    .ThenInclude(poA => poA.Employee)
                 .Where(po => po.DeletedAt == null &&
                         po.POApproval.Any() &&
                         po.POApproval.Max(poA => poA.LastUpdated) >= start.ToDateTime(TimeOnly.MinValue) &&
@@ -64,32 +66,30 @@ namespace Backend.Services.Implementations{
                 decimal subtotal = createRequest.Items.Sum(i => i.Quantity * i.UnitPriceExpected);
                 decimal total = subtotal * (1 + createRequest.TaxRate);
 
-                var newPO = new PurchaseOrder{
-                    POID       = Guid.NewGuid(),
-                    StoreID    = createRequest.StoreID,
-                    SupplierID = createRequest.SupplierID,
-                    TaxRate    = createRequest.TaxRate,
-                    Total      = total
-                };
-
                 var details = createRequest.Items.Select(i => new PODetail{
-                    POID              = newPO.POID,
                     IngredientID      = i.IngredientID,
                     Quantity          = i.Quantity,
                     UnitPriceExpected = i.UnitPriceExpected
                 }).ToList();
 
                 var approval = new POApproval{
-                    POID        = newPO.POID,
                     EmployeeID  = createRequest.EmployeeID,
                     LastUpdated = VnTime.Now,
                     Comment     = createRequest.Comment,
                     POStatus      = PO_Status.Submitted
                 };
 
+                var newPO = new PurchaseOrder{
+                    POID       = Guid.NewGuid(),
+                    StoreID    = createRequest.StoreID,
+                    SupplierID = createRequest.SupplierID,
+                    TaxRate    = createRequest.TaxRate,
+                    Total      = total,
+                    PODetail   = details,
+                    POApproval = new List<POApproval> { approval }
+                };
+
                 _dbContext.PurchaseOrder.Add(newPO);
-                _dbContext.PODetail.AddRange(details);
-                _dbContext.POApproval.Add(approval);
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
 

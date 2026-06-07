@@ -205,7 +205,7 @@
             </a>
             <a class="sidebar-item" data-section="purchase-orders" id="nav-purchase-orders">
                 <i class="ti-clipboard"></i><span>Phê Duyệt Đơn Mua</span>
-                <span class="sidebar-badge" id="badge-po">2</span>
+                <span class="sidebar-badge" id="badge-po" style="display:none"></span>
             </a>
             <a class="sidebar-item" data-section="inventory" id="nav-inventory">
                 <i class="ti-package"></i><span>Lô Hàng & Kho</span>
@@ -310,27 +310,21 @@
                     <div class="page-sub">Quản lý danh mục, sản phẩm và biến thể (Size S/M/L)</div>
                 </div>
                 <div class="btn-group">
-                    <button class="btn-outline" id="btn-add-cat"><i class="ti-plus"></i> Danh Mục</button>
+                    <select class="form-control" id="cat-filter" style="width:auto;min-width:150px"></select>
                     <button class="btn-primary" id="btn-add-product"><i class="ti-plus"></i> Sản Phẩm</button>
                 </div>
             </div>
 
-            <div class="two-col">
-                <div class="panel" style="max-width:260px;flex-shrink:0;">
-                    <div class="panel-header"><div class="panel-title">Danh Mục</div></div>
-                    <ul class="cat-list" id="cat-list"></ul>
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">Danh Sách Sản Phẩm</div>
+                    <input class="search-input" id="product-search" placeholder="🔍 Tìm sản phẩm...">
                 </div>
-                <div class="panel" style="flex:1;">
-                    <div class="panel-header">
-                        <div class="panel-title">Danh Sách Sản Phẩm</div>
-                        <input class="search-input" id="product-search" placeholder="🔍 Tìm sản phẩm...">
-                    </div>
-                    <div class="tbl-wrap">
-                        <table>
-                            <thead><tr><th>#</th><th>Tên sản phẩm</th><th>Danh mục</th><th>Biến thể</th><th>Giá từ</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
-                            <tbody id="product-tbody"></tbody>
-                        </table>
-                    </div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead><tr><th>#</th><th>Tên sản phẩm</th><th>Danh mục</th><th>Biến thể</th><th>Giá từ</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+                        <tbody id="product-tbody"></tbody>
+                    </table>
                 </div>
             </div>
         </section>
@@ -392,7 +386,7 @@
             <div class="panel">
                 <div class="tbl-wrap">
                     <table>
-                        <thead><tr><th>Mã PO</th><th>Chi Nhánh</th><th>NCC</th><th>Nguyên Liệu</th><th>Số Lượng</th><th>Tổng Tiền</th><th>Đề Xuất Bởi</th><th>Ngày</th><th>Trạng Thái</th><th>Hành Động</th></tr></thead>
+                        <thead><tr><th>Mã PO</th><th>Chi Nhánh</th><th>NCC</th><th>Thời Gian Yêu Cầu</th><th>Tổng Tiền</th><th>Đề Xuất Bởi</th><th>Trạng Thái</th><th>Hành Động</th></tr></thead>
                         <tbody id="po-tbody"></tbody>
                     </table>
                 </div>
@@ -506,7 +500,7 @@
                 <div class="panel-header"><div class="panel-title">Danh Sách Phiếu Nhập</div></div>
                 <div class="tbl-wrap">
                     <table>
-                        <thead><tr><th>Mã Phiếu</th><th>Ngày Nhập</th><th>NCC</th><th>Nhân Viên</th><th>Số Dòng</th><th>Tổng Tiền</th><th>Trạng Thái</th></tr></thead>
+                        <thead><tr><th>Mã Phiếu</th><th>Ngày Nhập</th><th>NCC</th><th>Nhân Viên</th><th>Số Dòng</th><th>Tổng Tiền</th><th>Trạng Thái</th><th>Hành Động</th></tr></thead>
                         <tbody id="receipt-tbody"></tbody>
                     </table>
                 </div>
@@ -637,7 +631,15 @@
                 <div class="panel-header"><div class="panel-title">Lịch Sử Biến Động</div></div>
                 <div class="tbl-wrap">
                     <table>
-                        <thead><tr><th>Nguyên Liệu</th><th>Mã Lô</th><th>Loại</th><th>Số Lượng</th><th>Đơn Vị</th><th>Lý Do / Ghi Chú</th><th>Nhân Viên</th><th>Ngày</th><th style="text-align:center">Chi tiết</th></tr></thead>
+                        <thead>
+                            <tr>
+                                <th style="width: 50px; text-align: center;"></th>
+                                <th>Nguyên Liệu</th>
+                                <th>Đơn Vị</th>
+                                <th style="text-align: right; padding-right: 24px;">Tổng Đã Sử Dụng</th>
+                                <th style="text-align: center;">Số Lần Biến Động</th>
+                            </tr>
+                        </thead>
                         <tbody id="sm-tbody"></tbody>
                     </table>
                 </div>
@@ -667,6 +669,7 @@
 
 <script src="/asset/js/api.js"></script>
 <script src="/asset/js/datetime.js"></script>
+<script src="/asset/js/popup.js"></script>
 <script src="/asset/js/admin.js"></script>
 
 <!-- Roster drawer (shift calendar) -->
@@ -691,10 +694,12 @@
    SHIFT CALENDAR — embedded in admin.html
 ============================================================ */
 var WD = ['CN','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
-var DAY_START = 6, HOURS = 18;
+var DAY_START = 8, HOURS = 14;
 var LATE_GRACE = 15;
+// Khung giờ làm việc cho phép xếp ca (08:00–22:00) — đồng bộ với backend AssignShift.
+var WORK_START_HOUR = 8, WORK_END_HOUR = 22;
 var SHIFT_DEFS = {
-  sang:  { label:'Ca Sáng',  start:6,  end:14, vars:['--sang','--sang-bg','--sang-ink']  },
+  sang:  { label:'Ca Sáng',  start:8,  end:14, vars:['--sang','--sang-bg','--sang-ink']  },
   chieu: { label:'Ca Chiều', start:14, end:22, vars:['--chieu','--chieu-bg','--chieu-ink'] }
 };
 var weekStart = caStartOfWeek(new Date());
@@ -975,11 +980,11 @@ function openAddShiftModal(wd,shiftKey,dayDate){
     +'<div class="mbody">'
     +'<div class="mfld"><label>Nhân viên</label><select id="ms-emp">'+empOpts+'</select></div>'
     +'<div class="mfld"><label>Loại ca</label><select id="ms-shift" onchange="onShiftTypeChange()">'+shiftOpts+'</select></div>'
-    +'<div class="mfld"><label>Ngày làm việc</label><input type="date" id="ms-date" value="'+dateStr+'"></div>'
+    +'<div class="mfld"><label>Ngày làm việc</label><input type="date" id="ms-date" value="'+dateStr+'" min="'+caLocalDate(new Date())+'"></div>'
     +'<div class="mtime-row">'
-    +'<div class="mfld"><label>Giờ bắt đầu</label><input type="time" id="ms-start" value="'+caPad(s.start)+':00"></div>'
+    +'<div class="mfld"><label>Giờ vào</label><input type="time" id="ms-start" value="'+caPad(s.start)+':00" min="'+caPad(WORK_START_HOUR)+':00" max="'+caPad(WORK_END_HOUR)+':00"></div>'
     +'<div class="arr">→</div>'
-    +'<div class="mfld"><label>Giờ kết thúc</label><input type="time" id="ms-end" value="'+caPad(s.end)+':00"></div>'
+    +'<div class="mfld"><label>Giờ ra</label><input type="time" id="ms-end" value="'+caPad(s.end)+':00" min="'+caPad(WORK_START_HOUR)+':00" max="'+caPad(WORK_END_HOUR)+':00"></div>'
     +'</div></div>'
     +'<div class="mfoot"><button class="ca-add-btn ghost" onclick="closeCaModal()">Huỷ</button><button class="ca-add-btn" onclick="submitAddShift()">Phân ca</button></div>';
   document.getElementById('caOv').classList.add('on');
@@ -997,6 +1002,16 @@ function submitAddShift(){
   var end=(document.getElementById('ms-end')||{}).value;
   if(!empID||!date||!start||!end){caFlash('Vui lòng điền đầy đủ thông tin');return;}
   var timeIn=date+'T'+start+':00+07:00', timeOut=date+'T'+end+':00+07:00';
+  var inDt=new Date(timeIn), outDt=new Date(timeOut);
+  if(isNaN(inDt.getTime())||isNaN(outDt.getTime())){caFlash('Giờ không hợp lệ');return;}
+  if(inDt>=outDt){caFlash('Giờ vào phải sớm hơn giờ ra');return;}
+  // Ca làm chỉ được xếp trong khung giờ 08:00–22:00.
+  var sH=parseInt(start.slice(0,2),10), sM=parseInt(start.slice(3,5),10);
+  var eH=parseInt(end.slice(0,2),10), eM=parseInt(end.slice(3,5),10);
+  if(sH<WORK_START_HOUR||(eH>WORK_END_HOUR)||(eH===WORK_END_HOUR&&eM>0)){
+    caFlash('Ca làm chỉ được xếp trong khung giờ 08:00–22:00');return;
+  }
+  if(inDt<new Date()){caFlash('Không thể phân ca vào thời gian đã qua');return;}
   apiPost('/shift/assign/'+ADMIN_STORE_ID,{EmployeeID:empID,TimeIn:timeIn,TimeOut:timeOut})
     .then(function(r){
       if(r.ok){caFlash('Phân ca thành công');closeCaModal();caReload();}

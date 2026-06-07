@@ -454,12 +454,12 @@ body {
     background: #fff;
     border-radius: 18px;
     width: 100%;
-    max-width: 580px;
+    max-width: 920px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.2);
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    max-height: 90vh;
+    max-height: 92vh;
 }
 .bill-box-header {
     display: flex;
@@ -495,9 +495,21 @@ body {
 
 .bill-box-body {
     padding: 20px 24px;
-    overflow-y: auto;
+    overflow-y: scroll;
     flex: 1;
+    min-height: 0;
 }
+.bill-box-body::-webkit-scrollbar { width: 10px; }
+.bill-box-body::-webkit-scrollbar-track {
+    background: #f4eeea;
+    border-radius: 0 18px 18px 0;
+}
+.bill-box-body::-webkit-scrollbar-thumb {
+    background: #e6a07a;
+    border-radius: 8px;
+    border: 2px solid #f4eeea;
+}
+.bill-box-body::-webkit-scrollbar-thumb:hover { background: rgb(220,77,11); }
 .bill-section-lbl {
     font-size: 13px;
     font-weight: 800;
@@ -563,10 +575,18 @@ body {
 .bill-meta-row {
     display: flex;
     justify-content: space-between;
+    align-items: baseline;
+    gap: 24px;
     font-size: 13px;
 }
-.bill-meta-lbl { color: #999; }
-.bill-meta-val { font-weight: 700; color: #333; }
+.bill-meta-lbl { color: #999; flex-shrink: 0; white-space: nowrap; }
+.bill-meta-val {
+    font-weight: 700;
+    color: #333;
+    text-align: right;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
 
 /* status timeline */
 .bill-timeline {
