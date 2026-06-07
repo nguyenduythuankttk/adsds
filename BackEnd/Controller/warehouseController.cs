@@ -1,3 +1,4 @@
+using Backend.Helpers;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
@@ -28,6 +29,7 @@ namespace Backend.Controller {
 
         [HttpGet("get-by-store/{storeID}")]
         public async Task<IActionResult> GetByStore(int storeID) {
+            storeID = User.GetStoreID() ?? storeID;
             var warehouses = await _warehouseService.GetWarehousesByStore(storeID);
             if (warehouses == null || warehouses.Count == 0) return NotFound("Không có kho nào trong cửa hàng này");
             return Ok(warehouses);
@@ -35,6 +37,7 @@ namespace Backend.Controller {
 
         [HttpPost("create")]
         public async Task<IActionResult> Add([FromBody] WarehouseCreateRequest request) {
+            request.StoreID = User.GetStoreID() ?? request.StoreID;
             await _warehouseService.AddWarehouse(request);
             return Ok("Tạo kho thành công");
         }

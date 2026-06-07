@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using Backend.Helpers;
 
 namespace Backend.Models{
 
@@ -20,7 +21,7 @@ namespace Backend.Models{
         Processed   // Sau sơ chế — đơn vị miếng/Unit, dùng trong Bill
     }
 
-    public class InventoryBatch
+    public class InventoryBatch : IValidatableObject
     {
         [Key]
         public Guid BatchID { get; set; }
@@ -53,5 +54,25 @@ namespace Backend.Models{
         public BatchType BatchType { get; set; }
         [JsonIgnore]
         public virtual ICollection<StockMovement> StockMovement { get; set; } = new List<StockMovement>();
+
+        // Ngày sản xuất phải trước hiện tại và ngày hết hạn phải sau hiện tại (giờ VN).
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            var today = VnTime.Today;
+
+            if (Mfd >= today)
+            {
+                yield return new ValidationResult(
+                    "Ngày sản xuất phải trước ngày hiện tại.",
+                    new[] { nameof(Mfd) });
+            }
+
+            if (Exp <= today)
+            {
+                yield return new ValidationResult(
+                    "Ngày hết hạn phải sau ngày hiện tại.",
+                    new[] { nameof(Exp) });
+            }
+        }
     }
 }

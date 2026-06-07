@@ -11,9 +11,10 @@ namespace Backend.Services.Implementations{
         public PurchaseOrderService (AppDbContext dbContext){
             _dbContext = dbContext;
         }
-        public async Task<List<PurchaseOrder>?> GetAllPOIn(DateOnly start, DateOnly end) =>
+        public async Task<List<PurchaseOrder>?> GetAllPOIn(DateOnly start, DateOnly end, int? storeID = null) =>
             await _dbContext.PurchaseOrder
                 .AsNoTracking()
+                .Where(po => storeID == null || po.StoreID == storeID.Value)
                 .Include(po => po.PODetail)
                     .ThenInclude(d => d.Ingredient)
                 .Include(po => po.Store)
@@ -65,14 +66,6 @@ namespace Backend.Services.Implementations{
                 decimal subtotal = createRequest.Items.Sum(i => i.Quantity * i.UnitPriceExpected);
                 decimal total = subtotal * (1 + createRequest.TaxRate);
 
-                var newPO = new PurchaseOrder{
-                    POID       = Guid.NewGuid(),
-                    StoreID    = createRequest.StoreID,
-                    SupplierID = createRequest.SupplierID,
-                    TaxRate    = createRequest.TaxRate,
-                    Total      = total
-                };
-
                 var details = createRequest.Items.Select(i => new PODetail{
                     IngredientID      = i.IngredientID,
                     Quantity          = i.Quantity,
@@ -87,6 +80,7 @@ namespace Backend.Services.Implementations{
                 };
 
                 var newPO = new PurchaseOrder{
+                    POID       = Guid.NewGuid(),
                     StoreID    = createRequest.StoreID,
                     SupplierID = createRequest.SupplierID,
                     TaxRate    = createRequest.TaxRate,

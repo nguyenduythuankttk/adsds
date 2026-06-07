@@ -258,7 +258,7 @@
                     var discPct = Math.round((tk.discount || 0) * 100);
                     var opt     = document.createElement('option');
                     opt.value   = JSON.stringify(tk);
-                    opt.textContent = code + ' – Giảm ' + discPct + '% (HSD: ' + (tk.endDate || '') + ')';
+                    opt.textContent = code + ' – Giảm ' + discPct + '% (HSD: ' + (tk.endDate ? fmtVnDate(tk.endDate) : '') + ')';
                     cqTicketSelect.appendChild(opt);
                 });
             })
@@ -279,7 +279,7 @@
                 try { selectedTicket = JSON.parse(this.value); } catch (e) { selectedTicket = null; }
                 if (selectedTicket && cqTicketInfo) {
                     var discPct  = Math.round((selectedTicket.discount || 0) * 100);
-                    cqTicketInfo.textContent = 'Giảm ' + discPct + '% — HSD: ' + (selectedTicket.endDate || '');
+                    cqTicketInfo.textContent = 'Giảm ' + discPct + '% — HSD: ' + (selectedTicket.endDate ? fmtVnDate(selectedTicket.endDate) : '');
                     cqTicketInfo.style.display = 'block';
                 }
             }
@@ -995,6 +995,23 @@
         });
     });
 
+    // Role tabs trong panel đăng nhập: Khách hàng / Nhân viên (giống index.html)
+    var _menuLoginRole = 'customer';
+    var menuRoleHints = {
+        customer: 'Đăng nhập với tài khoản khách hàng',
+        employee: 'Đăng nhập với tài khoản nhân viên / quản lý'
+    };
+    menuLoginModal.querySelectorAll('.login-role-tab').forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            menuLoginModal.querySelectorAll('.login-role-tab').forEach(function (t) { t.classList.remove('active'); });
+            this.classList.add('active');
+            _menuLoginRole = this.dataset.role;
+            var hint = document.getElementById('menu-login-role-hint');
+            if (hint) hint.textContent = menuRoleHints[_menuLoginRole] || '';
+            if (menuLoginErr) menuLoginErr.textContent = '';
+        });
+    });
+
     function onAuthSuccess(fullName) {
         closeAuthModal();
         updateMenuHeader(fullName);
@@ -1019,23 +1036,23 @@
         if (!username || !password) { menuLoginErr.textContent = 'Vui lòng nhập tên đăng nhập và mật khẩu.'; return; }
 
         var body = { UserName: username, HashPassword: password };
-        apiPost('/auth/customer_login', body)
+        var endpoint = _menuLoginRole === 'employee' ? '/auth/employee_login' : '/auth/customer_login';
+        apiPost(endpoint, body)
             .then(function (res) {
                 if (res.ok) return res.json().then(function (d) { return { ok: true, data: d.data }; });
-                return apiPost('/auth/employee_login', body)
-                    .then(function (r2) {
-                        if (r2.ok) return r2.json().then(function (d) { return { ok: true, data: d.data, emp: true }; });
-                        return r2.json().then(function (d) { return { ok: false, msg: d.message || 'Sai tên đăng nhập hoặc mật khẩu.' }; });
-                    });
+                return res.json().then(function (d) { return { ok: false, msg: d.message || 'Sai tên đăng nhập hoặc mật khẩu.' }; });
             })
             .then(function (result) {
                 if (!result.ok) { menuLoginErr.textContent = result.msg; return; }
-                if (result.emp) {
+                if (_menuLoginRole === 'employee') {
                     luuThongTinNhanVien(result.data);
+                    // Nhân viên / quản lý → chuyển thẳng tới dashboard tương ứng
+                    var role = localStorage.getItem('role');
+                    window.location.href = role === 'admin' ? 'admin.html' : 'employee.html';
                 } else {
                     luuThongTinKhachHang(result.data);
+                    onAuthSuccess(result.data.fullName || result.data.FullName);
                 }
-                onAuthSuccess(result.data.fullName || result.data.FullName);
             })
             .catch(function () { menuLoginErr.textContent = 'Lỗi kết nối máy chủ.'; });
     });
@@ -1440,6 +1457,7 @@
     }
 
     var MAX_DELIVERY_KM = 50;
+    var notFarNotifiedKey = null;   // tránh hiện popup "ngoài khu vực" lặp lại cho cùng địa chỉ/cửa hàng
 
     // ── Hẹn giờ giao hàng ─────────────────────────────────────────────────────
     var SCHEDULE_MAX_HOURS = 10;
@@ -1534,6 +1552,7 @@
             cqShipping.textContent   = '0 đ';
             cqGrandTotal.textContent = formatPrice(subtotal - discountAmt);
             if (distanceEl) distanceEl.textContent = '';
+            notFarNotifiedKey = null;
             setCheckoutBlocked(false, '');
             return;
         }
@@ -1541,15 +1560,34 @@
         if (distanceEl) distanceEl.textContent = '';
         var currentStoreID = selectedStore ? (selectedStore.storeID || selectedStore.StoreID) : null;
         fetchShippingFee(selectedAddress.addressID, currentStoreID).then(function (data) {
-            if (data && !data.isDeliverable) {
+            if (!data) {
+                var errMsg = 'Không tính được phí giao hàng đến địa chỉ này. Vui lòng chọn cửa hàng khác hoặc thử lại.';
+                cqShipping.textContent   = 'Không hỗ trợ';
+                cqGrandTotal.textContent = formatPrice(subtotal - discountAmt);
+                if (distanceEl) distanceEl.textContent = '';
+                setCheckoutBlocked(true, errMsg);
+                var errKey = 'err|' + selectedAddress.addressID + '|' + currentStoreID;
+                if (notFarNotifiedKey !== errKey && typeof showPopup === 'function') {
+                    notFarNotifiedKey = errKey;
+                    showPopup({ type: 'warning', title: 'Không thể giao đến khu vực này', message: errMsg });
+                }
+                return;
+            }
+            if (!data.isDeliverable) {
+                var msg = 'Địa chỉ của bạn cách cửa hàng gần nhất ' + data.distanceKm.toFixed(1) +
+                          ' km (tối đa ' + MAX_DELIVERY_KM + ' km). Chúng tôi không thể giao hàng đến khu vực này.';
                 cqShipping.textContent   = 'Không hỗ trợ';
                 cqGrandTotal.textContent = formatPrice(subtotal - discountAmt);
                 if (distanceEl) distanceEl.textContent = '(' + data.distanceKm.toFixed(1) + ' km)';
-                setCheckoutBlocked(true,
-                    'Địa chỉ của bạn cách cửa hàng gần nhất ' + data.distanceKm.toFixed(1) +
-                    ' km (tối đa ' + MAX_DELIVERY_KM + ' km). Chúng tôi không thể giao hàng đến khu vực này.');
+                setCheckoutBlocked(true, msg);
+                var key = selectedAddress.addressID + '|' + currentStoreID;
+                if (notFarNotifiedKey !== key && typeof showPopup === 'function') {
+                    notFarNotifiedKey = key;
+                    showPopup({ type: 'warning', title: 'Ngoài khu vực giao hàng', message: msg });
+                }
                 return;
             }
+            notFarNotifiedKey = null;
             var fee = data ? data.shippingFee : 0;
             var km  = data ? data.distanceKm  : null;
             cqShipping.textContent   = formatPrice(fee);
@@ -1586,6 +1624,7 @@
         document.body.style.overflow = '';
         addrDropdownOpen = false;
         storeDropdownOpen = false;
+        notFarNotifiedKey = null;
         selectedTicket = null;
         if (cqTicketSelect) { cqTicketSelect.value = ''; }
         if (cqTicketInfo)   { cqTicketInfo.style.display = 'none'; }
@@ -1606,8 +1645,8 @@
         if (!isLoggedIn()) { openAuthModal(null); return; }
 
         if (!selectedAddress) {
-            alert('Bạn chưa có địa chỉ giao hàng. Vui lòng thêm địa chỉ trong trang tài khoản.');
-            window.location.href = 'user.html';
+            showPopup({ type: 'warning', title: 'Chưa có địa chỉ giao hàng', message: 'Bạn chưa có địa chỉ giao hàng. Vui lòng thêm địa chỉ trong trang tài khoản.' })
+                .then(function () { window.location.href = 'user.html'; });
             return;
         }
 

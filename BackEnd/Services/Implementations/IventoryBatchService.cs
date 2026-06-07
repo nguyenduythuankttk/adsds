@@ -42,7 +42,7 @@ namespace Backend.Services.Implementations
                 .ToListAsync();
 
         // Raw batches available for processing — optionally filter by ingredient
-        public async Task<List<InventoryBatch>> GetAvailableRawBatches(int? ingredientID = null)
+        public async Task<List<InventoryBatch>> GetAvailableRawBatches(int? ingredientID = null, int? storeID = null)
         {
             var query = _dbContext.InventoryBatch
                 .AsNoTracking()
@@ -52,6 +52,10 @@ namespace Backend.Services.Implementations
 
             if (ingredientID.HasValue)
                 query = query.Where(b => b.IngredientID == ingredientID.Value);
+
+            // Nhân viên chỉ thấy lô thô trong kho thuộc store của mình.
+            if (storeID.HasValue)
+                query = query.Where(b => b.Warehouse.StoreID == storeID.Value);
 
             return await query
                 .Include(b => b.Ingredient)

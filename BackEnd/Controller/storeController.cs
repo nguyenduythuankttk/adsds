@@ -1,6 +1,9 @@
+using Backend.Helpers;
 using Backend.Models;
+using Backend.Models.DTOs.Reponse;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Backend.Controller
@@ -33,6 +36,14 @@ namespace Backend.Controller
         [HttpGet("get-all")]
         public async Task<IActionResult> GetAllStore()
         {
+            // Nhân viên (admin/employee) chỉ thấy store của mình; khách (trang tìm cửa hàng)
+            // và request ẩn danh vẫn thấy toàn bộ chuỗi. "Thêm chi nhánh" dùng endpoint riêng nên không bị ảnh hưởng.
+            var sid = User.GetStoreID();
+            if (sid.HasValue)
+            {
+                var mine = await _storeService.GetStoreByID(sid.Value);
+                return Ok(mine == null ? new List<StoreResponse>() : new List<StoreResponse> { mine });
+            }
             return Ok(await _storeService.GetAllStore());
         }
 
@@ -57,6 +68,23 @@ namespace Backend.Controller
         {
             await _storeService.AddStore(store);
             return Ok("Add store successfully!");
+        }
+
+        // Thêm chi nhánh đầy đủ: store + địa chỉ + TK ngân hàng + tài khoản quản lý.
+        // Chỉ Manager mới được tạo chi nhánh mới.
+        [Authorize(Roles = "Manager")]
+        [HttpPost("add-full")]
+        public async Task<IActionResult> AddStoreFull([FromBody] StoreCreateRequest request)
+        {
+            try
+            {
+                var storeID = await _storeService.CreateStoreFull(request);
+                return Ok(new { storeID, message = "Thêm chi nhánh thành công!" });
+            }
+            catch (Exception e)
+            {
+                return BadRequest(new { message = e.Message });
+            }
         }
 
         [HttpPut("update/{storeID}")]

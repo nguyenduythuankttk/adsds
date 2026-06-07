@@ -34,10 +34,11 @@ namespace Backend.Services.Implementations{
             try {
                 IQueryable<Bill> query = _dbcontext.Bill
                     .AsNoTracking()
+                    // Lấy mốc tạo bill (Status=Create) kèm nhân viên lập. Dùng Where (KHÔNG Take)
+                    // để tránh OUTER APPLY khi kèm ThenInclude — MySQL/Pomelo không dịch được.
                     .Include(b => b.BillChange
-                        .Where(bc => bc.Status == BillStatus.Create)
-                        .OrderBy(bc => bc.ChangeAt)
-                        .Take(1))
+                        .Where(bc => bc.Status == BillStatus.Create))
+                        .ThenInclude(bc => bc.Employee)
                     .Where(b => b.BillChange.Any(bc =>
                             bc.Status == BillStatus.Create &&
                             bc.ChangeAt >= start.ToDateTime(TimeOnly.MinValue) &&
@@ -209,9 +210,12 @@ namespace Backend.Services.Implementations{
                     if (ticket != null && ticket.UsedAt == null && ticket.EndDate >= VnTime.Today)
                     {
                         bill.TicketID = ticket.TicketID;
-                        bill.Total = Math.Round(bill.Total * (1 - ticket.Discount), 0);
+                        bill.Total = bill.Total * (1 - ticket.Discount);
                     }
                 }
+
+                // Làm tròn tổng tiền đến hàng nghìn đồng trước khi lưu DB.
+                bill.Total = MoneyHelper.RoundToThousand(bill.Total);
 
                 if (isBankTransfer)
                 {
@@ -403,9 +407,12 @@ namespace Backend.Services.Implementations{
                     if (ticket != null && ticket.UsedAt == null && ticket.EndDate >= VnTime.Today)
                     {
                         bill.TicketID = ticket.TicketID;
-                        bill.Total = Math.Round(bill.Total * (1 - ticket.Discount), 0);
+                        bill.Total = bill.Total * (1 - ticket.Discount);
                     }
                 }
+
+                // Làm tròn tổng tiền đến hàng nghìn đồng trước khi lưu DB.
+                bill.Total = MoneyHelper.RoundToThousand(bill.Total);
 
                 var billChange = new BillChange
                 {
@@ -595,6 +602,35 @@ namespace Backend.Services.Implementations{
             if (demand.Count == 0) return;
 
             var ingredientIDs = demand.Keys.ToList();
+
+            // Tên nguyên liệu + tên món (varient) để báo lỗi thân thiện: "Món X đã hết hàng".
+            var ingredientNameById = await _dbcontext.Ingredient
+                .Where(i => ingredientIDs.Contains(i.IngredientID))
+                .ToDictionaryAsync(i => i.IngredientID, i => i.IngredientName);
+            var varientNameById = (await _dbcontext.ProductVarient
+                    .Where(pv => productVarientIDs.Contains(pv.ProductVarientID))
+                    .Include(pv => pv.Product)
+                    .Select(pv => new { pv.ProductVarientID, pv.Product.ProductName, pv.Size })
+                    .ToListAsync())
+                .ToDictionary(x => x.ProductVarientID,
+                    x => x.Size == ProductSize.Default ? x.ProductName : $"{x.ProductName} (size {x.Size})");
+
+            // Gom tên các món trong hóa đơn đang dùng nguyên liệu bị thiếu để hiện cho nhân viên.
+            string OutOfStockMessage(int ingId)
+            {
+                var dishes = recipes
+                    .Where(r => r.IngredientID == ingId)
+                    .Select(r => r.ProductVarientID)
+                    .Distinct()
+                    .Where(varientNameById.ContainsKey)
+                    .Select(id => "\"" + varientNameById[id] + "\"")
+                    .Distinct()
+                    .ToList();
+                var dishText = dishes.Count > 0 ? string.Join(", ", dishes) : "(không xác định)";
+                var ingName = ingredientNameById.GetValueOrDefault(ingId, "#" + ingId);
+                return $"Món {dishText} đã hết hàng (thiếu nguyên liệu \"{ingName}\").";
+            }
+
             var availableBatches = await _dbcontext.InventoryBatch
                 .Where(b => ingredientIDs.Contains(b.IngredientID)
                          && b.BatchType == BatchType.Processed
@@ -611,7 +647,7 @@ namespace Backend.Services.Implementations{
             foreach (var (ingredientID, totalToConsume) in demand)
             {
                 if (!batchesByIngredient.TryGetValue(ingredientID, out var batches) || batches.Count == 0)
-                    throw new InvalidOperationException($"Không đủ nguyên liệu (ID {ingredientID}): cần {totalToConsume} đơn vị nhưng không có lô đã sơ chế.");
+                    throw new InvalidOperationException(OutOfStockMessage(ingredientID));
 
                 var sortedBatches = batches
                     .OrderBy(b => b.Exp)
@@ -644,7 +680,7 @@ namespace Backend.Services.Implementations{
                 }
 
                 if (remaining > 0)
-                    throw new InvalidOperationException($"Không đủ nguyên liệu (ID {ingredientID}): thiếu {remaining} đơn vị.");
+                    throw new InvalidOperationException(OutOfStockMessage(ingredientID));
             }
 
             await _dbcontext.SaveChangesAsync();

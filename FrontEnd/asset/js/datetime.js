@@ -17,21 +17,59 @@
     function fmtVnDate(s) {
         var d = _parse(s);
         if (!d) return '';
-        return d.toLocaleDateString('vi-VN', {
+        var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+        var options = {
             timeZone: VN_TZ,
-            day: '2-digit', month: '2-digit', year: 'numeric'
-        });
+            year: 'numeric', month: '2-digit', day: '2-digit'
+        };
+        try {
+            var formatter = new Intl.DateTimeFormat('en-GB', options);
+            var parts = formatter.formatToParts(d);
+            var year, month, day;
+            parts.forEach(function(p) {
+                if (p.type === 'day') day = p.value;
+                if (p.type === 'month') month = p.value;
+                if (p.type === 'year') year = p.value;
+            });
+            return day + '/' + month + '/' + year;
+        } catch(e) {
+            var day = pad(d.getDate());
+            var month = pad(d.getMonth() + 1);
+            var year = d.getFullYear();
+            return day + '/' + month + '/' + year;
+        }
     }
 
-    // "05/06/2026 15:30"
+    // "15:30 05/06/2026"
     function fmtVnDateTime(s) {
         var d = _parse(s);
         if (!d) return '';
-        return d.toLocaleString('vi-VN', {
+        var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+        var options = {
             timeZone: VN_TZ,
-            day: '2-digit', month: '2-digit', year: 'numeric',
+            year: 'numeric', month: '2-digit', day: '2-digit',
             hour: '2-digit', minute: '2-digit', hour12: false
-        });
+        };
+        try {
+            var formatter = new Intl.DateTimeFormat('en-GB', options);
+            var parts = formatter.formatToParts(d);
+            var year, month, day, hour, minute;
+            parts.forEach(function(p) {
+                if (p.type === 'day') day = p.value;
+                if (p.type === 'month') month = p.value;
+                if (p.type === 'year') year = p.value;
+                if (p.type === 'hour') hour = p.value;
+                if (p.type === 'minute') minute = p.value;
+            });
+            return hour + ':' + minute + ' ' + day + '/' + month + '/' + year;
+        } catch(e) {
+            var hour = pad(d.getHours());
+            var minute = pad(d.getMinutes());
+            var day = pad(d.getDate());
+            var month = pad(d.getMonth() + 1);
+            var year = d.getFullYear();
+            return hour + ':' + minute + ' ' + day + '/' + month + '/' + year;
+        }
     }
 
     // "15:30"

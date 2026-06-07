@@ -289,6 +289,20 @@ tbody tr:hover td{background:#fdf7f5;}
   border-bottom: 1px solid #f0f0f0 !important;
   background: #fff !important;
 }
+.nested-movement-table th,
+.nested-movement-table td {
+  padding: 10px 14px !important;
+  background: #fff !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+.nested-movement-table th {
+  background: #faf8f7 !important;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #777 !important;
+}
 @keyframes slideDown {
   from { opacity: 0; transform: translateY(-5px); }
   to { opacity: 1; transform: translateY(0); }

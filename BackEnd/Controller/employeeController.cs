@@ -1,3 +1,4 @@
+using Backend.Helpers;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
@@ -34,6 +35,7 @@ namespace Backend.Controller
         [HttpGet("get-by-store/{storeID}")]
         public async Task<IActionResult> GetEmployeesByStoreID(int storeID)
         {
+            storeID = User.GetStoreID() ?? storeID;
             var employees = await _employeeService.GetEmployeesByStoreID(storeID);
             if (employees == null) return NotFound("Employee in store not found!");
             return Ok(employees);
@@ -42,6 +44,7 @@ namespace Backend.Controller
         [HttpGet("get-manager/{storeID}")]
         public async Task<IActionResult> GetManagerByStoreID(int storeID)
         {
+            storeID = User.GetStoreID() ?? storeID;
             var manager = await _employeeService.GetManagerByStoreID(storeID);
             if (manager == null) return NotFound("Không tìm thấy manager cho cửa hàng này");
             return Ok(manager);
@@ -50,6 +53,8 @@ namespace Backend.Controller
         [HttpPost("add")]
         public async Task<IActionResult> AddEmployee([FromBody] EmployeeCreateRequest request)
         {
+            // Nhân viên mới luôn thuộc store của người quản lý đang đăng nhập.
+            request.StoreID = User.GetStoreID() ?? request.StoreID;
             await _employeeService.AddEmployee(request);
             return Ok("Add employee successfully!");
         }

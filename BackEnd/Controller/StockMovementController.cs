@@ -1,4 +1,5 @@
 using Backend.Data;
+using Backend.Helpers;
 using Backend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +22,8 @@ namespace Backend.Controller
         {
             try
             {
+                // Nhân viên chỉ thấy biến động kho của store mình.
+                storeID = User.GetStoreID() ?? storeID;
                 var query = _context.StockMovement
                     .AsNoTracking()
                     .Where(m => m.DeleteAt == null);

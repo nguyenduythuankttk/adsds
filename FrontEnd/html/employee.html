@@ -47,7 +47,7 @@
       .db-stat .lbl small{display:block;color:#A39A91;font-size:10.5px;font-weight:500}
 
       /* Mid */
-      .db-mid{flex:1;min-height:0;display:grid;grid-template-columns:1.5fr 1fr;gap:10px;padding:0 18px 14px;overflow:hidden}
+      .db-mid{flex:1;min-height:0;display:grid;grid-template-columns:1.5fr 1fr 1.15fr;gap:10px;padding:0 18px 14px;overflow:hidden}
       .db-card{background:#fff;border:1px solid #ECE6DF;border-radius:16px;box-shadow:0 1px 2px rgba(28,20,16,.04),0 8px 24px -14px rgba(28,20,16,.14);display:flex;flex-direction:column;min-height:0;overflow:hidden}
       .db-chead{padding:11px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #ECE6DF;flex-shrink:0}
       .db-chead svg{width:16px;height:16px;color:#EA580C;stroke-width:2}
@@ -96,8 +96,16 @@
       .db-trow .db-tx{flex:1;font-weight:600;font-size:13px}
       .db-no-task{text-align:center;color:#A39A91;font-size:12.5px;padding:20px 0;font-weight:600}
 
+      /* Theo dõi nguyên liệu (card thứ 3 trong db-mid) */
+      .db-watch{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:12px}
+      .db-watch .dash-watch-head{font-size:11px;font-weight:700;color:#A39A91;text-transform:uppercase;display:flex;align-items:center;gap:5px;margin-bottom:6px}
+      .db-watch .dash-watch-head i{color:#BA7517}
+      .db-watch .dash-watch-list{display:flex;flex-direction:column;gap:6px;max-height:none}
+      .db-clink{margin-left:auto;font-size:11px;color:#EA580C;cursor:pointer;font-weight:700}
+      .db-clink:hover{text-decoration:underline}
+
       /* Toolset */
-      .db-tools{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;padding:0 18px 14px;flex-shrink:0}
+      .db-tools{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding:0 18px 14px;flex-shrink:0}
       .db-tool{background:#fff;border:1px solid #ECE6DF;border-radius:16px;padding:12px 8px;cursor:pointer;
         display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;transition:.15s;
         box-shadow:0 1px 2px rgba(28,20,16,.04),0 6px 20px -12px rgba(28,20,16,.14);min-height:84px}
@@ -585,11 +593,11 @@
                 <div class="tbl-wrap">
                     <table>
                         <thead><tr>
-                            <th>Mã Receipt</th><th>Từ PO</th><th>Người nhận</th>
+                            <th>Mã Receipt</th><th>Từ PO</th><th>NCC</th><th>Người nhận</th>
                             <th>Ngày nhận</th><th>Trạng thái</th><th style="text-align:center">Chi tiết / In</th>
                         </tr></thead>
                         <tbody id="warehouse-tbody">
-                            <tr><td colspan="6" class="tbl-empty">Chưa có dữ liệu</td></tr>
+                            <tr><td colspan="7" class="tbl-empty">Chưa có dữ liệu</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -710,12 +718,11 @@
                     <table>
                         <thead>
                             <tr>
+                                <th style="width: 50px; text-align: center;"></th>
                                 <th>Nguyên liệu</th>
-                                <th>Loại</th>
-                                <th>SL thay đổi</th>
-                                <th>Lý do</th>
-                                <th>Thời gian</th>
-                                <th style="text-align:center">Chi tiết</th>
+                                <th>Đơn vị</th>
+                                <th style="text-align: right; padding-right: 24px;">Tổng đã sử dụng</th>
+                                <th style="text-align: center;">Số lần biến động</th>
                             </tr>
                         </thead>
                         <tbody id="stockmove-tbody">
@@ -943,40 +950,7 @@
     <!-- CÔNG THỨC (RECIPE)                               -->
     <!-- ═══════════════════════════════════════════════ -->
     <section class="emp-section" id="section-recipe">
-        <h1 class="page-heading"><i class="ti-book"></i> Quản Lý <span>Công Thức</span></h1>
-
-        <div class="two-col">
-            <!-- Add recipe form -->
-            <div class="panel">
-                <div class="panel-header"><span class="panel-title">➕ Thêm công thức</span></div>
-                <div class="panel-body">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Sản phẩm (ProductVarient) *</label>
-                            <select id="recipe-product">
-                                <option value="">-- Đang tải sản phẩm --</option>
-                            </select>
-                        </div>
-                        
-                        <div style="margin-top:16px">
-                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-                                <strong style="font-size:13px">Danh sách nguyên liệu của món ăn</strong>
-                                <button class="btn btn-sm btn-primary" onclick="addRecipeIngredientRow()"><i class="ti-plus"></i> Thêm dòng</button>
-                            </div>
-                            <div id="recipe-ingredients-container"></div>
-                        </div>
-
-                        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;font-size:12px;color:#065f46;margin-top:8px">
-                            <strong>Hướng dẫn:</strong><br>
-                            - Không tích Tiêu hao = Định lượng (ví dụ: miếng gà - Processed batch).<br>
-                            - Có tích Tiêu hao = Tiêu hao dầu/muối (Raw batch).
-                        </div>
-                        <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="submitBulkRecipe()">
-                            <i class="ti-check"></i> Lưu công thức
-                        </button>
-                    </div>
-                </div>
-            </div>
+        <h1 class="page-heading"><i class="ti-book"></i> Xem <span>Công Thức</span></h1>
 
             <!-- Recipe list -->
             <div class="panel">
@@ -997,7 +971,6 @@
                     </table>
                 </div>
             </div>
-        </div>
     </section>
 
     <!-- ═══════════════════════════════════════════════ -->
@@ -1111,11 +1084,27 @@
   </div>
 </div>
 
+<!-- ══ MODAL NHẬN HÀNG (đồng bộ giao diện với admin) ════ -->
+<div class="modal-overlay" id="modal-overlay">
+    <div class="modal-box" id="modal-box">
+        <div class="modal-header">
+            <div class="modal-title" id="modal-title">Modal</div>
+            <button class="modal-close" id="modal-close">×</button>
+        </div>
+        <div class="modal-body" id="modal-body"></div>
+        <div class="modal-footer">
+            <button class="btn-outline" id="modal-cancel">Huỷ</button>
+            <button class="btn-primary" id="modal-confirm">Xác Nhận</button>
+        </div>
+    </div>
+</div>
+
 <!-- ══ TOAST ═══════════════════════════════════════════ -->
 <div id="emp-toast"></div>
 
 <script src="/asset/js/api.js"></script>
 <script src="/asset/js/datetime.js"></script>
+<script src="/asset/js/popup.js"></script>
 <script src="/asset/js/employee.js"></script>
 </body>
 </html>

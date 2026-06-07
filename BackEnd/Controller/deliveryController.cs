@@ -1,5 +1,7 @@
+using Backend.Helpers;
 using Backend.Models.DTOs.Request;
 using Backend.Services.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Backend.Controller {
@@ -12,9 +14,11 @@ namespace Backend.Controller {
             _deliveryService = deliveryService;
         }
 
+        [Authorize(Roles = "Manager,Counter,Dining,Kitchen")]
         [HttpGet("get-all/{start}/{end}")]
-        public async Task<IActionResult> GetAllDeliveryIn(DateTime start, DateTime end) {
-            return Ok(await _deliveryService.GetAllDeliveryIn(start, end));
+        public async Task<IActionResult> GetAllDeliveryIn(DateTime start, DateTime end, [FromQuery] int? storeID = null) {
+            // Nhân viên chỉ thấy đơn giao của store mình (đơn ⇒ bill ⇒ store).
+            return Ok(await _deliveryService.GetAllDeliveryIn(start, end, User.GetStoreID() ?? storeID));
         }
 
         [HttpGet("get-by-user/{userID}")]
