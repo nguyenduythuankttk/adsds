@@ -256,12 +256,7 @@ using System.Collections.Generic;
 
             if (address.Latitude == null || address.Longitude == null)
             {
-                var parts = new List<string>();
-                if (!string.IsNullOrWhiteSpace(address.StreetAddress)) parts.Add(address.StreetAddress);
-                if (!string.IsNullOrWhiteSpace(address.District))      parts.Add(address.District);
-                if (!string.IsNullOrWhiteSpace(address.Province))      parts.Add(address.Province);
-                parts.Add("Việt Nam");
-                var coords = await _geocoding.GeocodeAsync(string.Join(", ", parts));
+                var coords = await GeocodeWithFallbackAsync(address.StreetAddress, address.District, address.Province);
                 if (coords.HasValue)
                 {
                     address.Latitude  = coords.Value.Lat;
@@ -293,12 +288,7 @@ using System.Collections.Generic;
             {
                 if (s.Address == null || (s.Address.Latitude != null && s.Address.Longitude != null))
                     continue;
-                var sParts = new List<string>();
-                if (!string.IsNullOrWhiteSpace(s.Address.StreetAddress)) sParts.Add(s.Address.StreetAddress);
-                if (!string.IsNullOrWhiteSpace(s.Address.District))      sParts.Add(s.Address.District);
-                if (!string.IsNullOrWhiteSpace(s.Address.Province))      sParts.Add(s.Address.Province);
-                sParts.Add("Việt Nam");
-                var sCoords = await _geocoding.GeocodeAsync(string.Join(", ", sParts));
+                var sCoords = await GeocodeWithFallbackAsync(s.Address.StreetAddress, s.Address.District, s.Address.Province);
                 if (sCoords.HasValue)
                 {
                     s.Address.Latitude  = sCoords.Value.Lat;
@@ -340,6 +330,35 @@ using System.Collections.Generic;
                 ShippingFee = Math.Round((decimal)minDist * rate),
                 IsDeliverable = true
             };
+        }
+
+        // Geocode có dự phòng: địa chỉ số nhà/đường ở VN thường không tra được trên Nominatim
+        // (trả mảng rỗng) → thử lùi dần độ chi tiết: đầy đủ → quận+tỉnh → tỉnh, để luôn ra được
+        // ít nhất tâm quận/tỉnh, tránh hard-fail làm FE báo "không tính được phí giao hàng".
+        private async Task<(double Lat, double Lng)?> GeocodeWithFallbackAsync(string? street, string? district, string? province)
+        {
+            var attempts = new List<string>();
+            void Add(params string?[] ps)
+            {
+                var parts = new List<string>();
+                foreach (var p in ps)
+                    if (!string.IsNullOrWhiteSpace(p)) parts.Add(p!.Trim());
+                if (parts.Count == 0) return;
+                parts.Add("Việt Nam");
+                var q = string.Join(", ", parts);
+                if (!attempts.Contains(q)) attempts.Add(q);
+            }
+            Add(street, district, province); // đầy đủ
+            Add(district, province);         // bỏ số nhà/đường → tâm quận
+            Add(province);                   // cuối cùng → tâm tỉnh/thành
+
+            for (int i = 0; i < attempts.Count; i++)
+            {
+                if (i > 0) await Task.Delay(1100); // tôn trọng giới hạn ~1 req/s của Nominatim
+                var c = await _geocoding.GeocodeAsync(attempts[i]);
+                if (c.HasValue) return c;
+            }
+            return null;
         }
 
         private static double HaversineKm(double lat1, double lon1, double lat2, double lon2)
