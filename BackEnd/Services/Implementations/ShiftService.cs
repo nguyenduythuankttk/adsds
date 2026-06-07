@@ -261,11 +261,14 @@ namespace Backend.Services.Implementations{
             };
         }
 
-        // Tự động check-out khi nhân viên đăng xuất: đóng ca hôm nay đã check-in nhưng
-        // chưa check-out, ghi nhận giờ rời ca = lúc đăng xuất. Khác với check-out thủ công,
-        // KHÔNG chặn theo giờ tan ca vì đăng xuất là tín hiệu rời ca rõ ràng. Chỉ đánh dấu
-        // hoàn thành khi đã hết giờ tan ca; rời sớm thì giữ nguyên trạng thái chấm công.
-        // Trả về true nếu có ca được đóng.
+        // Xử lý ca đang chạy (đã check-in, chưa check-out) của nhân viên khi họ đăng xuất:
+        //  • Chưa đến giờ tan ca (now < TimeOut) ⇒ CHẶN đăng xuất bằng cách ném
+        //    InvalidOperationException → ErrorHandlingMiddleware trả 400; controller không
+        //    blacklist token nên phiên đăng nhập vẫn còn hiệu lực.
+        //  • Đã đến/qua giờ tan ca ⇒ tự động check-out (giờ rời ca = lúc đăng xuất) và đánh dấu
+        //    hoàn thành, trừ khi đã bị Late/Absent thì giữ nguyên trạng thái chấm công.
+        // Không có ca đang chạy ⇒ trả về false (cho đăng xuất bình thường).
+        // Trả về true nếu có ca được tự động đóng.
         public async Task<bool> AutoCheckOutOnLogout(Guid employeeID) {
             var now = VnTime.Now;
             var dayStart = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0);
@@ -282,10 +285,17 @@ namespace Backend.Services.Implementations{
 
             if (shift == null) return false;
 
+            // Chưa hết ca → không cho đăng xuất.
+            if (now < shift.TimeOut) {
+                var remain = (int)Math.Ceiling((shift.TimeOut - now).TotalMinutes);
+                throw new InvalidOperationException(
+                    $"Bạn chưa hết ca làm việc, không thể đăng xuất. Ca kết thúc lúc "
+                    + $"{shift.TimeOut:HH:mm dd/MM/yyyy} (còn {remain} phút).");
+            }
+
+            // Đã hết ca → tự động check-out.
             shift.CheckOut = now;
-            if (now >= shift.TimeOut
-                && shift.Status != ShiftStatus.Late
-                && shift.Status != ShiftStatus.Absent) {
+            if (shift.Status != ShiftStatus.Late && shift.Status != ShiftStatus.Absent) {
                 shift.Status = ShiftStatus.Completed;
             }
             await _dbContext.SaveChangesAsync();

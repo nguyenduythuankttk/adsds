@@ -43,17 +43,31 @@ namespace Backend.Controller
         public async Task<IActionResult> Logout(){
             var token = Request.Headers["Authorization"].ToString().Replace("Bearer ", "").Trim();
 
-            // Tự động check-out ca đang mở khi đăng xuất (nhân viên). Không để lỗi check-out
-            // làm hỏng quá trình đăng xuất; khách hàng không có ca nên là no-op.
+            // Xử lý ca đang chạy trước khi blacklist token (nhân viên; khách không có ca nên no-op):
+            //  • Chưa hết ca ⇒ AutoCheckOutOnLogout ném InvalidOperationException → middleware trả 400,
+            //    ta KHÔNG đăng xuất (token chưa bị blacklist) nên nhân viên giữ nguyên phiên.
+            //  • Đã hết ca ⇒ tự động check-out rồi đăng xuất bình thường.
+            //  • Lỗi ngoài dự kiến (DB…) không được chặn đăng xuất → nuốt và vẫn cho logout.
+            bool autoCheckedOut = false;
             var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                 ?? User.FindFirst("user_id")?.Value;
             if (Guid.TryParse(idClaim, out var employeeID)) {
-                try { await _ShiftService.AutoCheckOutOnLogout(employeeID); }
-                catch (Exception ex) { Console.WriteLine($"[Logout] auto check-out failed: {ex.Message}"); }
+                try {
+                    autoCheckedOut = await _ShiftService.AutoCheckOutOnLogout(employeeID);
+                } catch (InvalidOperationException) {
+                    throw; // chặn đăng xuất khi chưa hết ca
+                } catch (Exception ex) {
+                    Console.WriteLine($"[Logout] auto check-out failed: {ex.Message}");
+                }
             }
 
             await _AuthService.Logout(token);
-            return Ok("Đăng xuất thành công");
+            return Ok(new {
+                message = autoCheckedOut
+                    ? "Đã tự động kết thúc ca và đăng xuất thành công"
+                    : "Đăng xuất thành công",
+                autoCheckedOut
+            });
         }
 
         [Authorize]
