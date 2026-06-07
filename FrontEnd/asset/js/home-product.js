@@ -9,11 +9,8 @@
     var addrDropdownOpen = false;
     var allStores        = [];
     var selectedStore    = null;
-<<<<<<< Updated upstream
-=======
     var homeAvail        = { map: {}, loaded: false };  // tình trạng còn hàng theo varient
     var homeAvailStoreId = null;                        // store mà homeAvail đang phản ánh
->>>>>>> Stashed changes
     var homeLastProducts = [];                          // cache để vẽ lại khi đổi store
     var storeDropdownOpen = false;
     var userPickedStore  = false;
@@ -840,8 +837,6 @@
         showToast('Đã thêm "' + name + '" vào giỏ hàng!');
     };
 
-<<<<<<< Updated upstream
-=======
     // Tải tình trạng còn hàng theo cửa hàng hiện tại rồi vẽ lại danh sách sản
     // phẩm để làm mờ + chặn chọn những món đã hết nguyên liệu.
     function loadHomeAvailability() {
@@ -860,7 +855,6 @@
         });
     }
 
->>>>>>> Stashed changes
     // ── Products ──────────────────────────────────────────────────────────────
     var RANK_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32'];
 

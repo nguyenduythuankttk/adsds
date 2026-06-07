@@ -72,11 +72,8 @@
     var cart              = [];
     var pendingItem       = null;
     var allProducts       = [];
-<<<<<<< Updated upstream
-=======
     var menuAvail         = { map: {}, loaded: false };  // tình trạng còn hàng theo varient
     var menuAvailStoreId  = null;                        // store mà menuAvail đang phản ánh
->>>>>>> Stashed changes
     var allProductsByType = { food: [], combo: [], addon: [], drink: [] };
     var upsellItems       = [];
     var upsellIdx         = 0;
@@ -644,8 +641,6 @@
             .catch(function () { return []; });
     }
 
-<<<<<<< Updated upstream
-=======
     // Tải tình trạng còn hàng theo cửa hàng hiện tại rồi vẽ lại menu để làm
     // mờ + chặn chọn những món đã hết nguyên liệu. Gọi mỗi khi đổi store.
     function loadMenuAvailability() {
@@ -664,7 +659,6 @@
         });
     }
 
->>>>>>> Stashed changes
     function loadAllProducts() {
         allProducts = [];
         TYPE_KEYS.forEach(function (key) {
