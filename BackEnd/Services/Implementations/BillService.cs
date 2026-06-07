@@ -361,6 +361,13 @@ namespace Backend.Services.Implementations{
 
                 var resolvedStoreID = await ResolveDeliveryStoreAsync(addressID, request.StoreID);
 
+                // Chặn ngay lúc khách đặt nếu cửa hàng xử lý đơn không đủ nguyên liệu →
+                // yêu cầu khách chọn cửa hàng khác. CHỈ kiểm tra, KHÔNG trừ kho: việc trừ
+                // vẫn thực hiện khi bếp chuyển "Đang chuẩn bị" (ConsumeIngredientsForDelivery).
+                await EnsureIngredientsAvailable(
+                    request.products.Select(p => (p.ProductVarientID, p.qty)).ToList(),
+                    resolvedStoreID);
+
                 var bill = new Bill{
                     BillID = Guid.NewGuid(),
                     UserID = request.UserID,
@@ -580,6 +587,82 @@ namespace Backend.Services.Implementations{
                 p.SoldCount += soldByProduct.GetValueOrDefault(p.ProductID);
 
             await _dbcontext.SaveChangesAsync();
+        }
+
+        // Kiểm tra (KHÔNG trừ) tồn kho nguyên liệu đã sơ chế của 1 cửa hàng cho danh
+        // sách món + số lượng. Dùng cho đơn giao của khách: chặn ngay lúc đặt nếu cửa
+        // hàng thiếu nguyên liệu, để báo khách chọn cửa hàng khác. Logic khớp tuyệt đối
+        // với ConsumeIngredients (chỉ lô đã sơ chế, còn hàng, chưa hết hạn; nhu cầu mỗi
+        // phần = QtyAfterProcess). Ném InvalidOperationException khi thiếu.
+        private async Task EnsureIngredientsAvailable(List<(int ProductVarientID, decimal Quantity)> items, int storeID)
+        {
+            if (items == null || items.Count == 0) return;
+
+            var productVarientIDs = items.Select(i => i.ProductVarientID).Distinct().ToList();
+            var recipes = await _dbcontext.Receipe
+                .Where(r => productVarientIDs.Contains(r.ProductVarientID) && r.DeletedAt == null)
+                .ToListAsync();
+
+            var today = DateOnly.FromDateTime(VnTime.Now);
+
+            var demand = new Dictionary<int, decimal>();
+            foreach (var item in items)
+            {
+                foreach (var recipe in recipes.Where(r => r.ProductVarientID == item.ProductVarientID))
+                {
+                    var need = recipe.QtyAfterProcess * item.Quantity;
+                    if (need <= 0) continue;
+                    demand[recipe.IngredientID] = demand.GetValueOrDefault(recipe.IngredientID) + need;
+                }
+            }
+            if (demand.Count == 0) return;
+
+            var ingredientIDs = demand.Keys.ToList();
+
+            var ingredientNameById = await _dbcontext.Ingredient
+                .Where(i => ingredientIDs.Contains(i.IngredientID))
+                .ToDictionaryAsync(i => i.IngredientID, i => i.IngredientName);
+            var varientNameById = (await _dbcontext.ProductVarient
+                    .Where(pv => productVarientIDs.Contains(pv.ProductVarientID))
+                    .Include(pv => pv.Product)
+                    .Select(pv => new { pv.ProductVarientID, pv.Product.ProductName, pv.Size })
+                    .ToListAsync())
+                .ToDictionary(x => x.ProductVarientID,
+                    x => x.Size == ProductSize.Default ? x.ProductName : $"{x.ProductName} (size {x.Size})");
+
+            string OutOfStockMessage(int ingId)
+            {
+                var dishes = recipes
+                    .Where(r => r.IngredientID == ingId)
+                    .Select(r => r.ProductVarientID)
+                    .Distinct()
+                    .Where(varientNameById.ContainsKey)
+                    .Select(id => "\"" + varientNameById[id] + "\"")
+                    .Distinct()
+                    .ToList();
+                var dishText = dishes.Count > 0 ? string.Join(", ", dishes) : "(không xác định)";
+                var ingName = ingredientNameById.GetValueOrDefault(ingId, "#" + ingId);
+                return $"Cửa hàng hiện không đủ nguyên liệu \"{ingName}\" cho món {dishText}. Vui lòng chọn cửa hàng khác.";
+            }
+
+            var availableBatches = await _dbcontext.InventoryBatch
+                .Where(b => ingredientIDs.Contains(b.IngredientID)
+                         && b.BatchType == BatchType.Processed
+                         && b.Status == BatchStatus.Available
+                         && b.QuantityOnHand > 0
+                         && b.Exp >= today
+                         && b.Warehouse.StoreID == storeID)
+                .ToListAsync();
+
+            var stockByIngredient = availableBatches
+                .GroupBy(b => b.IngredientID)
+                .ToDictionary(g => g.Key, g => g.Sum(b => b.QuantityOnHand));
+
+            foreach (var (ingredientID, needed) in demand)
+            {
+                if (stockByIngredient.GetValueOrDefault(ingredientID, 0m) < needed)
+                    throw new InvalidOperationException(OutOfStockMessage(ingredientID));
+            }
         }
 
         private async Task ConsumeIngredients(Guid billID, List<BillDetail> billDetails, Guid? employeeID, int storeID)
