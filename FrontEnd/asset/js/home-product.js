@@ -9,7 +9,6 @@
     var addrDropdownOpen = false;
     var allStores        = [];
     var selectedStore    = null;
-    var homeAvail        = { map: {}, loaded: false };  // tình trạng còn hàng theo varient
     var homeLastProducts = [];                          // cache để vẽ lại khi đổi store
     var storeDropdownOpen = false;
     var userPickedStore  = false;
@@ -95,7 +94,6 @@
                 var arrow = document.getElementById('cq-store-arrow');
                 if (arrow) arrow.classList.remove('open');
                 renderStoreSelected(); renderStoreList(); updateCQShipping();
-                loadHomeAvailability();
             });
             listEl.appendChild(item);
         });
@@ -119,7 +117,6 @@
                 if (listEl) listEl.classList.remove('open');
                 if (arrow)  arrow.classList.remove('open');
                 renderStoreSelected(); renderStoreList();
-                loadHomeAvailability();
             })
             .catch(function () {
                 if (el) el.innerHTML = '<span class="cq-store-loading">Không thể tải cửa hàng.</span>';
@@ -585,7 +582,11 @@
 
                 apiPost('/bill/create-delivery', body)
                 .then(function (res) {
-                    if (!res.ok) return res.text().then(function (t) { throw new Error(t); });
+                    if (!res.ok) return res.text().then(function (t) {
+                        var msg = t;
+                        try { var j = JSON.parse(t); if (j && j.message) msg = j.message; } catch (e) {}
+                        throw new Error(msg || 'Đặt hàng thất bại. Vui lòng thử lại.');
+                    });
                     return res.json();
                 })
                 .then(function (data) {
@@ -601,7 +602,12 @@
                     }
                 })
                 .catch(function (err) {
-                    alert('Đặt hàng thất bại. Vui lòng thử lại.\n' + err.message);
+                    // Cửa hàng thiếu nguyên liệu (BE trả 400 + message) → báo khách chọn cửa hàng khác.
+                    if (typeof showPopup === 'function') {
+                        showPopup({ type: 'warning', title: 'Không thể đặt hàng', message: err.message || 'Đặt hàng thất bại. Vui lòng thử lại.' });
+                    } else {
+                        alert('Đặt hàng thất bại. Vui lòng thử lại.\n' + err.message);
+                    }
                 });
             });
         }
@@ -814,10 +820,6 @@
 
     // ── Add to cart ───────────────────────────────────────────────────────────
     window.homeAddToCart = function (varientId, name, price) {
-        if (isVarientOut(homeAvail, varientId)) {
-            showToast('"' + name + '" đã hết hàng tại cửa hàng này.');
-            return;
-        }
         if (!isLoggedIn()) {
             var modal = document.getElementById('login-modal');
             if (modal) modal.classList.add('active');
@@ -829,17 +831,6 @@
         saveCart(); updateCartBadge(); renderCart();
         showToast('Đã thêm "' + name + '" vào giỏ hàng!');
     };
-
-    // Tải tình trạng còn hàng theo cửa hàng hiện tại rồi vẽ lại danh sách sản
-    // phẩm để làm mờ + chặn chọn những món đã hết nguyên liệu.
-    function loadHomeAvailability() {
-        var sid = selectedStore ? (selectedStore.storeID || selectedStore.StoreID) : null;
-        if (!sid) { homeAvail = { map: {}, loaded: false }; return; }
-        fetchVarientAvailability(sid).then(function (a) {
-            homeAvail = a;
-            if (homeLastProducts.length) renderProducts(homeLastProducts);
-        });
-    }
 
     // ── Products ──────────────────────────────────────────────────────────────
     var RANK_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32'];
@@ -885,42 +876,34 @@
             ? '<span class="product-rank-badge" style="background:' + rankColor + '">#' + rank + '</span>'
             : '';
 
-        var out    = isVarientOut(homeAvail, vid);
-        var allOut = variants.every(function (v) { return isVarientOut(homeAvail, v.productVarientID || v.ProductVarientID); });
-
         var sizeHTML = '';
         if (multiSize) {
             sizeHTML = '<div class="card-size-list">';
             variants.forEach(function (v, i) {
                 var cvid   = v.productVarientID || v.ProductVarientID;
                 var csize  = (v.size != null ? v.size : v.Size) || '';
-                var cout   = isVarientOut(homeAvail, cvid);
-                sizeHTML += '<button type="button" class="card-size-chip' + (i === 0 ? ' selected' : '') + (cout ? ' chip-out' : '') + '"' +
-                    ' data-vid="' + cvid + '" data-price="' + (v.price || v.Price || 0) + '" data-out="' + (cout ? '1' : '0') + '">' +
+                sizeHTML += '<button type="button" class="card-size-chip' + (i === 0 ? ' selected' : '') + '"' +
+                    ' data-vid="' + cvid + '" data-price="' + (v.price || v.Price || 0) + '">' +
                     (SIZE_SHORT[csize] || csize || 'Mặc định') + '</button>';
             });
             sizeHTML += '</div>';
         }
 
-        var soldCls  = (out ? ' sold-out' : '') + (allOut ? ' sold-out-all' : '');
-        var outBadge = out ? '<span class="product-soldout-badge">HẾT HÀNG</span>' : '';
-        var btnAttr  = out ? ' disabled aria-disabled="true" title="Hết hàng"' : '';
-        return '<div class="product-card home-prod-card' + soldCls + '">' +
+        return '<div class="product-card home-prod-card">' +
             '<div class="product-image-wrapper">' +
             rankBadge +
-            outBadge +
             (img ? '<img src="' + img + '" alt="' + attrNm + '" loading="lazy">'
                  : '<div class="img-placeholder">🍗</div>') +
-            (sold > 0 && !out ? '<span class="product-badge">BÁN CHẠY</span>' : '') +
+            (sold > 0 ? '<span class="product-badge">BÁN CHẠY</span>' : '') +
             '</div>' +
             '<div class="product-info">' +
             '<h3 class="product-name">' + name + '</h3>' +
             '<p class="product-price">' + formatPrice(price) + '</p>' +
             (sold > 0 ? '<p class="product-sold-count">Đã bán: ' + sold + '</p>' : '') +
             sizeHTML +
-            '<button type="button" class="add-to-cart-btn-static home-add-btn"' + btnAttr +
+            '<button type="button" class="add-to-cart-btn-static home-add-btn"' +
             ' data-vid="' + vid + '" data-price="' + price + '" data-name="' + attrNm + '">' +
-            '<i class="ti-shopping-cart"></i> ' + (out ? 'HẾT HÀNG' : 'THÊM VÀO GIỎ') + '</button>' +
+            '<i class="ti-shopping-cart"></i> THÊM VÀO GIỎ</button>' +
             '</div></div>';
     }
 
@@ -937,7 +920,6 @@
 
         var price = parseFloat(chip.dataset.price) || 0;
         var vid   = parseInt(chip.dataset.vid, 10);
-        var cout  = chip.dataset.out === '1';
 
         var priceEl = card.querySelector('.product-price');
         if (priceEl) priceEl.textContent = formatPrice(price);
@@ -946,11 +928,7 @@
         if (addBtn) {
             addBtn.dataset.vid   = vid;
             addBtn.dataset.price = price;
-            addBtn.dataset.out   = cout ? '1' : '0';
-            addBtn.disabled      = cout;
-            addBtn.innerHTML     = '<i class="ti-shopping-cart"></i> ' + (cout ? 'HẾT HÀNG' : 'THÊM VÀO GIỎ');
         }
-        if (!card.classList.contains('sold-out-all')) card.classList.toggle('sold-out', cout);
     });
 
     // Nút "Thêm vào giỏ" trên card (đọc biến thể đang chọn từ data-*)
@@ -958,7 +936,6 @@
         var btn = e.target.closest('.home-add-btn');
         if (!btn) return;
         e.stopPropagation();
-        if (btn.disabled || btn.dataset.out === '1') return;
         var vid   = parseInt(btn.dataset.vid, 10);
         var price = parseFloat(btn.dataset.price) || 0;
         var name  = btn.dataset.name || '';

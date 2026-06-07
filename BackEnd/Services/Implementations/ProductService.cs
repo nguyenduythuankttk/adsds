@@ -225,9 +225,14 @@ namespace Backend.Services.Implementations{
         //   - thuộc kho của store
         //   - nhu cầu mỗi phần = QtyAfterProcess của từng nguyên liệu trong công thức
         // Quy tắc:
-        //   - Món THƯỜNG không có công thức (chưa khai báo nguyên liệu) ⇒ BÁO HẾT HÀNG.
-        //   - Combo còn hàng khi MỌI sản phẩm thành phần còn hàng (đệ quy theo quy tắc trên);
-        //     hết hàng nếu có 1 thành phần hết hàng / không khai báo nguyên liệu / combo rỗng.
+        // Quy tắc (FAIL-OPEN: chỉ báo HẾT HÀNG khi có bằng chứng rõ ràng là thiếu nguyên liệu):
+        //   - Món THƯỜNG KHÔNG khai báo công thức ⇒ COI NHƯ CÒN HÀNG. Hệ thống không theo dõi
+        //     tồn kho cho món này và ConsumeIngredients cũng cho bán bình thường, nên đánh dấu
+        //     hết hàng sẽ sai/không nhất quán (đây chính là lỗi cũ làm cả menu báo hết).
+        //   - Món THƯỜNG có công thức ⇒ hết hàng khi 1 nguyên liệu trong công thức đã cạn.
+        //   - Combo còn hàng TRỪ KHI có 1 thành phần CÓ công thức nhưng đã cạn nguyên liệu;
+        //     thành phần thiếu dữ liệu (không công thức / không biến thể) không chặn bán vì
+        //     đặt combo không tiêu hao kho.
         public async Task<List<ProductAvailabilityResponse>> GetVarientAvailability(int storeID)
         {
             var today = VnTime.Today;
@@ -261,12 +266,12 @@ namespace Backend.Services.Implementations{
                 .GroupBy(r => r.ProductVarientID)
                 .ToDictionary(g => g.Key, g => g.ToList());
 
-            // Tồn của 1 biến thể THƯỜNG. -1 = không giới hạn (công thức không tiêu hao gì).
-            // Không có công thức ⇒ (false, 0): báo hết hàng theo yêu cầu.
+            // Tồn của 1 biến thể THƯỜNG. -1 = không giới hạn (không khai báo công thức,
+            // hoặc công thức không tiêu hao gì) ⇒ coi như còn hàng (fail-open).
             (bool available, decimal max) VarientStock(int vid)
             {
                 if (!recipesByVarient.TryGetValue(vid, out var items) || items.Count == 0)
-                    return (false, 0m);
+                    return (true, -1m);
 
                 decimal maxServings = decimal.MaxValue;
                 foreach (var item in items)
@@ -313,7 +318,8 @@ namespace Backend.Services.Implementations{
                 {
                     if (!comboDetails.TryGetValue(cv.ProductID, out var items) || items.Count == 0)
                     {
-                        varAvail[cv.ProductVarientID] = (false, 0m); // combo rỗng ⇒ hết hàng
+                        // Combo chưa khai báo thành phần ⇒ fail-open (đặt combo không tiêu hao kho).
+                        varAvail[cv.ProductVarientID] = (true, -1m);
                         continue;
                     }
 
@@ -321,7 +327,8 @@ namespace Backend.Services.Implementations{
                     decimal maxServings = decimal.MaxValue;
                     foreach (var it in items)
                     {
-                        var comp = productAvail.GetValueOrDefault(it.ProductID, (available: false, max: 0m));
+                        // Fail-open: thành phần thiếu dữ liệu tồn kho ⇒ coi như còn hàng.
+                        var comp = productAvail.GetValueOrDefault(it.ProductID, (available: true, max: -1m));
                         if (!comp.available) { available = false; continue; }
                         if (it.qty <= 0) continue;
                         if (comp.max < 0) continue; // thành phần không tiêu hao ⇒ không giới hạn
