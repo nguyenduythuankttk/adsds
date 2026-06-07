@@ -291,8 +291,20 @@ namespace Backend.Services.Implementations{
             return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
         }
 
-        private async Task<int> ResolveNearestStoreAsync(Guid addressID, int? fallbackStoreID)
+        // Cửa hàng xử lý đơn giao. ƯU TIÊN cửa hàng khách đã chọn trên giao diện: FE hiển thị
+        // đúng cửa hàng đó và tính phí ship theo nó, nên đơn phải về đúng cửa hàng đó thì nhân
+        // viên cửa hàng mới nhìn thấy/tiếp nhận được. Trước đây hàm này luôn ép về cửa hàng gần
+        // nhất theo tọa độ, khiến đơn "biến mất" khỏi cửa hàng khách chọn → nhân viên không thấy.
+        // Chỉ khi KHÔNG có lựa chọn hợp lệ mới tự suy ra cửa hàng gần nhất theo địa chỉ giao.
+        private async Task<int> ResolveDeliveryStoreAsync(Guid addressID, int? selectedStoreID)
         {
+            if (selectedStoreID.HasValue && selectedStoreID.Value > 0)
+            {
+                var selectedExists = await _dbcontext.Store
+                    .AnyAsync(s => s.StoreID == selectedStoreID.Value && s.DeletedAt == null);
+                if (selectedExists) return selectedStoreID.Value;
+            }
+
             var address = await _dbcontext.Address
                 .AsNoTracking()
                 .FirstOrDefaultAsync(a => a.AddressID == addressID);
@@ -317,14 +329,7 @@ namespace Backend.Services.Implementations{
                 }
             }
 
-            if (fallbackStoreID.HasValue)
-            {
-                var exists = await _dbcontext.Store
-                    .AnyAsync(s => s.StoreID == fallbackStoreID.Value && s.DeletedAt == null);
-                if (exists) return fallbackStoreID.Value;
-            }
-
-            throw new Exception("Không thể xác định cửa hàng xử lý đơn giao hàng: địa chỉ thiếu tọa độ và không có StoreID dự phòng.");
+            throw new Exception("Không thể xác định cửa hàng xử lý đơn giao hàng: chưa chọn cửa hàng hợp lệ và địa chỉ thiếu tọa độ.");
         }
 
         public async Task<DeliveryBillCreateReponse> CreateDeliveryBill(DeliveryBillCreateRequest request)
@@ -354,7 +359,7 @@ namespace Backend.Services.Implementations{
                     addressID = defaultAddress.AddressID;
                 }
 
-                var resolvedStoreID = await ResolveNearestStoreAsync(addressID, request.StoreID);
+                var resolvedStoreID = await ResolveDeliveryStoreAsync(addressID, request.StoreID);
 
                 var bill = new Bill{
                     BillID = Guid.NewGuid(),
