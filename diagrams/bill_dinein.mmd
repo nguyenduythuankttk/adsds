@@ -1,0 +1,47 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Helvetica Neue, Arial, sans-serif","fontSize":"28px","lineColor":"#334155"},"flowchart":{"nodeSpacing":40,"rankSpacing":30,"htmlLabels":true,"padding":14,"useMaxWidth":false,"curve":"basis"}}%%
+flowchart TD
+    N1["🧑‍🍳 Đăng nhập<br/>→ check-in ca"]
+    N2{"Có ca hôm nay?"}
+    N3["⛔ Bị chặn thao tác<br/>(requireShift)"]
+    N4["🧑‍🍳 Chọn bàn / món / SĐT<br/>→ Bấm tạo hóa đơn"]
+    B1["⚙️ Kiểm tra hợp lệ<br/>(món, NV, cửa hàng)"]
+    B2{"Bàn còn hóa đơn<br/>chưa thanh toán?"}
+    B3["❌ Báo lỗi:<br/>bàn đang bận"]
+    B4["⚙️ Tính Total<br/>(× VAT, ticket, làm tròn)"]
+    B5{"Hình thức<br/>thanh toán?"}
+    B6["💵 Tiền mặt / Thẻ<br/>→ Paid ngay"]
+    B7["🏦 Chuyển khoản<br/>→ Pending + QR"]
+    B8["⚙️ TRỪ KHO ngay<br/>(FEFO, lô sơ chế)"]
+    B9{"Đủ nguyên liệu?"}
+    B10["❌ Rollback cả bill<br/>(hết hàng)"]
+    B11["⚙️ Lưu BillChange=Create<br/>→ commit"]
+    N7["✅ In hóa đơn / ra món"]
+    SEPAY["💳 SePay xác nhận tiền<br/>→ Paid"]
+    CANCEL["⏱️ Quá 3' chưa trả<br/>→ Failed"]
+
+    N1 --> N2
+    N2 -- "Không" --> N3
+    N2 -- "Có" --> N4 --> B1 --> B2
+    B2 -- "Có" --> B3
+    B2 -- "Không" --> B4 --> B5
+    B5 -- "Tiền mặt / Thẻ" --> B6 --> B8
+    B5 -- "Chuyển khoản" --> B7 --> B8
+    B8 --> B9
+    B9 -- "Không" --> B10
+    B9 -- "Có" --> B11 --> N7
+    B7 -. "khách trả" .-> SEPAY
+    B7 -. "quá 3'" .-> CANCEL
+
+    classDef nv  fill:#4f46e5,stroke:#3730a3,stroke-width:1.5px,color:#ffffff;
+    classDef be  fill:#475569,stroke:#1e293b,stroke-width:1.5px,color:#ffffff;
+    classDef dec fill:#b45309,stroke:#78350f,stroke-width:1.5px,color:#ffffff;
+    classDef err fill:#dc2626,stroke:#991b1b,stroke-width:1.5px,color:#ffffff;
+    classDef ok  fill:#16a34a,stroke:#15803d,stroke-width:1.5px,color:#ffffff;
+    classDef ext fill:#9333ea,stroke:#7e22ce,stroke-width:1.5px,color:#ffffff;
+
+    class N1,N4 nv;
+    class B1,B4,B6,B7,B8,B11 be;
+    class N2,B2,B5,B9 dec;
+    class N3,B3,B10 err;
+    class N7 ok;
+    class SEPAY,CANCEL ext;

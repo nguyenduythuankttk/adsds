@@ -25,7 +25,21 @@
       "Bash(python3 -c 'import json; d=json.loads\\('\\\\'''\\\\'''\\\\''__TRACKED_VAR__'\\\\'''\\\\'''\\\\''\\); print\\('\\\\''top keys:'\\\\'', list\\(d.keys\\(\\)\\)\\); print\\('\\\\''data keys:'\\\\'', list\\(d['\\\\''data'\\\\''].keys\\(\\)\\)\\)')",
       "Bash(git --no-pager diff -- BackEnd/Models/DiningTableModel.cs BackEnd/Data/AppDbContext.cs BackEnd/Services/Implementations/BillService.cs)",
       "Bash(curl -s -X POST http://127.0.0.1:3000/api/pbl3/auth/employee_login -H 'Content-Type: application/json' -d '{\"UserName\":\"dining_q5\",\"HashPassword\":\"password\"}')",
-      "Bash(python3 -c 'import sys,json;d=json.load\\(sys.stdin\\);print\\(\"count:\",len\\(d\\)\\);[print\\(\" bill\",x.get\\(\"billID\",\"?\"\\)[:8],\"| store-scoped OK | status\",\\(x.get\\(\"deliveryLog\"\\) or [{}]\\)[-1].get\\(\"status\"\\)\\) for x in d]')"
+      "Bash(python3 -c 'import sys,json;d=json.load\\(sys.stdin\\);print\\(\"count:\",len\\(d\\)\\);[print\\(\" bill\",x.get\\(\"billID\",\"?\"\\)[:8],\"| store-scoped OK | status\",\\(x.get\\(\"deliveryLog\"\\) or [{}]\\)[-1].get\\(\"status\"\\)\\) for x in d]')",
+      "Bash(npm -v)",
+      "Bash(sips -g pixelWidth -g pixelHeight bill_dinein.png)",
+      "Read(//private/tmp/**)",
+      "Bash(curl -s -H 'Authorization: Bearer __TRACKED_VAR__' http://127.0.0.1:3000/api/pbl3/delivery/get-all/2020-01-01/2026-06-08?storeID=3)",
+      "Bash(lsof -nP -iTCP -sTCP:LISTEN)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npx -y -p @mermaid-js/mermaid-cli@latest mmdc -i bill_dinein.mmd -o bill_dinein_raw.png -C theme.css -b white -s 3)",
+      "Bash(sips -g pixelWidth -g pixelHeight bill_dinein_raw.png)",
+      "Bash(sips -Z 3250 bill_dinein_raw.png --out bill_dinein_A4.png)",
+      "Bash(sips -p 3508 2480 --padColor FFFFFF bill_dinein_A4.png --out bill_dinein_A4.png)",
+      "Bash(sips -g pixelWidth -g pixelHeight bill_dinein_A4.png)",
+      "Bash(npx -y -p @mermaid-js/mermaid-cli@latest mmdc -i bill_dinein.mmd -o bill_dinein_raw.png -c mermaid-config.json -C theme.css -b white -s 2)",
+      "Bash(curl -s -o /tmp/all.json -w 'HTTP %{http_code}\\\\n' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6ImUwMDMwMDAxLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAwMiIsImp0aSI6ImZvcmdlZC10ZXN0IiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjoiRGluaW5nIiwiZXhwIjoxNzgwODcyMjk3LCJpc3MiOiJkaHN0b3JlLml0LmNvbSIsImF1ZCI6ImRoc3RvcmUuaXQuY29tIn0.CEQjWGQE4n7T5aAAsXN3jneSjFPwm010cDvRAfcD9Eg' http://127.0.0.1:3000/api/pbl3/delivery/get-all/2020-01-01/2026-06-08)",
+      "Bash(python3 -c \"import json;d=json.load\\(open\\('/tmp/all.json'\\)\\);print\\('count:',len\\(d\\) if isinstance\\(d,list\\) else d\\)\")"
     ]
   }
 }

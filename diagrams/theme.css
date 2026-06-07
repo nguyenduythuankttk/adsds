@@ -1,0 +1,6 @@
+/* Chế độ SVG text (htmlLabels:false) — in đậm để chữ nổi bật trên nền màu */
+text, tspan, .nodeLabel, .edgeLabel { font-weight: 700 !important; }
+
+/* Nhãn trên mũi tên: chữ đậm, sẫm để rõ trên nền trắng */
+.edgeLabel text, .edgeLabel tspan { fill: #0f172a !important; }
+.edgePath .path { stroke-width: 1.8px; }
