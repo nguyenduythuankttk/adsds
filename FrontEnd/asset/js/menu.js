@@ -72,6 +72,11 @@
     var cart              = [];
     var pendingItem       = null;
     var allProducts       = [];
+<<<<<<< Updated upstream
+=======
+    var menuAvail         = { map: {}, loaded: false };  // tình trạng còn hàng theo varient
+    var menuAvailStoreId  = null;                        // store mà menuAvail đang phản ánh
+>>>>>>> Stashed changes
     var allProductsByType = { food: [], combo: [], addon: [], drink: [] };
     var upsellItems       = [];
     var upsellIdx         = 0;
@@ -639,6 +644,27 @@
             .catch(function () { return []; });
     }
 
+<<<<<<< Updated upstream
+=======
+    // Tải tình trạng còn hàng theo cửa hàng hiện tại rồi vẽ lại menu để làm
+    // mờ + chặn chọn những món đã hết nguyên liệu. Gọi mỗi khi đổi store.
+    function loadMenuAvailability() {
+        var sid = selectedStore ? (selectedStore.storeID || selectedStore.StoreID) : null;
+        if (!sid) { menuAvail = { map: {}, loaded: false }; menuAvailStoreId = null; return; }
+        // Tránh tải lại khi store không đổi (updateCQShipping gọi rất thường xuyên).
+        if (sid === menuAvailStoreId && menuAvail.loaded) return;
+        menuAvailStoreId = sid;
+        fetchVarientAvailability(sid).then(function (a) {
+            // Bỏ qua kết quả cũ nếu store đã đổi trong lúc chờ (đua bất đồng bộ giữa
+            // chọn địa chỉ → nearestStore và lần tải tồn kho) — nếu không, menu sẽ bị
+            // đánh dấu hết hàng theo nhầm cửa hàng.
+            if (sid !== menuAvailStoreId) return;
+            menuAvail = a;
+            if (allProducts.length) applyFilterAndSort();
+        });
+    }
+
+>>>>>>> Stashed changes
     function loadAllProducts() {
         allProducts = [];
         TYPE_KEYS.forEach(function (key) {
@@ -1482,6 +1508,9 @@
             renderStoreSelected();
             renderStoreList();
         }
+        // Đồng bộ tình trạng còn hàng với cửa hàng vừa được chốt (sau khi địa chỉ
+        // tải xong thì nearestStore mới đúng) — guard bên trong tránh tải trùng.
+        loadMenuAvailability();
 
         if (!selectedAddress) {
             cqShipping.textContent   = '0 đ';

@@ -2023,7 +2023,7 @@ function renderInvoices() {
     var tbody = document.getElementById('invoice-tbody');
     if (!tbody) return;
     if (!INVOICES.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="tbl-empty">Chưa có hóa đơn</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="tbl-empty">Chưa có hóa đơn</td></tr>';
         return;
     }
     tbody.innerHTML = INVOICES.map(function (inv) {
@@ -2036,6 +2036,7 @@ function renderInvoices() {
             + '<td><strong>' + inv.total.toLocaleString('vi-VN') + 'đ</strong></td>'
             + '<td><span class="badge ' + typeBadge + '">' + (TYPE_LABEL[inv.type] || inv.type) + '</span></td>'
             + '<td style="color:var(--muted);font-size:12px">' + inv.time + '</td>'
+            + '<td><button class="btn btn-outline btn-sm" onclick="showBillDetail(\'' + inv.billID + '\')"><i class="ti-eye"></i> Xem</button></td>'
             + '</tr>';
     }).join('');
 }
@@ -2048,6 +2049,157 @@ function updateInvStats() {
     if (countEl)   countEl.textContent   = count;
     if (revenueEl) revenueEl.textContent = revenue.toLocaleString('vi-VN') + 'đ';
 }
+
+// ── Chi tiết hóa đơn (modal dùng chung cho "Hóa đơn trong ngày" & "Giao hàng") ──
+var BILL_STATUS_LABEL = { Create: 'Tạo đơn', UnPaid: 'Chưa thanh toán', Paid: 'Đã thanh toán', Delete: 'Đã huỷ' };
+
+function billTypeOf(bill) {
+    if (bill.tableID   || bill.TableID)   return 'dine-in';
+    if (bill.addressID || bill.AddressID) return 'delivery';
+    return 'takeaway';
+}
+
+// Tìm đơn giao ứng với billID — ưu tiên cache DELIVERIES (trang Giao hàng đã tải),
+// nếu không có thì gọi /delivery/get-all để lấy kèm deliveryLog.
+function loadDeliveryForBill(billID) {
+    var match = function (list) {
+        return (list || []).find(function (d) {
+            return String(d.billID || d.BillID || '') === String(billID);
+        }) || null;
+    };
+    var cached = match(window.DELIVERIES);
+    if (cached) return Promise.resolve(cached);
+    var storeId = localStorage.getItem('storeId');
+    var url = '/delivery/get-all/2020-01-01/' + todayVN() + (storeId ? ('?storeID=' + storeId) : '');
+    return apiGet(url)
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) { return match(Array.isArray(data) ? data : (data && data.data)); })
+        .catch(function () { return null; });
+}
+
+// Bảng "Lịch sử giao hàng" từ deliveryLog (mới → cũ), '' nếu chưa có log.
+function deliveryHistoryHtml(deliv) {
+    var logs = (deliv.deliveryLog || deliv.DeliveryLog || []).slice().sort(function (a, b) {
+        return new Date(b.changeAt || b.ChangeAt || 0) - new Date(a.changeAt || a.ChangeAt || 0);
+    });
+    if (!logs.length) return '';
+    var rows = logs.map(function (l) {
+        var st   = canonDeliveryStatus(l.status || l.Status || '');
+        var lbl  = DELIVERY_STATUS_LABEL[st] || (l.status || l.Status || '');
+        var at   = l.changeAt || l.ChangeAt || '';
+        var emp  = l.employee || l.Employee || {};
+        var who  = emp.fullName || emp.FullName || '';
+        var note = l.note || l.Note || '';
+        return '<tr>'
+            + '<td>' + lbl + (who ? ' · ' + who : '') + (note ? ' <span style="color:var(--muted)">(' + note + ')</span>' : '') + '</td>'
+            + '<td style="text-align:right;color:var(--muted)">' + (at ? fmtDeliveryTime(at) : '—') + '</td>'
+            + '</tr>';
+    }).join('');
+    return '<div class="mov-detail-title" style="margin-top:16px">Lịch sử giao hàng</div>'
+         + '<table class="mov-detail-table"><tbody>' + rows + '</tbody></table>';
+}
+
+// Mở popup xem chi tiết 1 hóa đơn theo billID. Tự tải dữ liệu từ /bill/get/:id.
+window.showBillDetail = function (billID) {
+    if (!billID) return;
+
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay open';
+    overlay.innerHTML =
+        '<div class="modal-box" style="max-width:680px">'
+      +   '<div class="modal-header">'
+      +     '<span class="modal-title"><i class="ti-receipt"></i> Chi tiết hóa đơn #' + String(billID).slice(0, 8).toUpperCase() + '</span>'
+      +     '<button class="modal-close" type="button" aria-label="Đóng">&times;</button>'
+      +   '</div>'
+      +   '<div class="modal-body"><p style="text-align:center;color:var(--muted);padding:24px">Đang tải chi tiết hóa đơn…</p></div>'
+      + '</div>';
+    document.body.appendChild(overlay);
+
+    function close() { overlay.remove(); document.removeEventListener('keydown', onKey); }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+    overlay.querySelector('.modal-close').addEventListener('click', close);
+    document.addEventListener('keydown', onKey);
+
+    var body = overlay.querySelector('.modal-body');
+
+    apiGet('/bill/get/' + billID)
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (bill) {
+            if (!bill) {
+                body.innerHTML = '<p style="color:var(--red);text-align:center;padding:20px">Không tìm thấy hóa đơn.</p>';
+                return;
+            }
+
+            var type      = billTypeOf(bill);
+            var storeName = (bill.store && (bill.store.storeName || bill.store.StoreName)) || 'Chi nhánh';
+            var tableNum  = bill.tableID || bill.TableID || '';
+            var mKey      = payKey(bill.paymentMethods || bill.PaymentMethods, PAYMENT_METHOD_LABEL);
+            var sKey      = payKey(bill.paymentStatus  || bill.PaymentStatus,  PAYMENT_STATUS_LABEL);
+            var pMethod   = PAYMENT_METHOD_LABEL[mKey] || '—';
+            var pStatus   = PAYMENT_STATUS_LABEL[sKey] || '—';
+            var total     = Number(bill.total || bill.Total || 0);
+
+            var rows = (bill.billDetail || bill.BillDetail || []).map(function (d) {
+                var pv    = d.productVarient || d.ProductVarient || {};
+                var prod  = pv.product || pv.Product || {};
+                var name  = prod.productName || prod.ProductName || ('Mã ' + (pv.productID || pv.ProductID || ''));
+                var size  = pv.size || pv.Size || '';
+                var sztxt = (size && size !== 'Default') ? ' (' + size + ')' : '';
+                var qty   = d.quantity || d.Quantity || 0;
+                var price = Number(d.price || d.Price || 0);
+                var line  = Number(d.inlineTotal || d.InlineTotal || price * qty);
+                return '<tr>'
+                    + '<td>' + name + sztxt + '</td>'
+                    + '<td style="text-align:center">' + qty + '</td>'
+                    + '<td style="text-align:right">' + price.toLocaleString('vi-VN') + 'đ</td>'
+                    + '<td style="text-align:right;font-weight:700">' + line.toLocaleString('vi-VN') + 'đ</td>'
+                    + '</tr>';
+            }).join('');
+
+            // Lịch sử trạng thái — BillChange đã được server sắp xếp mới → cũ.
+            var historyHtml = (bill.billChange || bill.BillChange || []).map(function (c) {
+                var st  = c.status || c.Status || '';
+                var at  = c.changeAt || c.ChangeAt || '';
+                var emp = c.employee || c.Employee || {};
+                var who = emp.fullName || emp.FullName || '';
+                return '<tr>'
+                    + '<td>' + (BILL_STATUS_LABEL[st] || st) + (who ? ' · ' + who : '') + '</td>'
+                    + '<td style="text-align:right;color:var(--muted)">' + (at ? fmtVnTime(at) : '—') + '</td>'
+                    + '</tr>';
+            }).join('');
+
+            body.innerHTML =
+                '<div class="mov-detail-grid" style="max-width:none">'
+              +   '<div class="mov-detail-label">Cửa hàng:</div><div class="mov-detail-value">' + storeName + '</div>'
+              +   '<div class="mov-detail-label">Loại đơn:</div><div class="mov-detail-value">' + (TYPE_LABEL[type] || type) + '</div>'
+              +   (type === 'dine-in' && tableNum ? '<div class="mov-detail-label">Bàn:</div><div class="mov-detail-value">' + tableNum + '</div>' : '')
+              +   '<div class="mov-detail-label">Thanh toán:</div><div class="mov-detail-value">' + pMethod + ' · ' + pStatus + '</div>'
+              +   '<div class="mov-detail-label">Tổng cộng:</div><div class="mov-detail-value" style="color:var(--primary);font-weight:800">' + total.toLocaleString('vi-VN') + 'đ</div>'
+              + '</div>'
+              + '<table class="mov-detail-table">'
+              +   '<thead><tr><th>Món</th><th style="text-align:center">SL</th><th style="text-align:right">Đơn giá</th><th style="text-align:right">Thành tiền</th></tr></thead>'
+              +   '<tbody>' + (rows || '<tr><td colspan="4" class="tbl-empty">Không có sản phẩm</td></tr>') + '</tbody>'
+              + '</table>'
+              + (historyHtml
+                    ? '<div class="mov-detail-title" style="margin-top:16px">Lịch sử trạng thái</div>'
+                      + '<table class="mov-detail-table"><tbody>' + historyHtml + '</tbody></table>'
+                    : '');
+
+            // Đơn giao hàng: nạp thêm lịch sử thay đổi trạng thái giao (deliveryLog).
+            if (type === 'delivery') {
+                var delivBox = document.createElement('div');
+                delivBox.innerHTML = '<p style="color:var(--muted);font-size:12px;margin-top:12px">Đang tải lịch sử giao hàng…</p>';
+                body.appendChild(delivBox);
+                loadDeliveryForBill(billID).then(function (deliv) {
+                    delivBox.innerHTML = deliv ? deliveryHistoryHtml(deliv) : '';
+                });
+            }
+        })
+        .catch(function (err) {
+            body.innerHTML = '<p style="color:var(--red);text-align:center;padding:20px">Lỗi tải chi tiết: ' + (err.message || '') + '</p>';
+        });
+};
 
 function loadAvailableTables() {
     var storeId = localStorage.getItem('storeId');
@@ -3467,6 +3619,8 @@ function renderDeliveryLocal() {
                 + '</div>'
                 + '<div style="display:flex;gap:8px;align-items:center">'
                 + '<input type="text" placeholder="Ghi chú..." style="padding:6px 10px;border:1px solid #e8e8e8;border-radius:6px;font-size:12px;width:160px" id="del-note-' + delivId + '">'
+                + '<button class="btn btn-outline btn-sm" onclick="showBillDetail(\'' + billId + '\')">'
+                + '<i class="ti-eye"></i> Chi tiết</button>'
                 + '<button class="btn btn-success btn-sm" onclick="startPreparing(\'' + delivId + '\')">'
                 + '<i class="ti-package"></i> Bắt đầu chuẩn bị</button>'
                 + '</div></div>';
@@ -3475,7 +3629,7 @@ function renderDeliveryLocal() {
 
     var tbody = document.getElementById('delivery-done-tbody');
     if (!done.length) {
-        tbody.innerHTML = '<tr><td colspan="9" class="tbl-empty">Chưa có lịch sử</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="tbl-empty">Chưa có lịch sử</td></tr>';
         return;
     }
     tbody.innerHTML = done.map(function (d) {
@@ -3501,6 +3655,7 @@ function renderDeliveryLocal() {
             + '<td style="font-size:12px">' + at + '</td>'
             + '<td style="font-size:12px">' + empName + '</td>'
             + '<td style="font-size:12px;color:var(--muted)">' + note + '</td>'
+            + '<td><button class="btn btn-outline btn-sm" onclick="showBillDetail(\'' + billId + '\')"><i class="ti-eye"></i> Xem</button></td>'
             + '</tr>';
     }).join('');
 }

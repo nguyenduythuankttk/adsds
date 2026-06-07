@@ -9,6 +9,11 @@
     var addrDropdownOpen = false;
     var allStores        = [];
     var selectedStore    = null;
+<<<<<<< Updated upstream
+=======
+    var homeAvail        = { map: {}, loaded: false };  // tình trạng còn hàng theo varient
+    var homeAvailStoreId = null;                        // store mà homeAvail đang phản ánh
+>>>>>>> Stashed changes
     var homeLastProducts = [];                          // cache để vẽ lại khi đổi store
     var storeDropdownOpen = false;
     var userPickedStore  = false;
@@ -165,6 +170,9 @@
             selectedStore = nearestStore(selectedAddress);
             renderStoreSelected(); renderStoreList();
         }
+        // Đồng bộ tình trạng còn hàng với cửa hàng vừa được chốt (sau khi địa chỉ
+        // tải xong thì nearestStore mới đúng) — guard bên trong tránh tải trùng.
+        loadHomeAvailability();
 
         if (!selectedAddress) {
             if (shippingEl)   shippingEl.textContent   = '0 đ';
@@ -832,6 +840,27 @@
         showToast('Đã thêm "' + name + '" vào giỏ hàng!');
     };
 
+<<<<<<< Updated upstream
+=======
+    // Tải tình trạng còn hàng theo cửa hàng hiện tại rồi vẽ lại danh sách sản
+    // phẩm để làm mờ + chặn chọn những món đã hết nguyên liệu.
+    function loadHomeAvailability() {
+        var sid = selectedStore ? (selectedStore.storeID || selectedStore.StoreID) : null;
+        if (!sid) { homeAvail = { map: {}, loaded: false }; homeAvailStoreId = null; return; }
+        // Tránh tải lại khi store không đổi (updateCQShipping gọi rất thường xuyên).
+        if (sid === homeAvailStoreId && homeAvail.loaded) return;
+        homeAvailStoreId = sid;
+        fetchVarientAvailability(sid).then(function (a) {
+            // Bỏ qua kết quả cũ nếu store đã đổi trong lúc chờ (đua bất đồng bộ giữa
+            // chọn địa chỉ → nearestStore và lần tải tồn kho) — nếu không, danh sách
+            // sẽ bị đánh dấu hết hàng theo nhầm cửa hàng.
+            if (sid !== homeAvailStoreId) return;
+            homeAvail = a;
+            if (homeLastProducts.length) renderProducts(homeLastProducts);
+        });
+    }
+
+>>>>>>> Stashed changes
     // ── Products ──────────────────────────────────────────────────────────────
     var RANK_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32'];
 

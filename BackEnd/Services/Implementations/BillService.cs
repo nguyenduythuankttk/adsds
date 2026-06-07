@@ -163,8 +163,20 @@ namespace Backend.Services.Implementations{
                     .FirstOrDefaultAsync(t => t.TableID == request.TableID && t.DeletedAt == null);
                 if (table == null)
                     throw new InvalidOperationException($"Không tìm thấy bàn số {request.TableID}.");
-                if (table.Status == TableStatus.Occupied)
-                    throw new InvalidOperationException($"Bàn {request.TableID} đang có khách.");
+
+                // Bàn chỉ thực sự "đang bận" khi còn một hóa đơn dine-in CHƯA thanh toán
+                // (chuyển khoản Pending chưa được SePay xác nhận). Hóa đơn tiền mặt/thẻ đã
+                // set Paid ngay lúc tạo, hoặc CK đã xác nhận, hoặc đã huỷ (Failed) → KHÔNG
+                // còn giữ bàn, cho phép mở hóa đơn mới. Đây thay cho check table.Status cũ
+                // (chưa bao giờ được set Occupied nên là check chết) và là ràng buộc nghiệp
+                // vụ thay cho UNIQUE index 1-1 trên Bill.TableID đã gỡ bỏ.
+                var hasOpenBill = await _dbcontext.Bill.AnyAsync(b =>
+                    b.TableID == request.TableID.Value &&
+                    b.DeletedAt == null &&
+                    b.PaymentStatus == PaymentStatus.Pending);
+                if (hasOpenBill)
+                    throw new InvalidOperationException(
+                        $"Bàn {request.TableID} đang có hóa đơn chưa thanh toán. Vui lòng thanh toán hoặc huỷ hóa đơn cũ trước khi mở hóa đơn mới.");
             }
 
             using var tx = await _dbcontext.Database.BeginTransactionAsync();

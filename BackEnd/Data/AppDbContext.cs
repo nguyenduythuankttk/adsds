@@ -360,10 +360,17 @@ namespace Backend.Data {
                 .Property(x => x.Status)
                 .HasConversion<string>().HasMaxLength(20).IsRequired();
 
+            // 1-N: một bàn (DiningTable) phục vụ NHIỀU hóa đơn theo thời gian. Trước đây
+            // cấu hình 1-1 (.WithOne) tạo UNIQUE index trên Bill.TableID → chỉ DUY NHẤT một
+            // hóa đơn trong toàn bộ lịch sử được tham chiếu tới một bàn; hóa đơn dine-in thứ
+            // hai trên cùng bàn vi phạm unique → SaveChanges ném lỗi → 500 khi xuất hóa đơn
+            // lần kế tiếp (kể cả khi hóa đơn trước đã thanh toán hoặc là CK Pending bỏ dở).
+            // Việc "mỗi bàn chỉ có 1 hóa đơn đang mở" là ràng buộc NGHIỆP VỤ, được kiểm tra
+            // trong BillService.CreateDineInBill, không phải ràng buộc unique ở DB.
             modelBuilder.Entity<Bill>()
                 .HasOne(b => b.Table)
-                .WithOne(t => t.Bill)
-                .HasForeignKey<Bill>(b => b.TableID)
+                .WithMany(t => t.Bills)
+                .HasForeignKey(b => b.TableID)
                 .OnDelete(DeleteBehavior.SetNull);
 
             // 1-1: Store ↔ BankAccount (StoreID là FK duy nhất ở BankAccount).

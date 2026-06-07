@@ -2,11 +2,11 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "frontend",
+      "name": "fe-static",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "3001"],
-      "port": 3001,
-      "cwd": "FrontEnd"
+      "runtimeArgs": ["-m", "http.server", "8765"],
+      "cwd": "FrontEnd",
+      "port": 8765
     }
   ]
 }

@@ -11,7 +11,21 @@
       "Bash(docker network *)",
       "Bash(curl -s -w \"\\\\nHTTP %{http_code}\" http://127.0.0.1:3000/api/pbl3/auth/customer_login -X POST -H \"Content-Type: application/json\" -d '{\"UserName\":\"test\",\"HashPassword\":\"test\"}')",
       "Bash(curl -s http://127.0.0.1:3000/api/pbl3/auth/customer_login -X POST -H 'Content-Type: application/json' -d '{\"UserName\":\"testuser1\",\"HashPassword\":\"password123\"}')",
-      "Bash(awk 'NR>=1 && NR<=100')"
+      "Bash(awk 'NR>=1 && NR<=100')",
+      "Bash(curl -s -X POST http://127.0.0.1:3000/api/pbl3/auth/employee_login -H \"Content-Type: application/json\" -d '{\"UserName\":\"dining_q5\",\"HashPassword\":\"password\"}')",
+      "Bash(python3 -c ' *)",
+      "Bash(dotnet --version)",
+      "Bash(docker compose *)",
+      "Bash(sed -n '/class Booking_product/,/}/p' Models/DTOs/Request/BillRequest.cs)",
+      "Bash(sed -n '1,30p' Controller/authController.cs)",
+      "Bash(sed -n '/class LoginRequest/,/^    }/p' Models/DTOs/Request/AuthRequest.cs)",
+      "Bash(sed -n '/class Booking_product/,/^    }/p' Models/DTOs/Request/BillRequest.cs)",
+      "Bash(sed -n '35,45p' Controller/authController.cs)",
+      "Bash(curl -s -X POST http://localhost:3000/api/pbl3/auth/employee_login -H \"Content-Type: application/json\" -d '{\"UserName\":\"dining_q5\",\"HashPassword\":\"password\"}')",
+      "Bash(python3 -c 'import json; d=json.loads\\('\\\\'''\\\\'''\\\\''__TRACKED_VAR__'\\\\'''\\\\'''\\\\''\\); print\\('\\\\''top keys:'\\\\'', list\\(d.keys\\(\\)\\)\\); print\\('\\\\''data keys:'\\\\'', list\\(d['\\\\''data'\\\\''].keys\\(\\)\\)\\)')",
+      "Bash(git --no-pager diff -- BackEnd/Models/DiningTableModel.cs BackEnd/Data/AppDbContext.cs BackEnd/Services/Implementations/BillService.cs)",
+      "Bash(curl -s -X POST http://127.0.0.1:3000/api/pbl3/auth/employee_login -H 'Content-Type: application/json' -d '{\"UserName\":\"dining_q5\",\"HashPassword\":\"password\"}')",
+      "Bash(python3 -c 'import sys,json;d=json.load\\(sys.stdin\\);print\\(\"count:\",len\\(d\\)\\);[print\\(\" bill\",x.get\\(\"billID\",\"?\"\\)[:8],\"| store-scoped OK | status\",\\(x.get\\(\"deliveryLog\"\\) or [{}]\\)[-1].get\\(\"status\"\\)\\) for x in d]')"
     ]
   }
 }
