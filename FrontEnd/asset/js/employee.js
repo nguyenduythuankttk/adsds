@@ -190,13 +190,24 @@ function dbFillHero(ss) {
     var cinEl  = document.getElementById('db-tool-in');
     var coutEl = document.getElementById('db-tool-out');
     if (cinEl) {
+        var cinLabel = cinEl.querySelector('.tl');
+        var inT2 = new Date(ss.timeIn || ss.TimeIn);
+        var earliestIn = new Date(inT2.getTime() - 15 * 60000);
         if (ss.checkIn || ss.CheckIn) {
             cinEl.classList.add('done');
             cinEl.classList.remove('disabled');
-            cinEl.querySelector('.tl').textContent = 'Đã check-in ' + fmt(ss.checkIn || ss.CheckIn);
+            cinEl.title = '';
+            cinLabel.textContent = 'Đã check-in ' + fmt(ss.checkIn || ss.CheckIn);
+        } else if (!isNaN(earliestIn.getTime()) && new Date() < earliestIn) {
+            // Chỉ cho check-in sớm nhất 15 phút trước giờ vào ca.
+            cinEl.classList.add('disabled');
+            cinEl.classList.remove('done');
+            cinEl.title = 'Chỉ có thể check-in từ ' + fmt(earliestIn);
+            cinLabel.textContent = 'Check-in từ ' + fmt(earliestIn);
         } else {
             cinEl.classList.remove('disabled', 'done');
-            cinEl.querySelector('.tl').textContent = 'Check-in';
+            cinEl.title = '';
+            cinLabel.textContent = 'Check-in';
         }
     }
     if (coutEl) {
@@ -1403,6 +1414,12 @@ function doCheckIn() {
     }
     if (ss.checkIn || ss.CheckIn) {
         toast('Bạn đã check-in lúc ' + clockStr(ss.checkIn || ss.CheckIn), 'success'); return;
+    }
+    // Chỉ cho check-in sớm nhất 15 phút trước giờ vào ca (BE cũng kiểm tra lại).
+    var inT = new Date(ss.timeIn || ss.TimeIn);
+    var earliest = new Date(inT.getTime() - 15 * 60000);
+    if (!isNaN(earliest.getTime()) && new Date() < earliest) {
+        toast('Chưa đến giờ check-in. Chỉ có thể check-in từ ' + clockStr(earliest) + '.', 'warning'); return;
     }
     apiPost('/shift/check-in', {})
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })

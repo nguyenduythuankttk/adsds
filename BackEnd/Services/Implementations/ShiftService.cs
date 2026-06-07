@@ -11,6 +11,8 @@ namespace Backend.Services.Implementations{
 
         // Cửa sổ chấp nhận check-in "đúng giờ" so với TimeIn (phút).
         private const int OnTimeWindowMinutes = 5;
+        // Chỉ cho phép check-in sớm nhất là 15 phút trước giờ vào ca.
+        private const int EarlyCheckInWindowMinutes = 15;
         // Trễ quá ngưỡng này tính là vắng (không tính trễ).
         private const int AbsentThresholdMinutes = 60;
         // Khung giờ làm việc cho phép xếp ca (08:00–22:00).
@@ -182,6 +184,14 @@ namespace Backend.Services.Implementations{
 
             // Nếu đã check-in rồi thì giữ nguyên, không ghi đè.
             if (shift.CheckIn == null) {
+                // Chỉ cho phép check-in sớm nhất 15 phút trước giờ vào ca.
+                var earliest = shift.TimeIn.AddMinutes(-EarlyCheckInWindowMinutes);
+                if (now < earliest) {
+                    var wait = (int)Math.Ceiling((earliest - now).TotalMinutes);
+                    throw new Exception(
+                        $"Chưa đến giờ check-in. Bạn chỉ có thể check-in từ {earliest:HH:mm} "
+                        + $"(trước giờ vào ca {EarlyCheckInWindowMinutes} phút, còn {wait} phút).");
+                }
                 shift.CheckIn = now;
                 if (diffMinutes <= -OnTimeWindowMinutes) {
                     // Sớm quá nhiều — vẫn coi là đúng giờ, nhưng đánh dấu OnTime
