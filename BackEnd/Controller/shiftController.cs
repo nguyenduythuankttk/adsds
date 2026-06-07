@@ -49,9 +49,13 @@ namespace Backend.Controller {
             try {
                 var empID = GetCallerID();
                 if (empID == null) return Unauthorized();
-                var today = DateOnly.FromDateTime(DateTime.Now);
+                // Dùng giờ VN (container chạy UTC) để "hôm nay" không lệch sang ngày trước.
+                var today = DateOnly.FromDateTime(VnTime.Now);
                 var shifts = await _shiftService.GetAllShiftIn(today);
-                var mine = shifts?.FirstOrDefault(s => s.EmployeeID == empID.Value);
+                var mine = shifts?
+                    .Where(s => s.EmployeeID == empID.Value)
+                    .OrderBy(s => s.TimeIn)
+                    .FirstOrDefault();
                 if (mine == null) return Ok(null);
                 return Ok(mine);
             } catch (Exception e) {
